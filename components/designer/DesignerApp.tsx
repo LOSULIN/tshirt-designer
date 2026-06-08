@@ -189,6 +189,7 @@ async function hydrateDesignLayersByTemplate(
   snapshot: ReturnType<typeof layersByTemplateToDraftSnapshot>,
 ) {
   let result = createEmptyDesignLayersByTemplate();
+  let legacyDraftImagesUsed = false;
 
   for (const templateGender of DESIGN_GENDERS) {
     for (const templateSide of DESIGN_SIDES) {
@@ -197,8 +198,12 @@ async function hydrateDesignLayersByTemplate(
       for (const layer of getLayersForSlot(snapshot, templateGender, templateSide)) {
         if (layer.type === "image") {
           let blobs = await loadLayerImages(layer.id);
-          if (!blobs.original || !blobs.preview) {
-            blobs = await loadDraftImages();
+          if ((!blobs.original || !blobs.preview) && !legacyDraftImagesUsed) {
+            const legacy = await loadDraftImages();
+            if (legacy.original && legacy.preview) {
+              blobs = legacy;
+              legacyDraftImagesUsed = true;
+            }
           }
           if (blobs.original && blobs.preview) {
             hydrated.push(
@@ -250,6 +255,7 @@ export function DesignerApp() {
   );
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [warnings, setWarnings] = useState<string[]>([]);
+  const [cloudSyncWarning, setCloudSyncWarning] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
   const [draftId, setDraftId] = useState(() => nanoid(12));
@@ -345,7 +351,7 @@ export function DesignerApp() {
         }),
       );
     },
-    [],
+    [setLayers],
   );
 
   const applyClampedLayerTransform = useCallback(
@@ -416,7 +422,7 @@ export function DesignerApp() {
         }),
       );
     },
-    [gridSnapEnabled, elementSnapDistance],
+    [setLayers, gridSnapEnabled, elementSnapDistance],
   );
 
   const handleSelectLayer = useCallback((id: string, shiftKey: boolean) => {
@@ -430,15 +436,31 @@ export function DesignerApp() {
     });
   }, []);
 
-  const deleteLayerById = useCallback((id: string) => {
-    setLayers((prev) => {
-      const target = prev.find((l) => l.id === id);
-      if (target) revokeLayerAssets(target);
-      void clearLayerImages(id);
-      return prev.filter((l) => l.id !== id);
-    });
-    setSelectedIds((prev) => prev.filter((x) => x !== id));
-  }, []);
+  const deleteLayerById = useCallback(
+    (id: string) => {
+      setLayersByTemplate((prev) => {
+        const target = getLayersForSlot(prev, gender, side).find(
+          (l) => l.id === id,
+        );
+        if (target) {
+          revokeLayerAssets(target);
+          void clearLayerImages(id);
+        }
+        const next = updateLayersForSlot(prev, gender, side, (current) =>
+          current.filter((l) => l.id !== id),
+        );
+        if (!hasAnyDesign(next)) {
+          setWarnings([]);
+          setJpgHintShown(false);
+          void clearAllDrafts();
+        }
+        return next;
+      });
+      setSelectedIds((prev) => prev.filter((x) => x !== id));
+      setStatusMessage("已刪除圖層");
+    },
+    [gender, side],
+  );
 
   const restoreDraft = useCallback(async () => {
     const meta = loadDraftMetadata();
@@ -524,8 +546,11 @@ export function DesignerApp() {
     await saveAllLayerImagesFromState(layersByTemplate);
   }, [draftId, gender, side, hasDesign, layers, layersByTemplate]);
 
-  const syncDraftToServer = useCallback(async () => {
-    if (!hasDesign) return;
+  const syncDraftToServer = useCallback(async (): Promise<
+    { ok: true } | { ok: false; error: string }
+  > => {
+    if (!hasDesign) return { ok: true };
+
     try {
       const formData = new FormData();
       formData.append("draftId", draftId);
@@ -548,16 +573,39 @@ export function DesignerApp() {
         );
         formData.append("preview", previewBlob, "preview.png");
       }
-      await fetch("/api/designs/draft", { method: "POST", body: formData });
-    } catch {
-      // 離線或尚未設定 Supabase 時仍保留本機暫存
+
+      const res = await fetch("/api/designs/draft", {
+        method: "POST",
+        body: formData,
+      });
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+
+      if (!res.ok) {
+        return {
+          ok: false,
+          error: data.error ?? `雲端同步失敗（HTTP ${res.status}）`,
+        };
+      }
+
+      return { ok: true };
+    } catch (error) {
+      return {
+        ok: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "無法連線至雲端，請檢查網路或 Supabase 設定",
+      };
     }
   }, [draftId, gender, side, hasDesign, layers, layersByTemplate, submissionMeta]);
 
   useEffect(() => {
     autoSaveTimer.current = setInterval(() => {
-      void persistDraftLocally();
-      void syncDraftToServer();
+      void (async () => {
+        await persistDraftLocally();
+        const result = await syncDraftToServer();
+        setCloudSyncWarning(result.ok ? null : result.error);
+      })();
     }, 30000);
     return () => {
       if (autoSaveTimer.current) clearInterval(autoSaveTimer.current);
@@ -632,6 +680,26 @@ export function DesignerApp() {
       setIsBusy(false);
     }
   };
+
+  const handleClearCurrentSlotDesign = useCallback(() => {
+    setLayersByTemplate((prev) => {
+      for (const layer of getLayersForSlot(prev, gender, side)) {
+        revokeLayerAssets(layer);
+        void clearLayerImages(layer.id);
+      }
+      const next = setLayersForSlot(prev, gender, side, []);
+      if (!hasAnyDesign(next)) {
+        void clearAllDrafts();
+        setDraftId(nanoid(12));
+      }
+      return next;
+    });
+    setSelectedIds([]);
+    setWarnings([]);
+    setJpgHintShown(false);
+    setFocusTextEditor(false);
+    setStatusMessage("已清除目前面向設計");
+  }, [gender, side]);
 
   const handleClearAllDesign = useCallback(() => {
     for (const templateGender of DESIGN_GENDERS) {
@@ -727,10 +795,19 @@ export function DesignerApp() {
   const handleSave = async () => {
     if (!hasDesign) return;
     setIsBusy(true);
+    setStatusMessage(null);
     try {
       await persistDraftLocally();
-      await syncDraftToServer();
-      setStatusMessage("設計已儲存");
+      const cloud = await syncDraftToServer();
+      if (cloud.ok) {
+        setCloudSyncWarning(null);
+        setWarnings([]);
+        setStatusMessage("設計已儲存（本機與雲端）");
+      } else {
+        setCloudSyncWarning(cloud.error);
+        setWarnings([`雲端同步失敗：${cloud.error}`]);
+        setStatusMessage("設計已儲存至本機（雲端同步失敗）");
+      }
     } catch (error) {
       setWarnings([
         error instanceof Error ? error.message : "儲存失敗",
@@ -841,9 +918,27 @@ export function DesignerApp() {
 
       setShowSubmitModal(false);
       setApplicationForm(EMPTY_FORM);
-      setStatusMessage(
-        `申請已發送！編號：${data.designId}（已寄送 Email 並儲存至雲端）`,
-      );
+      setCloudSyncWarning(null);
+
+      const emailInfo = data.email as
+        | { sent: true }
+        | { sent: false; message?: string }
+        | undefined;
+
+      if (emailInfo?.sent) {
+        setStatusMessage(
+          `申請已發送！編號：${data.designId}（已儲存至雲端並寄送 Email 通知）`,
+        );
+      } else if (emailInfo && !emailInfo.sent && emailInfo.message) {
+        setStatusMessage(
+          `申請已發送！編號：${data.designId}（已儲存至雲端；${emailInfo.message}）`,
+        );
+      } else {
+        setStatusMessage(
+          `申請已發送！編號：${data.designId}（已儲存至雲端）`,
+        );
+      }
+
       setDraftId(nanoid(12));
     } catch (error) {
       setWarnings([
@@ -874,27 +969,8 @@ export function DesignerApp() {
 
   const handleDeletePrimary = useCallback(() => {
     if (!primaryId) return;
-    setLayersByTemplate((prev) => {
-      const target = getLayersForSlot(prev, gender, side).find(
-        (l) => l.id === primaryId,
-      );
-      if (target) {
-        revokeLayerAssets(target);
-        void clearLayerImages(target.id);
-      }
-      const next = updateLayersForSlot(prev, gender, side, (current) =>
-        current.filter((l) => l.id !== primaryId),
-      );
-      if (!hasAnyDesign(next)) {
-        setWarnings([]);
-        setJpgHintShown(false);
-        void clearAllDrafts();
-      }
-      return next;
-    });
-    setSelectedIds((prev) => prev.filter((id) => id !== primaryId));
-    setStatusMessage("已刪除圖層");
-  }, [primaryId, gender, side]);
+    deleteLayerById(primaryId);
+  }, [primaryId, deleteLayerById]);
 
   return (
     <div className="flex h-screen flex-col bg-zinc-50 text-zinc-900">
@@ -1005,6 +1081,7 @@ export function DesignerApp() {
               updateLayer(primaryId, patch);
             }
           }}
+          onClearCurrentSlotDesign={handleClearCurrentSlotDesign}
           onClearAllDesign={handleClearAllDesign}
         />
 
@@ -1023,6 +1100,15 @@ export function DesignerApp() {
           onSubmit={handleSubmitRequest}
         />
       </div>
+
+      {cloudSyncWarning && (
+        <div
+          className="border-t border-amber-200 bg-amber-50 px-4 py-2 text-center text-sm text-amber-900"
+          role="status"
+        >
+          雲端同步失敗：{cloudSyncWarning}（本機暫存仍可用）
+        </div>
+      )}
 
       {statusMessage && (
         <div className="border-t border-emerald-200 bg-emerald-50 px-4 py-2 text-center text-sm text-emerald-800">

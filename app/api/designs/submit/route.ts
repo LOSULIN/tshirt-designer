@@ -204,7 +204,7 @@ export async function POST(request: Request) {
       expires_at: null,
     });
 
-    await sendDesignSubmittedEmail({
+    const emailResult = await sendDesignSubmittedEmail({
       designId,
       createdAt,
       templateType,
@@ -223,6 +223,13 @@ export async function POST(request: Request) {
     return NextResponse.json({
       designId,
       createdAt,
+      email: emailResult.sent
+        ? { sent: true, recipients: emailResult.recipients }
+        : {
+            sent: false,
+            reason: emailResult.reason,
+            message: emailResult.message,
+          },
       files: {
         completed: fileMap.completed,
         completedAll,

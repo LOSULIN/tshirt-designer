@@ -102,6 +102,57 @@ export function completedDesignFormField(gender: Gender, side: Side): string {
   return `completed-${gender}-${side}`;
 }
 
+function slotLayerSignature(layers: DesignLayer[]): string {
+  return JSON.stringify(
+    layers.map((layer) => ({
+      id: layer.id,
+      type: layer.type,
+      text: layer.type === "text" ? layer.text : undefined,
+    })),
+  );
+}
+
+/** 修復舊版共用圖層時，各 slot 被寫入相同內容的暫存 */
+export function sanitizeLayersByTemplate(
+  state: DesignLayersByTemplate,
+  keepGender: Gender,
+  keepSide: Side,
+): DesignLayersByTemplate {
+  const nonEmpty: { gender: Gender; side: Side; signature: string }[] = [];
+
+  for (const templateGender of DESIGN_GENDERS) {
+    for (const templateSide of DESIGN_SIDES) {
+      const layers = getLayersForSlot(state, templateGender, templateSide);
+      if (layers.length > 0) {
+        nonEmpty.push({
+          gender: templateGender,
+          side: templateSide,
+          signature: slotLayerSignature(layers),
+        });
+      }
+    }
+  }
+
+  if (nonEmpty.length <= 1) return state;
+
+  const uniqueSignatures = new Set(nonEmpty.map((slot) => slot.signature));
+  if (uniqueSignatures.size !== 1) return state;
+
+  const empty = createEmptyDesignLayersByTemplate();
+  const keptLayers = getLayersForSlot(state, keepGender, keepSide);
+  if (keptLayers.length > 0) {
+    return setLayersForSlot(empty, keepGender, keepSide, keptLayers);
+  }
+
+  const first = nonEmpty[0];
+  return setLayersForSlot(
+    empty,
+    first.gender,
+    first.side,
+    getLayersForSlot(state, first.gender, first.side),
+  );
+}
+
 export function migrateDraftLayersByTemplate(
   draft: DesignDraft,
   legacy?: {
@@ -120,7 +171,12 @@ export function migrateDraftLayersByTemplate(
   const empty = createEmptyDesignLayersByTemplate();
 
   if (draft.layersByTemplate) {
-    return { state: draft.layersByTemplate, gender, side };
+    const cloned = layersByTemplateToDraftSnapshot(draft.layersByTemplate);
+    return {
+      state: sanitizeLayersByTemplate(cloned, gender, side),
+      gender,
+      side,
+    };
   }
 
   if (draft.layers?.length) {

@@ -56,7 +56,7 @@ export function createDefaultTextLayer(): TextLayer {
   const fontFamily: TextFontFamily = "Inter";
   const fontWeight = 400;
   const { width, height } = measureTextBounds(
-    "TEXT",
+    " ",
     fontSize,
     fontFamily,
     fontWeight,
@@ -65,7 +65,7 @@ export function createDefaultTextLayer(): TextLayer {
   return {
     id: nanoid(),
     type: "text",
-    text: "TEXT",
+    text: "",
     fontSize,
     fontFamily,
     color: "#000000",

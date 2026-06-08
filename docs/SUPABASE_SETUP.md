@@ -68,8 +68,13 @@ cp .env.example .env.local
 NEXT_PUBLIC_SUPABASE_URL=https://xxxxxxxx.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOi...
 
-# 選用：保護草稿清理 API
+# 必填（部署）：保護草稿清理 API（至少 16 字元隨機字串）
 CRON_SECRET=自行設定一組隨機字串
+
+# Email 通知（選用，送出申請時寄信）
+RESEND_API_KEY=re_xxxxxxxx
+EMAIL_FROM=設計器 <noreply@yourdomain.com>
+ADMIN_EMAIL=admin@yourdomain.com
 ```
 
 ---
@@ -127,18 +132,30 @@ designs/
 
 ---
 
-## 草稿自動清理（選用）
+## 草稿自動清理（部署）
 
 草稿預設保留 **48 小時**（`DRAFT_TTL_MS`）。
 
-部署到 Vercel 後，可設定 Cron 呼叫：
+專案已包含 `vercel.json`，每天 **03:00 UTC** 呼叫：
 
 ```
 GET /api/cron/cleanup-drafts
 Authorization: Bearer {CRON_SECRET}
 ```
 
-建議頻率：每天一次。
+### Vercel 部署檢查清單
+
+1. 將專案連結至 Vercel，Root Directory 設為 `temp-project`（若從 monorepo 部署）
+2. 在 Vercel **Environment Variables** 設定與 `.env.local` 相同變數，**務必包含 `CRON_SECRET`**
+3. Vercel 偵測到 `CRON_SECRET` 後，Cron 請求會自動帶入 `Authorization: Bearer …`
+4. 未設定 `CRON_SECRET` 時，清理 API 回傳 **503**（拒絕執行），避免被任意呼叫
+5. 部署後執行 `npm run check:supabase`、`npm run check:email` 驗證
+
+手動測試清理（本機或正式環境）：
+
+```bash
+curl -H "Authorization: Bearer $CRON_SECRET" https://你的網域/api/cron/cleanup-drafts
+```
 
 ---
 

@@ -1,5 +1,25 @@
 import { Resend } from "resend";
 
+export type EmailSkipReason =
+  | "missing_admin_email"
+  | "missing_resend_key"
+  | "send_failed";
+
+export type EmailSendResult =
+  | { sent: true; recipients: string[] }
+  | { sent: false; reason: EmailSkipReason; message: string };
+
+export function describeEmailSkipReason(reason: EmailSkipReason): string {
+  switch (reason) {
+    case "missing_admin_email":
+      return "未設定 ADMIN_EMAIL，略過 Email 通知";
+    case "missing_resend_key":
+      return "未設定 RESEND_API_KEY，略過 Email 通知";
+    case "send_failed":
+      return "Email 寄送失敗";
+  }
+}
+
 export async function sendDesignSubmittedEmail(params: {
   designId: string;
   createdAt: string;
@@ -19,14 +39,27 @@ export async function sendDesignSubmittedEmail(params: {
     texts?: string;
     applicant?: string;
   };
-}) {
+}): Promise<EmailSendResult> {
   const adminEmail = process.env.ADMIN_EMAIL;
   const resendKey = process.env.RESEND_API_KEY;
   const fromEmail = process.env.EMAIL_FROM ?? "onboarding@resend.dev";
 
   if (!adminEmail) {
     console.warn("ADMIN_EMAIL 未設定，略過寄信");
-    return;
+    return {
+      sent: false,
+      reason: "missing_admin_email",
+      message: describeEmailSkipReason("missing_admin_email"),
+    };
+  }
+
+  if (!resendKey) {
+    console.warn("RESEND_API_KEY 未設定，略過寄信");
+    return {
+      sent: false,
+      reason: "missing_resend_key",
+      message: describeEmailSkipReason("missing_resend_key"),
+    };
   }
 
   const applicantBlock = params.applicant
@@ -75,21 +108,29 @@ export async function sendDesignSubmittedEmail(params: {
     </ul>
   `;
 
-  if (!resendKey) {
-    console.warn("RESEND_API_KEY 未設定，略過寄信", { subject, adminEmail });
-    return;
-  }
-
-  const resend = new Resend(resendKey);
   const recipients = [adminEmail];
   if (params.applicant?.applicantEmail) {
     recipients.push(params.applicant.applicantEmail);
   }
 
-  await resend.emails.send({
-    from: fromEmail,
-    to: recipients,
-    subject,
-    html,
-  });
+  try {
+    const resend = new Resend(resendKey);
+    await resend.emails.send({
+      from: fromEmail,
+      to: recipients,
+      subject,
+      html,
+    });
+
+    return { sent: true, recipients };
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "未知寄信錯誤";
+    console.error("Email 寄送失敗", error);
+    return {
+      sent: false,
+      reason: "send_failed",
+      message: `${describeEmailSkipReason("send_failed")}：${message}`,
+    };
+  }
 }

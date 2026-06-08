@@ -69,6 +69,7 @@ export function DesignCanvas({
   onUpload,
   onAddText,
   onTextChange,
+  onClearCurrentSlotDesign,
   onClearAllDesign,
 }: {
   gender: Gender;
@@ -96,6 +97,7 @@ export function DesignCanvas({
   onUpload: (file: File) => void;
   onAddText: () => void;
   onTextChange: (patch: Partial<TextDesignLayer>) => void;
+  onClearCurrentSlotDesign: () => void;
   onClearAllDesign: () => void;
 }) {
   const [snapGuides, setSnapGuides] = useState<SnapGuidesState>(EMPTY_GUIDES);
@@ -105,6 +107,7 @@ export function DesignCanvas({
   const [showClothingBrowse, setShowClothingBrowse] = useState(false);
   const hasCurrentSlotDesign = layers.length > 0;
   const hasAnyDesignContent = hasAnyDesign(layersByTemplate);
+  const sideLabel = side === "front" ? "正面" : "背面";
   const canReviewGenderDesign = DESIGN_SIDES.some((s) =>
     hasDesignInSlot(layersByTemplate, gender, s),
   );
@@ -156,8 +159,8 @@ export function DesignCanvas({
             </button>
             <button
               type="button"
-              title="清除全部重新設計"
-              disabled={isBusy || !hasAnyDesignContent}
+              title="清除目前模特與面向的設計"
+              disabled={isBusy || !hasCurrentSlotDesign}
               onClick={() => setShowClearConfirm(true)}
               className="flex items-center gap-1 rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40"
             >
@@ -248,7 +251,7 @@ export function DesignCanvas({
                         draggable={false}
                         className="h-full w-full select-none object-contain"
                       />
-                    ) : (
+                    ) : layer.text ? (
                       <span
                         className="whitespace-pre px-1 text-center leading-none select-none"
                         style={{
@@ -259,7 +262,14 @@ export function DesignCanvas({
                           opacity: layer.opacity,
                         }}
                       >
-                        {layer.text || " "}
+                        {layer.text}
+                      </span>
+                    ) : (
+                      <span
+                        className="flex h-full w-full items-center justify-center border border-dashed border-zinc-400/60 px-1 text-center text-[10px] leading-tight text-zinc-400 select-none"
+                        aria-hidden
+                      >
+                        輸入文字
                       </span>
                     )}
                   </PrintAreaElement>
@@ -375,12 +385,12 @@ export function DesignCanvas({
               id="clear-design-title"
               className="text-base font-semibold text-zinc-900"
             >
-              清除全部設計？
+              清除目前面向設計？
             </h3>
             <p className="mt-2 text-sm text-zinc-900">
-              將刪除所有圖片與文字圖層，無法復原，可重新開始設計。
+              將刪除目前模特「{sideLabel}」的所有圖片與文字圖層，其他模板與面向不受影響。
             </p>
-            <div className="mt-4 flex justify-end gap-2">
+            <div className="mt-4 flex flex-wrap justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setShowClearConfirm(false)}
@@ -388,15 +398,27 @@ export function DesignCanvas({
               >
                 取消
               </button>
+              {hasAnyDesignContent && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowClearConfirm(false);
+                    onClearAllDesign();
+                  }}
+                  className="rounded-lg border border-red-300 px-4 py-2 text-sm text-red-700 hover:bg-red-50"
+                >
+                  清除全部模板
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => {
                   setShowClearConfirm(false);
-                  onClearAllDesign();
+                  onClearCurrentSlotDesign();
                 }}
                 className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-500"
               >
-                確認清除
+                清除目前面向
               </button>
             </div>
           </div>

@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "check:templates": "node scripts/check-templates.mjs",
-    "check:supabase": "node scripts/check-supabase.mjs"
+    "check:supabase": "node scripts/check-supabase.mjs",
+    "check:email": "node scripts/check-email.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.107.0",

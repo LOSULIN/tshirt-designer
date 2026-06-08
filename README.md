@@ -61,6 +61,16 @@ npm run dev
 | `RESEND_API_KEY` | Resend API 金鑰 |
 | `EMAIL_FROM` | 寄件者地址 |
 | `ADMIN_EMAIL` | 接收申請通知的管理員 Email |
+| `CRON_SECRET` | 保護草稿清理 API（**部署必填**，至少 16 字元） |
+
+驗證指令：
+
+```bash
+npm run check:supabase
+npm run check:email
+```
+
+未設定 Resend 時，申請仍可上傳雲端，但**不會寄信**；畫面會顯示實際狀態而非「已寄送 Email」。
 
 ## Supabase 設定（第二步）
 
@@ -72,6 +82,15 @@ npm run dev
 2. SQL Editor 執行 [`supabase/schema.sql`](supabase/schema.sql)
 3. 複製 Project URL + `service_role` 到 `.env.local`
 4. 驗證：`npm run check:supabase`
+
+## 部署至 Vercel
+
+1. 推送程式碼並在 Vercel 建立專案
+2. 設定環境變數（見上方表格，**含 `CRON_SECRET`**）
+3. `vercel.json` 已設定每日 Cron 清理過期草稿
+4. 部署後執行 `npm run check:supabase` 與 `npm run check:email`
+
+詳見 [docs/SUPABASE_SETUP.md](docs/SUPABASE_SETUP.md) 的「Vercel 部署檢查清單」。
 
 ## 技術棧
 
