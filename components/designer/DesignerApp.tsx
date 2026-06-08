@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AppHeader } from "./AppHeader";
 import { DesignCanvas } from "./DesignCanvas";
 import { DesignPanel } from "./DesignPanel";
 import { IconNav } from "./IconNav";
@@ -20,10 +19,7 @@ import type {
 import {
   DEFAULT_MODEL_ID,
   DRAFT_TTL_MS,
-  PRINT_AREA,
   PRODUCTS,
-  RECOMMENDED_IMAGE_HEIGHT,
-  RECOMMENDED_IMAGE_WIDTH,
   suggestSize,
 } from "@/lib/constants";
 import {
@@ -54,6 +50,11 @@ import {
   buildFullDesignJson,
   renderCompletedDesignPng,
 } from "@/lib/export-design";
+import {
+  getExportDimensionsForGender,
+  getPrintAreaForGender,
+} from "@/lib/print-area";
+import type { PrintAreaBounds } from "@/lib/print-area";
 import {
   applyDragSnap,
   clampPositionToPrintArea,
@@ -95,7 +96,10 @@ import type {
 } from "@/lib/types";
 import { nanoid } from "nanoid";
 
-function withMeasuredTextLayer(layer: TextDesignLayer): TextDesignLayer {
+function withMeasuredTextLayer(
+  layer: TextDesignLayer,
+  printArea: PrintAreaBounds,
+): TextDesignLayer {
   const { width, height } = measureTextBounds(
     layer.text,
     layer.fontSize * layer.scale,
@@ -109,32 +113,39 @@ function withMeasuredTextLayer(layer: TextDesignLayer): TextDesignLayer {
     height,
     1,
     layer.rotation,
+    printArea,
   );
   return { ...layer, width, height, x: clamped.x, y: clamped.y };
 }
 
-function createDefaultTextDesignLayer(layers: DesignLayer[]): TextDesignLayer {
-  const base = createDefaultTextLayer();
-  return withMeasuredTextLayer({
-    id: base.id,
-    name: defaultLayerName(layers, "text"),
-    type: "text",
-    visible: true,
-    locked: false,
-    zIndex: getNextZIndex(layers),
-    x: base.x,
-    y: base.y,
-    width: base.width,
-    height: base.height,
-    scale: base.scale,
-    rotation: base.rotation,
-    text: base.text,
-    fontSize: base.fontSize,
-    fontFamily: base.fontFamily,
-    color: base.color,
-    opacity: base.opacity,
-    fontWeight: base.fontWeight,
-  });
+function createDefaultTextDesignLayer(
+  layers: DesignLayer[],
+  printArea: PrintAreaBounds,
+): TextDesignLayer {
+  const base = createDefaultTextLayer(printArea);
+  return withMeasuredTextLayer(
+    {
+      id: base.id,
+      name: defaultLayerName(layers, "text"),
+      type: "text",
+      visible: true,
+      locked: false,
+      zIndex: getNextZIndex(layers),
+      x: base.x,
+      y: base.y,
+      width: base.width,
+      height: base.height,
+      scale: base.scale,
+      rotation: base.rotation,
+      text: base.text,
+      fontSize: base.fontSize,
+      fontFamily: base.fontFamily,
+      color: base.color,
+      opacity: base.opacity,
+      fontWeight: base.fontWeight,
+    },
+    printArea,
+  );
 }
 
 async function createPlaceholderPng(): Promise<Blob> {
@@ -277,6 +288,12 @@ export function DesignerApp() {
     [layersByTemplate, gender, side],
   );
 
+  const printArea = useMemo(() => getPrintAreaForGender(gender), [gender]);
+  const exportDims = useMemo(
+    () => getExportDimensionsForGender(gender),
+    [gender],
+  );
+
   const setLayers = useCallback(
     (updater: DesignLayer[] | ((prev: DesignLayer[]) => DesignLayer[])) => {
       setLayersByTemplate((prev) =>
@@ -346,12 +363,12 @@ export function DesignerApp() {
           if (layer.id !== id) return layer;
           const merged = { ...layer, ...patch } as DesignLayer;
           return merged.type === "text"
-            ? withMeasuredTextLayer(merged)
+            ? withMeasuredTextLayer(merged, printArea)
             : merged;
         }),
       );
     },
-    [setLayers],
+    [setLayers, printArea],
   );
 
   const applyClampedLayerTransform = useCallback(
@@ -383,15 +400,23 @@ export function DesignerApp() {
             h = measured.height;
           }
 
-          const snap = applyDragSnap(nextX, nextY, w, h, layerScale, {
-            gridSnap: gridSnapEnabled,
-            elementSnap: true,
-            elementSnapThreshold: elementSnapDistance,
-            otherElements: buildSnapTargetsFromLayers(
-              id,
-              prev.filter((l) => l.visible && !l.locked),
-            ),
-          });
+          const snap = applyDragSnap(
+            nextX,
+            nextY,
+            w,
+            h,
+            layerScale,
+            printArea,
+            {
+              gridSnap: gridSnapEnabled,
+              elementSnap: true,
+              elementSnapThreshold: elementSnapDistance,
+              otherElements: buildSnapTargetsFromLayers(
+                id,
+                prev.filter((l) => l.visible && !l.locked),
+              ),
+            },
+          );
 
           const clamped = clampPositionToPrintArea(
             snap.x,
@@ -400,16 +425,20 @@ export function DesignerApp() {
             h,
             layerScale,
             nextRotation,
+            printArea,
           );
 
           if (layer.type === "text") {
-            return withMeasuredTextLayer({
-              ...layer,
-              x: clamped.x,
-              y: clamped.y,
-              scale: textScale,
-              rotation: nextRotation,
-            });
+            return withMeasuredTextLayer(
+              {
+                ...layer,
+                x: clamped.x,
+                y: clamped.y,
+                scale: textScale,
+                rotation: nextRotation,
+              },
+              printArea,
+            );
           }
 
           return {
@@ -422,7 +451,7 @@ export function DesignerApp() {
         }),
       );
     },
-    [setLayers, gridSnapEnabled, elementSnapDistance],
+    [setLayers, printArea, gridSnapEnabled, elementSnapDistance],
   );
 
   const handleSelectLayer = useCallback((id: string, shiftKey: boolean) => {
@@ -642,6 +671,7 @@ export function DesignerApp() {
       const placement = getInitialPlacement(
         preview.naturalWidth,
         preview.naturalHeight,
+        printArea,
       );
 
       const originalUrl = URL.createObjectURL(file);
@@ -663,7 +693,7 @@ export function DesignerApp() {
       const msgs: string[] = [];
       if (full.belowRecommended) {
         msgs.push(
-          `建議使用 ${RECOMMENDED_IMAGE_WIDTH}×${RECOMMENDED_IMAGE_HEIGHT} 以獲得最佳印刷效果`,
+          `建議使用 ${exportDims.width}×${exportDims.height} 以獲得最佳印刷效果`,
         );
       }
       if (!full.isPng) {
@@ -730,7 +760,7 @@ export function DesignerApp() {
       return;
     }
 
-    const layer = createDefaultTextDesignLayer(layers);
+    const layer = createDefaultTextDesignLayer(layers, printArea);
     setLayers((prev) => [...prev, layer]);
     setSelectedIds([layer.id]);
     setFocusTextEditor(true);
@@ -752,8 +782,8 @@ export function DesignerApp() {
         rotation: 0,
         width: w,
         height: h,
-        x: (PRINT_AREA.width - w) / 2,
-        y: (PRINT_AREA.height - h) / 2,
+        x: (printArea.width - w) / 2,
+        y: (printArea.height - h) / 2,
       });
       return;
     }
@@ -761,6 +791,7 @@ export function DesignerApp() {
     const placement = getInitialPlacement(
       primaryLayer.image.naturalWidth,
       primaryLayer.image.naturalHeight,
+      printArea,
     );
     updateLayer(primaryLayer.id, {
       x: placement.x,
@@ -973,9 +1004,7 @@ export function DesignerApp() {
   }, [primaryId, deleteLayerById]);
 
   return (
-    <div className="flex h-screen flex-col bg-zinc-50 text-zinc-900">
-      <AppHeader />
-
+    <div className="flex h-full flex-col bg-zinc-50 text-zinc-900">
       <div className="flex min-h-0 flex-1">
         <IconNav active={activeTab} onChange={setActiveTab} />
 

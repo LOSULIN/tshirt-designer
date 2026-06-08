@@ -1,11 +1,10 @@
 "use client";
 
+import { CANVAS_HEIGHT, CANVAS_WIDTH, TEMPLATES } from "@/lib/constants";
 import {
-  CANVAS_HEIGHT,
-  CANVAS_WIDTH,
-  PRINT_AREA,
-  TEMPLATES,
-} from "@/lib/constants";
+  getCanvasPrintAreaStyle,
+  getPrintAreaForGender,
+} from "@/lib/print-area";
 import type { Gender, Side } from "@/lib/constants";
 import { getScaledSize } from "@/lib/geometry";
 import { sortLayersByZIndex } from "@/lib/layers";
@@ -15,7 +14,13 @@ import { TemplateImage } from "./TemplateImage";
 
 const CANVAS_ASPECT = CANVAS_WIDTH / CANVAS_HEIGHT;
 
-function StaticDesignLayer({ layer }: { layer: DesignLayer }) {
+function StaticDesignLayer({
+  layer,
+  printArea,
+}: {
+  layer: DesignLayer;
+  printArea: ReturnType<typeof getPrintAreaForGender>;
+}) {
   const scale = layer.type === "image" ? layer.scale : layer.scale;
   const scaled = getScaledSize(layer.width, layer.height, scale);
 
@@ -23,10 +28,10 @@ function StaticDesignLayer({ layer }: { layer: DesignLayer }) {
     <div
       className="pointer-events-none absolute"
       style={{
-        left: `${(layer.x / PRINT_AREA.width) * 100}%`,
-        top: `${(layer.y / PRINT_AREA.height) * 100}%`,
-        width: `${(scaled.width / PRINT_AREA.width) * 100}%`,
-        height: `${(scaled.height / PRINT_AREA.height) * 100}%`,
+        left: `${(layer.x / printArea.width) * 100}%`,
+        top: `${(layer.y / printArea.height) * 100}%`,
+        width: `${(scaled.width / printArea.width) * 100}%`,
+        height: `${(scaled.height / printArea.height) * 100}%`,
       }}
     >
       <div
@@ -79,13 +84,8 @@ export function ModelDesignPreview({
 }) {
   const templateSrc = TEMPLATES[gender][side];
   const visibleLayers = sortLayersByZIndex(layers).filter((l) => l.visible);
-
-  const printAreaStyle = {
-    left: `${(PRINT_AREA.x / CANVAS_WIDTH) * 100}%`,
-    top: `${(PRINT_AREA.y / CANVAS_HEIGHT) * 100}%`,
-    width: `${(PRINT_AREA.width / CANVAS_WIDTH) * 100}%`,
-    height: `${(PRINT_AREA.height / CANVAS_HEIGHT) * 100}%`,
-  };
+  const printArea = getPrintAreaForGender(gender);
+  const printAreaStyle = getCanvasPrintAreaStyle(gender);
 
   const sizeStyle =
     fitRatio != null
@@ -114,7 +114,11 @@ export function ModelDesignPreview({
       />
       <div className="absolute overflow-hidden" style={printAreaStyle}>
         {visibleLayers.map((layer) => (
-          <StaticDesignLayer key={layer.id} layer={layer} />
+          <StaticDesignLayer
+            key={layer.id}
+            layer={layer}
+            printArea={printArea}
+          />
         ))}
       </div>
     </div>

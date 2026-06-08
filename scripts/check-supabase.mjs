@@ -83,6 +83,17 @@ if (tableReadError) {
   pass("資料表 design_submissions 可讀取");
 }
 
+const { error: submissionsReadError } = await supabase
+  .from("submissions")
+  .select("id")
+  .limit(1);
+
+if (submissionsReadError) {
+  fail(`資料表 submissions 讀取失敗：${submissionsReadError.message}`);
+} else {
+  pass("資料表 submissions 可讀取");
+}
+
 const testPath = `drafts/${TEST_ID}/ping.json`;
 const { error: uploadError } = await supabase.storage
   .from(BUCKET)
@@ -112,10 +123,35 @@ const { error: insertError } = await supabase.from("design_submissions").insert(
 });
 
 if (insertError) {
-  fail(`資料表寫入失敗：${insertError.message}`);
+  fail(`資料表 design_submissions 寫入失敗：${insertError.message}`);
 } else {
-  pass("資料表寫入測試成功");
+  pass("資料表 design_submissions 寫入測試成功");
   await supabase.from("design_submissions").delete().eq("id", TEST_ID);
+}
+
+const { error: submissionsInsertError } = await supabase.from("submissions").insert({
+  id: TEST_ID,
+  created_at: now,
+  status: "pending",
+  product: "basic-tshirt",
+  fit: "male",
+  print_side: "front",
+  file_name: "test.pdf",
+  file_format: "PDF",
+  file_size_bytes: 1024,
+  file_size_label: "1.0 KB",
+  storage_path: `pro-uploads/${TEST_ID}`,
+  inspection_checks: [],
+  applicant_name: "測試",
+  applicant_email: "test@example.com",
+  applicant_phone: "0900000000",
+});
+
+if (submissionsInsertError) {
+  fail(`資料表 submissions 寫入失敗：${submissionsInsertError.message}`);
+} else {
+  pass("資料表 submissions 寫入測試成功");
+  await supabase.from("submissions").delete().eq("id", TEST_ID);
 }
 
 console.log("");

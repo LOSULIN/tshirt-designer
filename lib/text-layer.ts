@@ -1,4 +1,5 @@
-import { PRINT_AREA } from "./constants";
+import { getPrintAreaForGender } from "./print-area";
+import type { PrintAreaBounds } from "./print-area";
 import type { TextFontFamily, TextLayer } from "./types";
 import { nanoid } from "nanoid";
 
@@ -51,7 +52,8 @@ export function measureTextBounds(
   };
 }
 
-export function createDefaultTextLayer(): TextLayer {
+export function createDefaultTextLayer(printArea?: PrintAreaBounds): TextLayer {
+  const area = printArea ?? getPrintAreaForGender("male");
   const fontSize = 48;
   const fontFamily: TextFontFamily = "Inter";
   const fontWeight = 400;
@@ -73,8 +75,8 @@ export function createDefaultTextLayer(): TextLayer {
     fontWeight,
     rotation: 0,
     scale: 1,
-    x: (PRINT_AREA.width - width) / 2,
-    y: (PRINT_AREA.height - height) / 2,
+    x: (area.width - width) / 2,
+    y: (area.height - height) / 2,
     width,
     height,
   };

@@ -134,3 +134,74 @@ export async function sendDesignSubmittedEmail(params: {
     };
   }
 }
+
+function formatEmailDateTime(iso: string): string {
+  return new Date(iso).toLocaleString("zh-TW", { timeZone: "Asia/Taipei" });
+}
+
+export async function sendProUploadSubmittedEmail(params: {
+  submissionId: string;
+  createdAt: string;
+  productLabel: string;
+  marketplaceApply: boolean;
+  applicant: {
+    name: string;
+    email: string;
+    phone: string;
+  };
+}): Promise<EmailSendResult> {
+  const adminEmail = process.env.ADMIN_EMAIL;
+  const resendKey = process.env.RESEND_API_KEY;
+  const fromEmail = process.env.EMAIL_FROM ?? "onboarding@resend.dev";
+
+  if (!adminEmail) {
+    console.warn("ADMIN_EMAIL 未設定，略過寄信");
+    return {
+      sent: false,
+      reason: "missing_admin_email",
+      message: describeEmailSkipReason("missing_admin_email"),
+    };
+  }
+
+  if (!resendKey) {
+    console.warn("RESEND_API_KEY 未設定，略過寄信");
+    return {
+      sent: false,
+      reason: "missing_resend_key",
+      message: describeEmailSkipReason("missing_resend_key"),
+    };
+  }
+
+  const subject = "TIIIGO 新案件通知";
+  const html = `
+    <h2>TIIIGO 新案件通知</h2>
+    <p><strong>案件編號：</strong>${params.submissionId}</p>
+    <p><strong>姓名：</strong>${params.applicant.name}</p>
+    <p><strong>Email：</strong>${params.applicant.email}</p>
+    <p><strong>手機：</strong>${params.applicant.phone}</p>
+    <p><strong>商品：</strong>${params.productLabel}</p>
+    <p><strong>Marketplace 申請：</strong>${params.marketplaceApply ? "是" : "否"}</p>
+    <p><strong>建立時間：</strong>${formatEmailDateTime(params.createdAt)}</p>
+  `;
+
+  try {
+    const resend = new Resend(resendKey);
+    await resend.emails.send({
+      from: fromEmail,
+      to: [adminEmail],
+      subject,
+      html,
+    });
+
+    return { sent: true, recipients: [adminEmail] };
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "未知寄信錯誤";
+    console.error("專業交稿 Email 寄送失敗", error);
+    return {
+      sent: false,
+      reason: "send_failed",
+      message: `${describeEmailSkipReason("send_failed")}：${message}`,
+    };
+  }
+}

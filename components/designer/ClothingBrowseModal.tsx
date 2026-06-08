@@ -2,12 +2,11 @@
 
 import { useState } from "react";
 import {
-  DESIGN_AREA_HEIGHT,
-  DESIGN_AREA_WIDTH,
   EXPORT_DPI,
   type Gender,
   type ShirtColor,
 } from "@/lib/constants";
+import { getExportDimensionsForGender } from "@/lib/print-area";
 import { getLayersForSlot } from "@/lib/design-state";
 import type { DesignLayersByTemplate } from "@/lib/types";
 import { FlatShirtDesignView } from "./FlatShirtDesignView";
@@ -29,6 +28,7 @@ export function ClothingBrowseModal({
 }) {
   const frontLayers = getLayersForSlot(layersByTemplate, gender, "front");
   const backLayers = getLayersForSlot(layersByTemplate, gender, "back");
+  const exportDims = getExportDimensionsForGender(gender);
   const [zoomIndex, setZoomIndex] = useState(1);
   const zoom = ZOOM_STEPS[zoomIndex];
 
@@ -86,6 +86,7 @@ export function ClothingBrowseModal({
               </h3>
               <div className="overflow-hidden rounded-lg border border-zinc-200">
                 <FlatShirtDesignView
+                  gender={gender}
                   side="front"
                   shirtColor={shirtColor}
                   layers={frontLayers}
@@ -98,6 +99,7 @@ export function ClothingBrowseModal({
               </h3>
               <div className="overflow-hidden rounded-lg border border-zinc-200">
                 <FlatShirtDesignView
+                  gender={gender}
                   side="back"
                   shirtColor={shirtColor}
                   layers={backLayers}
@@ -107,8 +109,7 @@ export function ClothingBrowseModal({
           </div>
 
           <p className="mt-4 text-center text-xs text-zinc-500">
-            印刷規格：{DESIGN_AREA_WIDTH}×{DESIGN_AREA_HEIGHT} px · {EXPORT_DPI}{" "}
-            DPI
+            印刷規格：{exportDims.width}×{exportDims.height} px · {EXPORT_DPI} DPI
           </p>
         </div>
 

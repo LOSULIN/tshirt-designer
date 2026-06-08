@@ -1,6 +1,12 @@
 "use client";
 
-import { ELEMENT_SNAP_MAX, ELEMENT_SNAP_MIN } from "@/lib/constants";
+import {
+  DESIGN_AREA_HEIGHT,
+  DESIGN_AREA_WIDTH,
+  ELEMENT_SNAP_MAX,
+  ELEMENT_SNAP_MIN,
+  EXPORT_DPI,
+} from "@/lib/constants";
 import type { DesignLayer, PanelTab, TextDesignLayer } from "@/lib/types";
 import { LayerPanel } from "./LayerPanel";
 import { TextLayerEditor } from "./TextLayerEditor";
@@ -80,10 +86,16 @@ export function DesignPanel({
         <div className="space-y-3 text-sm text-zinc-900">
           <h2 className="text-sm font-semibold text-zinc-900">使用說明</h2>
           <p>1. 在「商品」面板選擇款式、上傳圖片或新增文字。</p>
-          <p>2. 圖片規格：1000×1000 起，推薦 3600×4200，單面最多 10 張。</p>
+          <p>
+            2. 圖片規格：1000×1000 起，推薦 {DESIGN_AREA_WIDTH}×
+            {DESIGN_AREA_HEIGHT}，單面最多 10 張。
+          </p>
           <p>3. 上傳圖片自動等比例置中，寬度優先 85%~90%，保留 5% 安全邊界。</p>
           <p>4. 文字最多 20 個，可拖曳、縮放、旋轉至印刷區域。</p>
-          <p>5. 儲存或發送申請時，自動匯出 PNG 3600×4200 透明背景 300 DPI。</p>
+          <p>
+            5. 儲存或發送申請時，自動匯出 PNG {DESIGN_AREA_WIDTH}×
+            {DESIGN_AREA_HEIGHT} 透明背景 {EXPORT_DPI} DPI。
+          </p>
         </div>
       )}
 

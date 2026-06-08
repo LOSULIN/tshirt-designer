@@ -67,31 +67,40 @@ export const SIZES: Size[] = ["XS", "S", "M", "L", "XL", "XXL"];
 export const CANVAS_WIDTH = 1024;
 export const CANVAS_HEIGHT = 1536;
 
-/** 最終輸出設計區（實際像素） */
-export const DESIGN_AREA_WIDTH = 3600;
-export const DESIGN_AREA_HEIGHT = 4200;
 export const EXPORT_DPI = 300;
 export const DESIGN_SAFE_MARGIN = 0.05;
 export const DESIGN_WIDTH_TARGET_RATIO = 0.875;
 
-const PRINT_AREA_WIDTH = 360;
-const PRINT_AREA_HEIGHT = 420;
+export {
+  PRINT_AREA_CONFIG,
+  cmToExportPx,
+  getCanvasPrintAreaStyle,
+  getExportDimensionsForGender,
+  getExportMetaForGender,
+  getExportScaleForGender,
+  getFlatShirtPrintAreaStyle,
+  getPrintAreaForGender,
+  getSafePrintAreaForGender,
+  type PrintAreaBounds,
+  type PrintAreaConfigEntry,
+  type PrintAreaRect,
+} from "./print-area";
 
-/** 預覽畫布上的印刷區（邏輯座標，比例等同 3600×4200 輸出） */
-export const PRINT_AREA = {
-  x: (CANVAS_WIDTH - PRINT_AREA_WIDTH) / 2,
-  y: 610,
-  width: PRINT_AREA_WIDTH,
-  height: PRINT_AREA_HEIGHT,
-} as const;
+import {
+  getExportDimensionsForGender,
+  getPrintAreaForGender,
+  getSafePrintAreaForGender,
+} from "./print-area";
 
-/** 設計區內安全邊界（相對 PRINT_AREA，5% 四周留白） */
-export const SAFE_PRINT_AREA = {
-  x: PRINT_AREA.width * DESIGN_SAFE_MARGIN,
-  y: PRINT_AREA.height * DESIGN_SAFE_MARGIN,
-  width: PRINT_AREA.width * (1 - DESIGN_SAFE_MARGIN * 2),
-  height: PRINT_AREA.height * (1 - DESIGN_SAFE_MARGIN * 2),
-} as const;
+/** 成人男款輸出尺寸（推薦上傳規格基準） */
+export const DESIGN_AREA_WIDTH = getExportDimensionsForGender("male").width;
+export const DESIGN_AREA_HEIGHT = getExportDimensionsForGender("male").height;
+
+/** @deprecated 請使用 getPrintAreaForGender(gender) */
+export const PRINT_AREA = getPrintAreaForGender("male");
+
+/** @deprecated 請使用 getSafePrintAreaForGender(gender) */
+export const SAFE_PRINT_AREA = getSafePrintAreaForGender("male");
 
 /**
  * 平面衣服素材（正面／背面）。
@@ -100,15 +109,6 @@ export const SAFE_PRINT_AREA = {
 export const FLAT_SHIRT_TEMPLATES: Record<Side, string | null> = {
   front: null,
   back: null,
-};
-
-/** 平面衣服上的印刷區位置（相對衣服圖，可依素材微調） */
-export const FLAT_SHIRT_PRINT_AREA: Record<
-  Side,
-  { left: string; top: string; width: string }
-> = {
-  front: { left: "31%", top: "29%", width: "38%" },
-  back: { left: "31%", top: "27%", width: "38%" },
 };
 
 export const TEMPLATES: Record<Gender, Record<Side, string>> = {

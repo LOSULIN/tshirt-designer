@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useRef } from "react";
-import { PRINT_AREA } from "@/lib/constants";
+import type { PrintAreaBounds } from "@/lib/print-area";
 import { guidesEqual, type SnapTarget } from "@/lib/element-snap";
 import {
   applyDragSnap,
@@ -52,6 +52,7 @@ export function PrintAreaElement({
   onDuplicate,
   onDelete,
   onSnapGuidesChange,
+  printArea,
   children,
   className = "",
 }: {
@@ -74,6 +75,7 @@ export function PrintAreaElement({
   onDuplicate?: () => void;
   onDelete?: () => void;
   onSnapGuidesChange: (guides: SnapGuidesState) => void;
+  printArea: PrintAreaBounds;
   children: React.ReactNode;
   className?: string;
 }) {
@@ -124,7 +126,7 @@ export function PrintAreaElement({
       let py = nextY;
 
       if (useSnap) {
-        const snap = applyDragSnap(px, py, width, height, scale, {
+        const snap = applyDragSnap(px, py, width, height, scale, printArea, {
           gridSnap: gridSnapRef.current,
           elementSnap: elementSnapRef.current,
           elementSnapThreshold: elementSnapDistanceRef.current,
@@ -147,6 +149,7 @@ export function PrintAreaElement({
         height,
         scale,
         rotation,
+        printArea,
       );
 
       if (
@@ -165,6 +168,7 @@ export function PrintAreaElement({
       y,
       onTransformChange,
       emitGuides,
+      printArea,
     ],
   );
 
@@ -184,12 +188,12 @@ export function PrintAreaElement({
 
   const onPointerMove = (event: React.PointerEvent) => {
     if (!dragRef.current) return;
-    const printArea = event.currentTarget.closest("[data-print-area]");
-    if (!printArea) return;
+    const printAreaEl = event.currentTarget.closest("[data-print-area]");
+    if (!printAreaEl) return;
 
-    const printRect = printArea.getBoundingClientRect();
-    const scaleX = PRINT_AREA.width / printRect.width;
-    const scaleY = PRINT_AREA.height / printRect.height;
+    const printRect = printAreaEl.getBoundingClientRect();
+    const scaleX = printArea.width / printRect.width;
+    const scaleY = printArea.height / printRect.height;
 
     const dx = (event.clientX - dragRef.current.startX) * scaleX;
     const dy = (event.clientY - dragRef.current.startY) * scaleY;
@@ -252,10 +256,10 @@ export function PrintAreaElement({
         isActive && !showControls ? "ring-2 ring-blue-400 ring-offset-1" : ""
       } ${locked ? "opacity-90" : ""}`}
       style={{
-        left: `${(x / PRINT_AREA.width) * 100}%`,
-        top: `${(y / PRINT_AREA.height) * 100}%`,
-        width: `${(scaled.width / PRINT_AREA.width) * 100}%`,
-        height: `${(scaled.height / PRINT_AREA.height) * 100}%`,
+        left: `${(x / printArea.width) * 100}%`,
+        top: `${(y / printArea.height) * 100}%`,
+        width: `${(scaled.width / printArea.width) * 100}%`,
+        height: `${(scaled.height / printArea.height) * 100}%`,
       }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}

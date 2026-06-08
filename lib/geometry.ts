@@ -2,9 +2,9 @@ import {
   ELEMENT_SNAP_THRESHOLD,
   GRID_SIZE,
   GRID_SNAP_THRESHOLD,
-  PRINT_AREA,
   SNAP_THRESHOLD,
 } from "./constants";
+import type { PrintAreaBounds } from "./print-area";
 import {
   applyElementAlignmentSnap,
   type ElementAlignmentGuides,
@@ -62,14 +62,15 @@ export function clampPositionToPrintArea(
   height: number,
   scale: number,
   rotation: number,
+  printArea: PrintAreaBounds,
 ): { x: number; y: number } {
   const scaled = getScaledSize(width, height, scale);
   const aabb = getRotatedAabb(scaled.width, scaled.height, rotation);
 
   const minX = (scaled.width - aabb.width) / 2;
-  const maxX = PRINT_AREA.width - aabb.width - minX;
+  const maxX = printArea.width - aabb.width - minX;
   const minY = (scaled.height - aabb.height) / 2;
-  const maxY = PRINT_AREA.height - aabb.height - minY;
+  const maxY = printArea.height - aabb.height - minY;
 
   return {
     x: Math.min(Math.max(x, minX), Math.max(minX, maxX)),
@@ -96,6 +97,7 @@ export function applyDragSnap(
   width: number,
   height: number,
   scale: number,
+  printArea: PrintAreaBounds,
   options: DragSnapOptions = { gridSnap: false },
 ): DragSnapResult {
   const scaled = getScaledSize(width, height, scale);
@@ -147,8 +149,8 @@ export function applyDragSnap(
 
   const centerX = nextX + scaled.width / 2;
   const centerY = nextY + scaled.height / 2;
-  const areaCenterX = PRINT_AREA.width / 2;
-  const areaCenterY = PRINT_AREA.height / 2;
+  const areaCenterX = printArea.width / 2;
+  const areaCenterY = printArea.height / 2;
 
   if (Math.abs(centerX - areaCenterX) <= SNAP_THRESHOLD) {
     nextX = areaCenterX - scaled.width / 2;
@@ -182,8 +184,11 @@ export function applySnapGuides(
   width: number,
   height: number,
   scale: number,
+  printArea: PrintAreaBounds,
 ): SnapResult {
-  return applyDragSnap(x, y, width, height, scale, { gridSnap: false });
+  return applyDragSnap(x, y, width, height, scale, printArea, {
+    gridSnap: false,
+  });
 }
 
 export { getAutoFitPlacement as getInitialPlacement } from "./design-placement";

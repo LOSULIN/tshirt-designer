@@ -1,25 +1,30 @@
 "use client";
 
-import { PRINT_AREA, type ShirtColor, type Side } from "@/lib/constants";
+import type { Gender, ShirtColor, Side } from "@/lib/constants";
+import { getPrintAreaForGender } from "@/lib/print-area";
 import type { DesignLayer } from "@/lib/types";
 import { FlatShirtDesignView } from "./FlatShirtDesignView";
 
 const THUMB_WIDTH = 108;
 const THUMB_PRINT_WIDTH_RATIO = 0.38;
-const TEXT_SCALE =
-  (THUMB_WIDTH * THUMB_PRINT_WIDTH_RATIO) / PRINT_AREA.width;
 
 export function ClothingBrowseWidget({
+  gender,
   side,
   shirtColor,
   layers,
   onOpen,
 }: {
+  gender: Gender;
   side: Side;
   shirtColor: ShirtColor;
   layers: DesignLayer[];
   onOpen: () => void;
 }) {
+  const printArea = getPrintAreaForGender(gender);
+  const textScale =
+    (THUMB_WIDTH * THUMB_PRINT_WIDTH_RATIO) / printArea.width;
+
   return (
     <div className="absolute bottom-3 right-3 z-30 flex flex-col items-end gap-1.5">
       <button
@@ -37,10 +42,11 @@ export function ClothingBrowseWidget({
         className="w-[108px] overflow-hidden rounded-md border border-zinc-300 bg-white shadow-lg transition hover:border-zinc-400"
       >
         <FlatShirtDesignView
+          gender={gender}
           side={side}
           shirtColor={shirtColor}
           layers={layers}
-          textScale={TEXT_SCALE}
+          textScale={textScale}
         />
       </button>
     </div>

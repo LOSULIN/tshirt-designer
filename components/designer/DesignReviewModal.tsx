@@ -1,12 +1,11 @@
 "use client";
 
 import {
-  DESIGN_AREA_HEIGHT,
-  DESIGN_AREA_WIDTH,
   EXPORT_DPI,
   type Gender,
 } from "@/lib/constants";
 import { getLayersForSlot } from "@/lib/design-state";
+import { getExportDimensionsForGender } from "@/lib/print-area";
 import type { DesignLayersByTemplate } from "@/lib/types";
 import { ModelDesignPreview } from "./ModelDesignPreview";
 
@@ -23,6 +22,7 @@ export function DesignReviewModal({
 }) {
   const frontLayers = getLayersForSlot(layersByTemplate, gender, "front");
   const backLayers = getLayersForSlot(layersByTemplate, gender, "back");
+  const exportDims = getExportDimensionsForGender(gender);
 
   if (!open) return null;
 
@@ -93,7 +93,7 @@ export function DesignReviewModal({
           </div>
 
           <p className="mt-4 text-center text-xs text-zinc-500">
-            印刷規格：{DESIGN_AREA_WIDTH}×{DESIGN_AREA_HEIGHT} px · {EXPORT_DPI}{" "}
+            印刷規格：{exportDims.width}×{exportDims.height} px · {EXPORT_DPI}{" "}
             DPI · 透明 PNG
           </p>
         </div>

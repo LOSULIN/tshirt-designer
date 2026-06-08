@@ -42,3 +42,52 @@ set public = excluded.public,
     file_size_limit = excluded.file_size_limit;
 
 -- 不開放公開讀取；上傳／下載皆透過 Next.js API + Service Role
+
+-- ---------------------------------------------------------------------------
+-- 4. 資料表：submissions（專業交稿）
+-- ---------------------------------------------------------------------------
+create table if not exists public.submissions (
+  id text primary key,
+  created_at timestamptz not null default now(),
+  status text not null default 'pending'
+    check (status in ('pending', 'reviewing', 'approved', 'rejected')),
+
+  product text not null,
+  fit text not null check (fit in ('male', 'female', 'child')),
+  print_side text not null,
+
+  file_name text not null,
+  file_format text not null,
+  file_size_bytes bigint not null,
+  file_size_label text not null,
+  storage_path text not null,
+
+  inspection_checks jsonb not null default '[]'::jsonb,
+
+  applicant_name text not null,
+  applicant_email text not null,
+  applicant_phone text not null,
+  company_name text,
+  tax_id text,
+  bulk_order boolean not null default false,
+  quantity_range text,
+  marketplace_apply boolean not null default false,
+  notes text
+);
+
+comment on table public.submissions is '專業交稿申請紀錄';
+comment on column public.submissions.storage_path is 'Storage 資料夾路徑，如 pro-uploads/xxx';
+
+create index if not exists submissions_created_at_idx
+  on public.submissions (created_at desc);
+
+create index if not exists submissions_status_idx
+  on public.submissions (status);
+
+alter table public.submissions enable row level security;
+
+-- 若 submissions 表已存在，請執行：
+-- alter table public.submissions
+--   add column if not exists fit text check (fit in ('male', 'female', 'child'));
+-- update public.submissions set fit = 'male' where fit is null;
+-- alter table public.submissions alter column fit set not null;

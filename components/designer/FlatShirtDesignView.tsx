@@ -2,13 +2,16 @@
 
 import { useState } from "react";
 import {
-  FLAT_SHIRT_PRINT_AREA,
   FLAT_SHIRT_TEMPLATES,
   getShirtColorHex,
-  PRINT_AREA,
+  type Gender,
   type ShirtColor,
   type Side,
 } from "@/lib/constants";
+import {
+  getFlatShirtPrintAreaStyle,
+  getPrintAreaForGender,
+} from "@/lib/print-area";
 import { getScaledSize } from "@/lib/geometry";
 import { sortLayersByZIndex } from "@/lib/layers";
 import { resolveFontFamily } from "@/lib/text-layer";
@@ -122,9 +125,11 @@ function FlatShirtSvg({
 
 function StaticDesignLayer({
   layer,
+  printArea,
   textScale = 1,
 }: {
   layer: DesignLayer;
+  printArea: ReturnType<typeof getPrintAreaForGender>;
   textScale?: number;
 }) {
   const scale = layer.type === "image" ? layer.scale : layer.scale;
@@ -134,10 +139,10 @@ function StaticDesignLayer({
     <div
       className="pointer-events-none absolute"
       style={{
-        left: `${(layer.x / PRINT_AREA.width) * 100}%`,
-        top: `${(layer.y / PRINT_AREA.height) * 100}%`,
-        width: `${(scaled.width / PRINT_AREA.width) * 100}%`,
-        height: `${(scaled.height / PRINT_AREA.height) * 100}%`,
+        left: `${(layer.x / printArea.width) * 100}%`,
+        top: `${(layer.y / printArea.height) * 100}%`,
+        width: `${(scaled.width / printArea.width) * 100}%`,
+        height: `${(scaled.height / printArea.height) * 100}%`,
       }}
     >
       <div
@@ -176,12 +181,14 @@ function StaticDesignLayer({
 
 /** 平面衣服設計預覽（無模特；可替換為素材 PNG） */
 export function FlatShirtDesignView({
+  gender,
   side,
   shirtColor,
   layers,
   className = "",
   textScale = 1,
 }: {
+  gender: Gender;
   side: Side;
   shirtColor: ShirtColor;
   layers: DesignLayer[];
@@ -205,7 +212,8 @@ export function FlatShirtDesignView({
   const rib = isLight ? "#e4e4e7" : shadeHex(fill, -18);
 
   const visibleLayers = sortLayersByZIndex(layers).filter((l) => l.visible);
-  const printBox = FLAT_SHIRT_PRINT_AREA[side];
+  const printArea = getPrintAreaForGender(gender);
+  const printBox = getFlatShirtPrintAreaStyle(gender, side);
 
   return (
     <div
@@ -231,13 +239,14 @@ export function FlatShirtDesignView({
           left: printBox.left,
           top: printBox.top,
           width: printBox.width,
-          aspectRatio: `${PRINT_AREA.width} / ${PRINT_AREA.height}`,
+          aspectRatio: `${printArea.width} / ${printArea.height}`,
         }}
       >
         {visibleLayers.map((layer) => (
           <StaticDesignLayer
             key={layer.id}
             layer={layer}
+            printArea={printArea}
             textScale={textScale}
           />
         ))}

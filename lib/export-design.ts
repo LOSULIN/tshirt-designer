@@ -1,8 +1,5 @@
 import {
   EXPORT_DPI,
-  EXPORT_HEIGHT,
-  EXPORT_WIDTH,
-  PRINT_AREA,
   type Gender,
   type Side,
 } from "./constants";
@@ -12,6 +9,11 @@ import {
   getLayersForSlot,
 } from "./design-state";
 import { embedPngDpi } from "./png-dpi";
+import {
+  getExportDimensionsForGender,
+  getExportMetaForGender,
+  getPrintAreaForGender,
+} from "./print-area";
 import { sortLayersByZIndex } from "./layers";
 import {
   ensureTextFontsLoaded,
@@ -25,9 +27,6 @@ import type {
   TextDesignLayer,
   UploadedDesignImage,
 } from "./types";
-
-const EXPORT_SCALE_X = EXPORT_WIDTH / PRINT_AREA.width;
-const EXPORT_SCALE_Y = EXPORT_HEIGHT / PRINT_AREA.height;
 
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -43,13 +42,15 @@ function drawImageLayerExport(
   ctx: CanvasRenderingContext2D,
   layer: Extract<DesignLayer, { type: "image" }>,
   img: HTMLImageElement,
+  scaleX: number,
+  scaleY: number,
 ) {
   const centerX =
-    (layer.x + (layer.width * layer.scale) / 2) * EXPORT_SCALE_X;
+    (layer.x + (layer.width * layer.scale) / 2) * scaleX;
   const centerY =
-    (layer.y + (layer.height * layer.scale) / 2) * EXPORT_SCALE_Y;
-  const drawW = layer.width * EXPORT_SCALE_X;
-  const drawH = layer.height * EXPORT_SCALE_Y;
+    (layer.y + (layer.height * layer.scale) / 2) * scaleY;
+  const drawW = layer.width * scaleX;
+  const drawH = layer.height * scaleY;
 
   ctx.save();
   ctx.translate(centerX, centerY);
@@ -62,10 +63,12 @@ function drawImageLayerExport(
 function drawTextLayerExport(
   ctx: CanvasRenderingContext2D,
   layer: TextDesignLayer,
+  scaleX: number,
+  scaleY: number,
 ) {
-  const centerX = (layer.x + layer.width * layer.scale / 2) * EXPORT_SCALE_X;
-  const centerY = (layer.y + layer.height * layer.scale / 2) * EXPORT_SCALE_Y;
-  const fontSize = layer.fontSize * layer.scale * EXPORT_SCALE_Y;
+  const centerX = (layer.x + layer.width * layer.scale / 2) * scaleX;
+  const centerY = (layer.y + layer.height * layer.scale / 2) * scaleY;
+  const fontSize = layer.fontSize * layer.scale * scaleY;
 
   ctx.save();
   ctx.translate(centerX, centerY);
@@ -79,15 +82,22 @@ function drawTextLayerExport(
   ctx.restore();
 }
 
-/** 匯出 PNG 3600×4200 透明背景 300 DPI（僅設計圖層，不含模特） */
+/** 匯出 PNG（依模板規格透明背景 300 DPI，僅設計圖層，不含模特） */
 export async function renderCompletedDesignPng(
-  _templateType: DesignConfig["templateType"],
+  templateType: DesignConfig["templateType"],
   _side: DesignConfig["side"],
   layers: DesignLayer[],
 ): Promise<Blob> {
+  const gender = templateType as Gender;
+  const printArea = getPrintAreaForGender(gender);
+  const { width: exportWidth, height: exportHeight } =
+    getExportDimensionsForGender(gender);
+  const scaleX = exportWidth / printArea.width;
+  const scaleY = exportHeight / printArea.height;
+
   const canvas = document.createElement("canvas");
-  canvas.width = EXPORT_WIDTH;
-  canvas.height = EXPORT_HEIGHT;
+  canvas.width = exportWidth;
+  canvas.height = exportHeight;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("無法建立畫布");
 
@@ -95,7 +105,7 @@ export async function renderCompletedDesignPng(
 
   ctx.save();
   ctx.beginPath();
-  ctx.rect(0, 0, EXPORT_WIDTH, EXPORT_HEIGHT);
+  ctx.rect(0, 0, exportWidth, exportHeight);
   ctx.clip();
 
   const textLayers = visibleLayers.filter(
@@ -119,9 +129,9 @@ export async function renderCompletedDesignPng(
         img = await loadImage(layer.image.originalUrl);
         imageCache.set(layer.id, img);
       }
-      drawImageLayerExport(ctx, layer, img);
+      drawImageLayerExport(ctx, layer, img, scaleX, scaleY);
     } else {
-      drawTextLayerExport(ctx, layer);
+      drawTextLayerExport(ctx, layer, scaleX, scaleY);
     }
   }
 
@@ -209,20 +219,6 @@ function serializeLayerForJson(layer: DesignLayer) {
   };
 }
 
-const EXPORT_META = {
-  format: "png",
-  width: EXPORT_WIDTH,
-  height: EXPORT_HEIGHT,
-  dpi: EXPORT_DPI,
-  background: "transparent",
-  designArea: {
-    width: EXPORT_WIDTH,
-    height: EXPORT_HEIGHT,
-    safeMargin: 0.05,
-    widthTargetRatio: 0.875,
-  },
-} as const;
-
 function serializeLayersByTemplate(layersByTemplate: DesignLayersByTemplate) {
   const result: Record<string, Record<string, ReturnType<typeof serializeLayerForJson>[]>> =
     {};
@@ -249,7 +245,7 @@ export function buildDesignJson(
     {
       templateType,
       side,
-      export: EXPORT_META,
+      export: getExportMetaForGender(templateType),
       ...meta,
       layers: layers.map(serializeLayerForJson),
       x: firstImage?.x ?? 0,
@@ -274,17 +270,21 @@ export function buildFullDesignJson(
   const activeLayers = getLayersForSlot(layersByTemplate, activeGender, activeSide);
   const firstImage = activeLayers.find((l) => l.type === "image");
 
+  const exportByGender = Object.fromEntries(
+    DESIGN_GENDERS.map((g) => [g, getExportMetaForGender(g)]),
+  );
+
   return JSON.stringify(
     {
       version: 2,
-      activeGender,
-      activeSide,
       templateType: activeGender,
       side: activeSide,
-      export: EXPORT_META,
+      activeGender,
+      activeSide,
+      export: getExportMetaForGender(activeGender),
+      exportByGender,
       ...meta,
       layersByTemplate: serializeLayersByTemplate(layersByTemplate),
-      layers: activeLayers.map(serializeLayerForJson),
       x: firstImage?.x ?? 0,
       y: firstImage?.y ?? 0,
       width: firstImage?.width ?? 0,
@@ -299,40 +299,24 @@ export function buildFullDesignJson(
 
 function serializeTextDesignLayer(
   layer: TextDesignLayer,
-  template?: Gender,
-  side?: Side,
+  gender: Gender,
+  side: Side,
 ) {
   return {
     ...serializeTextLayer({
-      id: layer.id,
+      ...layer,
       type: "text",
-      text: layer.text,
-      fontSize: layer.fontSize,
-      fontFamily: layer.fontFamily,
-      color: layer.color,
-      opacity: layer.opacity,
-      fontWeight: layer.fontWeight,
-      rotation: layer.rotation,
-      scale: layer.scale,
-      x: layer.x,
-      y: layer.y,
-      width: layer.width,
-      height: layer.height,
     }),
-    ...(template ? { template: template } : {}),
-    ...(side ? { side } : {}),
+    templateType: gender,
+    side,
+    layerId: layer.id,
+    layerName: layer.name,
   };
-}
-
-export function buildTextJson(layers: DesignLayer[]): string {
-  const texts = layers
-    .filter((l): l is TextDesignLayer => l.type === "text")
-    .map((layer) => serializeTextDesignLayer(layer));
-  return JSON.stringify(texts, null, 2);
 }
 
 export function buildAllTextsJson(layersByTemplate: DesignLayersByTemplate): string {
   const texts: ReturnType<typeof serializeTextDesignLayer>[] = [];
+
   for (const gender of DESIGN_GENDERS) {
     for (const side of DESIGN_SIDES) {
       for (const layer of getLayersForSlot(layersByTemplate, gender, side)) {
@@ -342,5 +326,6 @@ export function buildAllTextsJson(layersByTemplate: DesignLayersByTemplate): str
       }
     }
   }
-  return JSON.stringify(texts, null, 2);
+
+  return JSON.stringify({ texts }, null, 2);
 }

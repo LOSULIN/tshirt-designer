@@ -1,12 +1,11 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
+import { CANVAS_HEIGHT, CANVAS_WIDTH, TEMPLATES } from "@/lib/constants";
 import {
-  CANVAS_HEIGHT,
-  CANVAS_WIDTH,
-  PRINT_AREA,
-  TEMPLATES,
-} from "@/lib/constants";
+  getCanvasPrintAreaStyle,
+  getPrintAreaForGender,
+} from "@/lib/print-area";
 import type { Gender, ShirtColor, Side } from "@/lib/constants";
 import { DESIGN_SIDES, hasAnyDesign, hasDesignInSlot } from "@/lib/design-state";
 import type { DesignLayersByTemplate } from "@/lib/types";
@@ -113,6 +112,11 @@ export function DesignCanvas({
   );
 
   const templateSrc = TEMPLATES[gender][side];
+  const printArea = useMemo(() => getPrintAreaForGender(gender), [gender]);
+  const printAreaStyle = useMemo(
+    () => getCanvasPrintAreaStyle(gender),
+    [gender],
+  );
   const visibleLayers = useMemo(
     () => sortLayersByZIndex(layers).filter((l) => l.visible),
     [layers],
@@ -133,13 +137,6 @@ export function DesignCanvas({
       return guides;
     });
   }, []);
-
-  const printAreaStyle = {
-    left: `${(PRINT_AREA.x / CANVAS_WIDTH) * 100}%`,
-    top: `${(PRINT_AREA.y / CANVAS_HEIGHT) * 100}%`,
-    width: `${(PRINT_AREA.width / CANVAS_WIDTH) * 100}%`,
-    height: `${(PRINT_AREA.height / CANVAS_HEIGHT) * 100}%`,
-  };
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col p-1">
@@ -196,7 +193,7 @@ export function DesignCanvas({
               onPointerDown={(e) => e.stopPropagation()}
             >
               <PrintSafeZoneGuide />
-              <PrintAreaGrid visible={showGrid} />
+              <PrintAreaGrid visible={showGrid} printArea={printArea} />
 
               {visibleLayers.map((layer) => {
                 const isActive = selectedIds.includes(layer.id);
@@ -208,6 +205,7 @@ export function DesignCanvas({
                 return (
                   <PrintAreaElement
                     key={layer.id}
+                    printArea={printArea}
                     gridSnapEnabled={gridSnapEnabled}
                     elementSnapEnabled
                     elementSnapDistance={elementSnapDistance}
@@ -279,6 +277,7 @@ export function DesignCanvas({
               <ElementAlignmentGuides
                 vertical={snapGuides.elementVertical}
                 horizontal={snapGuides.elementHorizontal}
+                printArea={printArea}
               />
               <PrintAreaCenterGuides
                 highlightX={snapGuides.printCenterX}
@@ -288,6 +287,7 @@ export function DesignCanvas({
           </div>
 
           <ClothingBrowseWidget
+            gender={gender}
             side={side}
             shirtColor={shirtColor}
             layers={layers}

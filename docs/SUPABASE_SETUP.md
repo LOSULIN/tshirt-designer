@@ -123,7 +123,7 @@ designs/
 │   ├── preview.png     （若有圖片）
 │   └── original.png    （第一張上傳原圖）
 └── submitted/{designId}/
-    ├── completed.png   （3600×4200 設計稿）
+    ├── completed.png   （3779×4724 設計稿）
     ├── design.json
     ├── texts.json
     ├── applicant.json

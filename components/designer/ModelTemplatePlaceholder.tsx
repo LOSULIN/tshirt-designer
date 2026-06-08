@@ -3,11 +3,11 @@
 import {
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
-  PRINT_AREA,
   TEMPLATES,
   type Gender,
   type Side,
 } from "@/lib/constants";
+import { getPrintAreaForGender } from "@/lib/print-area";
 
 function templateFileName(gender: Gender, side: Side): string {
   return TEMPLATES[gender][side].split("/").pop() ?? "template.png";
@@ -26,10 +26,11 @@ export function ModelTemplatePlaceholder({
   showGuide?: boolean;
 }) {
   const fileName = templateFileName(gender, side);
-  const printLeft = (PRINT_AREA.x / CANVAS_WIDTH) * 100;
-  const printTop = (PRINT_AREA.y / CANVAS_HEIGHT) * 100;
-  const printWidth = (PRINT_AREA.width / CANVAS_WIDTH) * 100;
-  const printHeight = (PRINT_AREA.height / CANVAS_HEIGHT) * 100;
+  const printArea = getPrintAreaForGender(gender);
+  const printLeft = (printArea.x / CANVAS_WIDTH) * 100;
+  const printTop = (printArea.y / CANVAS_HEIGHT) * 100;
+  const printWidth = (printArea.width / CANVAS_WIDTH) * 100;
+  const printHeight = (printArea.height / CANVAS_HEIGHT) * 100;
 
   const label =
     gender === "male"
@@ -86,10 +87,10 @@ export function ModelTemplatePlaceholder({
         />
         {showGuide && (
           <rect
-            x={PRINT_AREA.x}
-            y={PRINT_AREA.y}
-            width={PRINT_AREA.width}
-            height={PRINT_AREA.height}
+            x={printArea.x}
+            y={printArea.y}
+            width={printArea.width}
+            height={printArea.height}
             fill="rgba(59,130,246,0.08)"
             stroke="#3b82f6"
             strokeWidth="2"
