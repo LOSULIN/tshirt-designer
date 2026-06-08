@@ -81,6 +81,9 @@ export interface TextDesignLayer extends LayerMeta {
 
 export type DesignLayer = ImageDesignLayer | TextDesignLayer;
 
+/** 各模特模板 × 正反面獨立圖層 */
+export type DesignLayersByTemplate = Record<Gender, Record<Side, DesignLayer[]>>;
+
 export interface DesignDraft {
   id: string;
   savedAt: string;
@@ -88,7 +91,12 @@ export interface DesignDraft {
   submitted: boolean;
   config: DesignConfig;
   hasImage: boolean;
+  activeGender?: Gender;
+  activeSide?: Side;
+  /** 各模板 × 正反面獨立圖層（v2） */
+  layersByTemplate?: DesignLayersByTemplate;
   textLayers?: TextLayer[];
+  /** @deprecated 單一面向圖層（v1） */
   layers?: DesignLayer[];
 }
 

@@ -69,12 +69,19 @@ export async function POST(request: Request) {
         });
     }
 
+    const parsed = JSON.parse(designJson) as {
+      templateType: string;
+      side: string;
+      activeGender?: string;
+      activeSide?: string;
+    };
+
     await supabase.from("design_submissions").upsert(
       {
         id: draftId,
         created_at: createdAt.toISOString(),
-        template_type: JSON.parse(designJson).templateType,
-        side: JSON.parse(designJson).side,
+        template_type: parsed.activeGender ?? parsed.templateType,
+        side: parsed.activeSide ?? parsed.side,
         status: "draft",
         storage_path: basePath,
         expires_at: expiresAt.toISOString(),

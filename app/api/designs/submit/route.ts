@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
 import { nanoid } from "nanoid";
+import {
+  completedDesignFileName,
+  DESIGN_GENDERS,
+  DESIGN_SIDES,
+} from "@/lib/design-state";
 import { sendDesignSubmittedEmail } from "@/lib/email";
 import { createAdminClient, DESIGNS_BUCKET } from "@/lib/supabase/admin";
 
@@ -20,13 +25,6 @@ export async function POST(request: Request) {
     const textJson = formData.get("textJson");
     const applicantJson = formData.get("applicantJson");
 
-    if (!(completed instanceof Blob)) {
-      return NextResponse.json(
-        { error: "缺少設計完成圖" },
-        { status: 400 },
-      );
-    }
-
     if (typeof designJson !== "string") {
       return NextResponse.json(
         { error: "缺少設計設定" },
@@ -37,6 +35,8 @@ export async function POST(request: Request) {
     const config = JSON.parse(designJson) as {
       templateType: string;
       side: string;
+      activeGender?: string;
+      activeSide?: string;
     };
 
     const designId = nanoid(12);
@@ -48,13 +48,36 @@ export async function POST(request: Request) {
       path: string;
       body: Blob;
       contentType: string;
-    }[] = [
-      {
+    }[] = [];
+
+    if (completed instanceof Blob && completed.size > 0) {
+      binaryUploads.push({
         path: `${basePath}/completed.png`,
         body: completed,
         contentType: "image/png",
-      },
-    ];
+      });
+    }
+
+    for (const gender of DESIGN_GENDERS) {
+      for (const side of DESIGN_SIDES) {
+        const field = `completed-${gender}-${side}`;
+        const blob = formData.get(field);
+        if (blob instanceof Blob && blob.size > 0) {
+          binaryUploads.push({
+            path: `${basePath}/${completedDesignFileName(gender, side)}`,
+            body: blob,
+            contentType: "image/png",
+          });
+        }
+      }
+    }
+
+    if (binaryUploads.length === 0) {
+      return NextResponse.json(
+        { error: "缺少設計完成圖" },
+        { status: 400 },
+      );
+    }
 
     if (original instanceof Blob && original.size > 0) {
       const originalExt = extFromMime(original.type || "image/png");
@@ -143,12 +166,19 @@ export async function POST(request: Request) {
     );
 
     const fileMap: Record<string, string> = {};
+    const completedAll: Record<string, string> = {};
+
     allPaths.forEach((path, index) => {
-      if (path.endsWith("completed.png")) fileMap.completed = signedUrls[index];
-      else if (path.includes("/original.")) fileMap.original = signedUrls[index];
-      else if (path.endsWith("design.json")) fileMap.config = signedUrls[index];
-      else if (path.endsWith("texts.json")) fileMap.texts = signedUrls[index];
-      else if (path.endsWith("applicant.json")) fileMap.applicant = signedUrls[index];
+      const url = signedUrls[index];
+      if (path.endsWith("/completed.png")) fileMap.completed = url;
+      else if (path.includes("/original.")) fileMap.original = url;
+      else if (path.endsWith("design.json")) fileMap.config = url;
+      else if (path.endsWith("texts.json")) fileMap.texts = url;
+      else if (path.endsWith("applicant.json")) fileMap.applicant = url;
+      else if (path.includes("/completed-")) {
+        const name = path.split("/").pop()?.replace(".png", "") ?? path;
+        completedAll[name] = url;
+      }
     });
 
     const applicant =
@@ -161,11 +191,14 @@ export async function POST(request: Request) {
           })
         : null;
 
+    const templateType = config.activeGender ?? config.templateType;
+    const side = config.activeSide ?? config.side;
+
     await supabase.from("design_submissions").insert({
       id: designId,
       created_at: createdAt,
-      template_type: config.templateType,
-      side: config.side,
+      template_type: templateType,
+      side,
       status: "submitted",
       storage_path: basePath,
       expires_at: null,
@@ -174,11 +207,12 @@ export async function POST(request: Request) {
     await sendDesignSubmittedEmail({
       designId,
       createdAt,
-      templateType: config.templateType,
-      side: config.side,
+      templateType,
+      side,
       applicant,
       fileLinks: {
         completed: fileMap.completed,
+        completedAll,
         original: fileMap.original ?? fileMap.completed,
         config: fileMap.config,
         texts: fileMap.texts,
@@ -191,6 +225,7 @@ export async function POST(request: Request) {
       createdAt,
       files: {
         completed: fileMap.completed,
+        completedAll,
         original: fileMap.original,
         config: fileMap.config,
         texts: fileMap.texts,

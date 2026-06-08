@@ -3,7 +3,14 @@ import {
   EXPORT_HEIGHT,
   EXPORT_WIDTH,
   PRINT_AREA,
+  type Gender,
+  type Side,
 } from "./constants";
+import {
+  DESIGN_GENDERS,
+  DESIGN_SIDES,
+  getLayersForSlot,
+} from "./design-state";
 import { embedPngDpi } from "./png-dpi";
 import { sortLayersByZIndex } from "./layers";
 import {
@@ -14,6 +21,7 @@ import {
 import type {
   DesignConfig,
   DesignLayer,
+  DesignLayersByTemplate,
   TextDesignLayer,
   UploadedDesignImage,
 } from "./types";
@@ -168,6 +176,67 @@ export async function renderCompletedDesignPngLegacy(
   return renderCompletedDesignPng(config.templateType, config.side, layers);
 }
 
+function serializeLayerForJson(layer: DesignLayer) {
+  const base = {
+    id: layer.id,
+    name: layer.name,
+    type: layer.type,
+    visible: layer.visible,
+    locked: layer.locked,
+    zIndex: layer.zIndex,
+    x: layer.x,
+    y: layer.y,
+    width: layer.width,
+    height: layer.height,
+    scale: layer.scale,
+    rotation: layer.rotation,
+  };
+  if (layer.type === "image") {
+    return {
+      ...base,
+      fileName: layer.image.fileName,
+      mimeType: layer.image.mimeType,
+    };
+  }
+  return {
+    ...base,
+    text: layer.text,
+    fontSize: layer.fontSize,
+    fontFamily: layer.fontFamily,
+    color: layer.color,
+    opacity: layer.opacity,
+    fontWeight: layer.fontWeight,
+  };
+}
+
+const EXPORT_META = {
+  format: "png",
+  width: EXPORT_WIDTH,
+  height: EXPORT_HEIGHT,
+  dpi: EXPORT_DPI,
+  background: "transparent",
+  designArea: {
+    width: EXPORT_WIDTH,
+    height: EXPORT_HEIGHT,
+    safeMargin: 0.05,
+    widthTargetRatio: 0.875,
+  },
+} as const;
+
+function serializeLayersByTemplate(layersByTemplate: DesignLayersByTemplate) {
+  const result: Record<string, Record<string, ReturnType<typeof serializeLayerForJson>[]>> =
+    {};
+  for (const gender of DESIGN_GENDERS) {
+    result[gender] = {};
+    for (const side of DESIGN_SIDES) {
+      result[gender][side] = getLayersForSlot(layersByTemplate, gender, side).map(
+        serializeLayerForJson,
+      );
+    }
+  }
+  return result;
+}
+
 export function buildDesignJson(
   templateType: DesignConfig["templateType"],
   side: DesignConfig["side"],
@@ -180,52 +249,9 @@ export function buildDesignJson(
     {
       templateType,
       side,
-      export: {
-        format: "png",
-        width: EXPORT_WIDTH,
-        height: EXPORT_HEIGHT,
-        dpi: EXPORT_DPI,
-        background: "transparent",
-        designArea: {
-          width: EXPORT_WIDTH,
-          height: EXPORT_HEIGHT,
-          safeMargin: 0.05,
-          widthTargetRatio: 0.875,
-        },
-      },
+      export: EXPORT_META,
       ...meta,
-      layers: layers.map((layer) => {
-        const base = {
-          id: layer.id,
-          name: layer.name,
-          type: layer.type,
-          visible: layer.visible,
-          locked: layer.locked,
-          zIndex: layer.zIndex,
-          x: layer.x,
-          y: layer.y,
-          width: layer.width,
-          height: layer.height,
-          scale: layer.scale,
-          rotation: layer.rotation,
-        };
-        if (layer.type === "image") {
-          return {
-            ...base,
-            fileName: layer.image.fileName,
-            mimeType: layer.image.mimeType,
-          };
-        }
-        return {
-          ...base,
-          text: layer.text,
-          fontSize: layer.fontSize,
-          fontFamily: layer.fontFamily,
-          color: layer.color,
-          opacity: layer.opacity,
-          fontWeight: layer.fontWeight,
-        };
-      }),
+      layers: layers.map(serializeLayerForJson),
       x: firstImage?.x ?? 0,
       y: firstImage?.y ?? 0,
       width: firstImage?.width ?? 0,
@@ -238,26 +264,83 @@ export function buildDesignJson(
   );
 }
 
+/** 儲存／送出：包含所有模板與正反面圖層（v2） */
+export function buildFullDesignJson(
+  layersByTemplate: DesignLayersByTemplate,
+  activeGender: Gender,
+  activeSide: Side,
+  meta?: Record<string, unknown>,
+): string {
+  const activeLayers = getLayersForSlot(layersByTemplate, activeGender, activeSide);
+  const firstImage = activeLayers.find((l) => l.type === "image");
+
+  return JSON.stringify(
+    {
+      version: 2,
+      activeGender,
+      activeSide,
+      templateType: activeGender,
+      side: activeSide,
+      export: EXPORT_META,
+      ...meta,
+      layersByTemplate: serializeLayersByTemplate(layersByTemplate),
+      layers: activeLayers.map(serializeLayerForJson),
+      x: firstImage?.x ?? 0,
+      y: firstImage?.y ?? 0,
+      width: firstImage?.width ?? 0,
+      height: firstImage?.height ?? 0,
+      scale: firstImage?.scale ?? 1,
+      rotation: firstImage?.rotation ?? 0,
+    },
+    null,
+    2,
+  );
+}
+
+function serializeTextDesignLayer(
+  layer: TextDesignLayer,
+  template?: Gender,
+  side?: Side,
+) {
+  return {
+    ...serializeTextLayer({
+      id: layer.id,
+      type: "text",
+      text: layer.text,
+      fontSize: layer.fontSize,
+      fontFamily: layer.fontFamily,
+      color: layer.color,
+      opacity: layer.opacity,
+      fontWeight: layer.fontWeight,
+      rotation: layer.rotation,
+      scale: layer.scale,
+      x: layer.x,
+      y: layer.y,
+      width: layer.width,
+      height: layer.height,
+    }),
+    ...(template ? { template: template } : {}),
+    ...(side ? { side } : {}),
+  };
+}
+
 export function buildTextJson(layers: DesignLayer[]): string {
   const texts = layers
     .filter((l): l is TextDesignLayer => l.type === "text")
-    .map((layer) =>
-      serializeTextLayer({
-        id: layer.id,
-        type: "text",
-        text: layer.text,
-        fontSize: layer.fontSize,
-        fontFamily: layer.fontFamily,
-        color: layer.color,
-        opacity: layer.opacity,
-        fontWeight: layer.fontWeight,
-        rotation: layer.rotation,
-        scale: layer.scale,
-        x: layer.x,
-        y: layer.y,
-        width: layer.width,
-        height: layer.height,
-      }),
-    );
+    .map((layer) => serializeTextDesignLayer(layer));
+  return JSON.stringify(texts, null, 2);
+}
+
+export function buildAllTextsJson(layersByTemplate: DesignLayersByTemplate): string {
+  const texts: ReturnType<typeof serializeTextDesignLayer>[] = [];
+  for (const gender of DESIGN_GENDERS) {
+    for (const side of DESIGN_SIDES) {
+      for (const layer of getLayersForSlot(layersByTemplate, gender, side)) {
+        if (layer.type === "text") {
+          texts.push(serializeTextDesignLayer(layer, gender, side));
+        }
+      }
+    }
+  }
   return JSON.stringify(texts, null, 2);
 }

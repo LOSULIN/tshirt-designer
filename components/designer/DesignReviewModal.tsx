@@ -6,20 +6,24 @@ import {
   EXPORT_DPI,
   type Gender,
 } from "@/lib/constants";
-import type { DesignLayer } from "@/lib/types";
+import { getLayersForSlot } from "@/lib/design-state";
+import type { DesignLayersByTemplate } from "@/lib/types";
 import { ModelDesignPreview } from "./ModelDesignPreview";
 
 export function DesignReviewModal({
   open,
   gender,
-  layers,
+  layersByTemplate,
   onClose,
 }: {
   open: boolean;
   gender: Gender;
-  layers: DesignLayer[];
+  layersByTemplate: DesignLayersByTemplate;
   onClose: () => void;
 }) {
+  const frontLayers = getLayersForSlot(layersByTemplate, gender, "front");
+  const backLayers = getLayersForSlot(layersByTemplate, gender, "back");
+
   if (!open) return null;
 
   return (
@@ -70,7 +74,7 @@ export function DesignReviewModal({
                 <ModelDesignPreview
                   gender={gender}
                   side="front"
-                  layers={layers}
+                  layers={frontLayers}
                 />
               </div>
             </div>
@@ -82,7 +86,7 @@ export function DesignReviewModal({
                 <ModelDesignPreview
                   gender={gender}
                   side="back"
-                  layers={layers}
+                  layers={backLayers}
                 />
               </div>
             </div>

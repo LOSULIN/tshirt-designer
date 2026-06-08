@@ -13,6 +13,7 @@ export async function sendDesignSubmittedEmail(params: {
   } | null;
   fileLinks: {
     completed: string;
+    completedAll?: Record<string, string>;
     original: string;
     config: string;
     texts?: string;
@@ -48,7 +49,17 @@ export async function sendDesignSubmittedEmail(params: {
     ${applicantBlock}
     <h3>雲端檔案連結（7 天有效）</h3>
     <ul>
-      <li><a href="${params.fileLinks.completed}">設計完成圖</a></li>
+      <li><a href="${params.fileLinks.completed}">設計完成圖（目前面向）</a></li>
+      ${
+        params.fileLinks.completedAll
+          ? Object.entries(params.fileLinks.completedAll)
+              .map(
+                ([name, url]) =>
+                  `<li><a href="${url}">設計完成圖 · ${name}</a></li>`,
+              )
+              .join("")
+          : ""
+      }
       <li><a href="${params.fileLinks.original}">原始圖片</a></li>
       <li><a href="${params.fileLinks.config}">設計設定 JSON</a></li>
       ${

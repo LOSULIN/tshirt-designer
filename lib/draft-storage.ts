@@ -1,5 +1,6 @@
 import { DRAFT_DB_NAME, DRAFT_STORAGE_KEY, DRAFT_STORE_NAME } from "./constants";
-import type { DesignDraft, DesignLayer } from "./types";
+import { DESIGN_GENDERS, DESIGN_SIDES, getLayersForSlot } from "./design-state";
+import type { DesignDraft, DesignLayer, DesignLayersByTemplate } from "./types";
 
 const IMAGE_KEY = "original";
 const PREVIEW_KEY = "preview";
@@ -116,6 +117,35 @@ export async function saveAllLayerImages(layers: DesignLayer[]) {
       r.blob(),
     );
     await saveDraftImages(first.image.originalBlob, previewBlob);
+  }
+}
+
+export async function saveAllLayerImagesFromState(
+  layersByTemplate: DesignLayersByTemplate,
+) {
+  let firstImageLayer: Extract<DesignLayer, { type: "image" }> | null = null;
+
+  for (const gender of DESIGN_GENDERS) {
+    for (const side of DESIGN_SIDES) {
+      for (const layer of getLayersForSlot(layersByTemplate, gender, side)) {
+        if (layer.type !== "image") continue;
+        const previewBlob = await fetch(layer.image.previewUrl).then((r) =>
+          r.blob(),
+        );
+        await saveLayerImages(layer.id, layer.image.originalBlob, previewBlob);
+        if (!firstImageLayer) firstImageLayer = layer;
+      }
+    }
+  }
+
+  if (firstImageLayer) {
+    const previewBlob = await fetch(firstImageLayer.image.previewUrl).then(
+      (r) => r.blob(),
+    );
+    await saveDraftImages(
+      firstImageLayer.image.originalBlob,
+      previewBlob,
+    );
   }
 }
 

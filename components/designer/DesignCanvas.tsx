@@ -8,6 +8,8 @@ import {
   TEMPLATES,
 } from "@/lib/constants";
 import type { Gender, ShirtColor, Side } from "@/lib/constants";
+import { DESIGN_SIDES, hasAnyDesign, hasDesignInSlot } from "@/lib/design-state";
+import type { DesignLayersByTemplate } from "@/lib/types";
 import { guidesEqual } from "@/lib/element-snap";
 import { sortLayersByZIndex } from "@/lib/layers";
 import { buildSnapTargetsFromLayers } from "@/lib/snap-targets";
@@ -46,6 +48,7 @@ export function DesignCanvas({
   shirtColor,
   side,
   layers,
+  layersByTemplate,
   selectedIds,
   showGrid,
   gridSnapEnabled,
@@ -72,6 +75,7 @@ export function DesignCanvas({
   shirtColor: ShirtColor;
   side: Side;
   layers: DesignLayer[];
+  layersByTemplate: DesignLayersByTemplate;
   selectedIds: string[];
   showGrid: boolean;
   gridSnapEnabled: boolean;
@@ -99,7 +103,11 @@ export function DesignCanvas({
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [showDesignReview, setShowDesignReview] = useState(false);
   const [showClothingBrowse, setShowClothingBrowse] = useState(false);
-  const hasDesign = layers.length > 0;
+  const hasCurrentSlotDesign = layers.length > 0;
+  const hasAnyDesignContent = hasAnyDesign(layersByTemplate);
+  const canReviewGenderDesign = DESIGN_SIDES.some((s) =>
+    hasDesignInSlot(layersByTemplate, gender, s),
+  );
 
   const templateSrc = TEMPLATES[gender][side];
   const visibleLayers = useMemo(
@@ -139,7 +147,7 @@ export function DesignCanvas({
             <button
               type="button"
               title="瀏覽完整衣服設計（正面與背面）"
-              disabled={isBusy || !hasDesign}
+              disabled={isBusy || !canReviewGenderDesign}
               onClick={() => setShowDesignReview(true)}
               className="flex items-center gap-1 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40"
             >
@@ -149,7 +157,7 @@ export function DesignCanvas({
             <button
               type="button"
               title="清除全部重新設計"
-              disabled={isBusy || !hasDesign}
+              disabled={isBusy || !hasAnyDesignContent}
               onClick={() => setShowClearConfirm(true)}
               className="flex items-center gap-1 rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40"
             >
@@ -340,14 +348,15 @@ export function DesignCanvas({
       <DesignReviewModal
         open={showDesignReview}
         gender={gender}
-        layers={layers}
+        layersByTemplate={layersByTemplate}
         onClose={() => setShowDesignReview(false)}
       />
 
       <ClothingBrowseModal
         open={showClothingBrowse}
+        gender={gender}
         shirtColor={shirtColor}
-        layers={layers}
+        layersByTemplate={layersByTemplate}
         onClose={() => setShowClothingBrowse(false)}
       />
 

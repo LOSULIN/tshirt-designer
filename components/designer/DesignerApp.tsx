@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppHeader } from "./AppHeader";
 import { DesignCanvas } from "./DesignCanvas";
 import { DesignPanel } from "./DesignPanel";
@@ -20,7 +20,6 @@ import type {
 import {
   DEFAULT_MODEL_ID,
   DRAFT_TTL_MS,
-  normalizeGender,
   PRINT_AREA,
   PRODUCTS,
   RECOMMENDED_IMAGE_HEIGHT,
@@ -33,12 +32,26 @@ import {
   loadDraftImages,
   loadDraftMetadata,
   loadLayerImages,
-  saveAllLayerImages,
+  saveAllLayerImagesFromState,
   saveDraftMetadata,
 } from "@/lib/draft-storage";
 import {
-  buildDesignJson,
-  buildTextJson,
+  completedDesignFormField,
+  createEmptyDesignLayersByTemplate,
+  DESIGN_GENDERS,
+  DESIGN_SIDES,
+  getLayersForSlot,
+  hasAnyDesign,
+  hasDesignInSlot,
+  layersByTemplateToDraftSnapshot,
+  legacyConfigFromSlot,
+  migrateDraftLayersByTemplate,
+  setLayersForSlot,
+  updateLayersForSlot,
+} from "@/lib/design-state";
+import {
+  buildAllTextsJson,
+  buildFullDesignJson,
   renderCompletedDesignPng,
 } from "@/lib/export-design";
 import {
@@ -59,7 +72,6 @@ import {
   duplicateTextLayer,
   getNextZIndex,
   imageLayerLimitMessage,
-  migrateLegacyToLayers,
   layersToDraftSnapshot,
   moveLayerZIndex,
   reorderLayersByDrag,
@@ -173,6 +185,45 @@ async function hydrateImageLayer(
   };
 }
 
+async function hydrateDesignLayersByTemplate(
+  snapshot: ReturnType<typeof layersByTemplateToDraftSnapshot>,
+) {
+  let result = createEmptyDesignLayersByTemplate();
+
+  for (const templateGender of DESIGN_GENDERS) {
+    for (const templateSide of DESIGN_SIDES) {
+      const hydrated: DesignLayer[] = [];
+
+      for (const layer of getLayersForSlot(snapshot, templateGender, templateSide)) {
+        if (layer.type === "image") {
+          let blobs = await loadLayerImages(layer.id);
+          if (!blobs.original || !blobs.preview) {
+            blobs = await loadDraftImages();
+          }
+          if (blobs.original && blobs.preview) {
+            hydrated.push(
+              await hydrateImageLayer(layer, blobs.original, blobs.preview),
+            );
+          } else {
+            hydrated.push(layer);
+          }
+        } else {
+          hydrated.push(layer);
+        }
+      }
+
+      result = setLayersForSlot(
+        result,
+        templateGender,
+        templateSide,
+        hydrated,
+      );
+    }
+  }
+
+  return result;
+}
+
 const EMPTY_FORM: ApplicationFormData = {
   applicantName: "",
   applicantEmail: "",
@@ -194,7 +245,9 @@ export function DesignerApp() {
   const [weightKg, setWeightKg] = useState(65);
   const [suggestedSize, setSuggestedSize] = useState<Size>("M");
 
-  const [layers, setLayers] = useState<DesignLayer[]>([]);
+  const [layersByTemplate, setLayersByTemplate] = useState(
+    createEmptyDesignLayersByTemplate,
+  );
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
@@ -213,11 +266,32 @@ export function DesignerApp() {
     useState<ApplicationFormData>(EMPTY_FORM);
   const autoSaveTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  const layers = useMemo(
+    () => getLayersForSlot(layersByTemplate, gender, side),
+    [layersByTemplate, gender, side],
+  );
+
+  const setLayers = useCallback(
+    (updater: DesignLayer[] | ((prev: DesignLayer[]) => DesignLayer[])) => {
+      setLayersByTemplate((prev) =>
+        updateLayersForSlot(prev, gender, side, (current) =>
+          typeof updater === "function" ? updater(current) : updater,
+        ),
+      );
+    },
+    [gender, side],
+  );
+
   const primaryId = selectedIds[selectedIds.length - 1] ?? null;
   const primaryLayer = layers.find((l) => l.id === primaryId) ?? null;
-  const hasDesign = layers.length > 0;
+  const hasDesign = hasAnyDesign(layersByTemplate);
   const selectedText =
     primaryLayer?.type === "text" ? primaryLayer : null;
+
+  useEffect(() => {
+    setSelectedIds([]);
+    setFocusTextEditor(false);
+  }, [gender, side]);
 
   const submissionMeta = {
     product: PRODUCTS[product].name,
@@ -371,35 +445,10 @@ export function DesignerApp() {
     if (!meta) return;
 
     setDraftId(meta.id);
-    setGender(normalizeGender(meta.config.templateType));
-    setSide(meta.config.side);
 
-    let restored: DesignLayer[] = [];
-
-    if (meta.layers?.length) {
-      restored = meta.layers;
-      const hydrated: DesignLayer[] = [];
-      for (const layer of restored) {
-        if (layer.type === "image") {
-          let blobs = await loadLayerImages(layer.id);
-          if (!blobs.original || !blobs.preview) {
-            blobs = await loadDraftImages();
-          }
-          if (blobs.original && blobs.preview) {
-            hydrated.push(
-              await hydrateImageLayer(layer, blobs.original, blobs.preview),
-            );
-          } else {
-            hydrated.push(layer);
-          }
-        } else {
-          hydrated.push(layer);
-        }
-      }
-      restored = hydrated;
-    } else {
+    let legacyImage: UploadedDesignImage | null = null;
+    if (!meta.layersByTemplate && !meta.layers?.length) {
       const images = await loadDraftImages();
-      let imageData: UploadedDesignImage | null = null;
       if (images.original && images.preview) {
         const originalUrl = URL.createObjectURL(images.original);
         const previewUrl = URL.createObjectURL(images.preview);
@@ -415,7 +464,7 @@ export function DesignerApp() {
             originalImg.src = originalUrl;
           }),
         ]);
-        imageData = {
+        legacyImage = {
           originalBlob: images.original,
           originalUrl,
           previewUrl,
@@ -427,15 +476,23 @@ export function DesignerApp() {
           fileName: "draft",
         };
       }
-      restored = migrateLegacyToLayers(
-        meta.config,
-        imageData,
-        meta.textLayers ?? [],
-      );
     }
 
-    if (restored.length > 0) {
-      setLayers(restored);
+    const { state: snapshot, gender: restoredGender, side: restoredSide } =
+      migrateDraftLayersByTemplate(meta, {
+        image: legacyImage,
+        textLayers: meta.textLayers ?? [],
+      });
+
+    setGender(restoredGender);
+    setSide(restoredSide);
+
+    const hydrated = await hydrateDesignLayersByTemplate(
+      layersByTemplateToDraftSnapshot(snapshot),
+    );
+
+    if (hasAnyDesign(hydrated)) {
+      setLayersByTemplate(hydrated);
       setStatusMessage("已恢復未送出的暫存設計");
     }
   }, []);
@@ -448,6 +505,7 @@ export function DesignerApp() {
     if (!hasDesign) return;
 
     const expiresAt = new Date(Date.now() + DRAFT_TTL_MS).toISOString();
+    const activeConfig = legacyConfigFromSlot(layersByTemplate, gender, side);
     const firstImage = layers.find((l) => l.type === "image");
 
     saveDraftMetadata({
@@ -455,22 +513,16 @@ export function DesignerApp() {
       savedAt: new Date().toISOString(),
       expiresAt,
       submitted: false,
-      config: {
-        templateType: gender,
-        side,
-        x: firstImage?.x ?? 0,
-        y: firstImage?.y ?? 0,
-        width: firstImage?.width ?? 0,
-        height: firstImage?.height ?? 0,
-        scale: firstImage?.scale ?? 1,
-        rotation: firstImage?.rotation ?? 0,
-      },
+      activeGender: gender,
+      activeSide: side,
+      config: activeConfig,
       hasImage: !!firstImage,
+      layersByTemplate: layersByTemplateToDraftSnapshot(layersByTemplate),
       layers: layersToDraftSnapshot(layers),
     });
 
-    await saveAllLayerImages(layers);
-  }, [draftId, gender, side, hasDesign, layers]);
+    await saveAllLayerImagesFromState(layersByTemplate);
+  }, [draftId, gender, side, hasDesign, layers, layersByTemplate]);
 
   const syncDraftToServer = useCallback(async () => {
     if (!hasDesign) return;
@@ -479,9 +531,9 @@ export function DesignerApp() {
       formData.append("draftId", draftId);
       formData.append(
         "designJson",
-        buildDesignJson(gender, side, layers, submissionMeta),
+        buildFullDesignJson(layersByTemplate, gender, side, submissionMeta),
       );
-      formData.append("textJson", buildTextJson(layers));
+      formData.append("textJson", buildAllTextsJson(layersByTemplate));
       const firstImage = layers.find(
         (l): l is ImageDesignLayer => l.type === "image",
       );
@@ -500,7 +552,7 @@ export function DesignerApp() {
     } catch {
       // 離線或尚未設定 Supabase 時仍保留本機暫存
     }
-  }, [draftId, gender, side, hasDesign, layers, submissionMeta]);
+  }, [draftId, gender, side, hasDesign, layers, layersByTemplate, submissionMeta]);
 
   useEffect(() => {
     autoSaveTimer.current = setInterval(() => {
@@ -582,11 +634,19 @@ export function DesignerApp() {
   };
 
   const handleClearAllDesign = useCallback(() => {
-    for (const layer of layers) {
-      revokeLayerAssets(layer);
-      void clearLayerImages(layer.id);
+    for (const templateGender of DESIGN_GENDERS) {
+      for (const templateSide of DESIGN_SIDES) {
+        for (const layer of getLayersForSlot(
+          layersByTemplate,
+          templateGender,
+          templateSide,
+        )) {
+          revokeLayerAssets(layer);
+          void clearLayerImages(layer.id);
+        }
+      }
     }
-    setLayers([]);
+    setLayersByTemplate(createEmptyDesignLayersByTemplate());
     setSelectedIds([]);
     setWarnings([]);
     setJpgHintShown(false);
@@ -594,7 +654,7 @@ export function DesignerApp() {
     void clearAllDrafts();
     setDraftId(nanoid(12));
     setStatusMessage("已清除全部設計，可重新開始");
-  }, [layers]);
+  }, [layersByTemplate]);
 
   const handleAddText = () => {
     if (!canAddTextLayer(layers)) {
@@ -689,22 +749,63 @@ export function DesignerApp() {
     setIsBusy(true);
     setStatusMessage(null);
     try {
-      const completedBlob = await renderCompletedDesignPng(gender, side, layers);
-      const designJson = buildDesignJson(gender, side, layers, {
+      const designJson = buildFullDesignJson(layersByTemplate, gender, side, {
         ...submissionMeta,
         applicant: applicationForm,
       });
-      const textJson = buildTextJson(layers);
+      const textJson = buildAllTextsJson(layersByTemplate);
 
       const formData = new FormData();
-      formData.append("completed", completedBlob, "completed.png");
+      let primaryCompleted: Blob | null = null;
+
+      for (const templateGender of DESIGN_GENDERS) {
+        for (const templateSide of DESIGN_SIDES) {
+          const slotLayers = getLayersForSlot(
+            layersByTemplate,
+            templateGender,
+            templateSide,
+          );
+          if (!hasDesignInSlot(layersByTemplate, templateGender, templateSide)) {
+            continue;
+          }
+          const blob = await renderCompletedDesignPng(
+            templateGender,
+            templateSide,
+            slotLayers,
+          );
+          const field = completedDesignFormField(templateGender, templateSide);
+          formData.append(field, blob, `${field}.png`);
+          if (templateGender === gender && templateSide === side) {
+            primaryCompleted = blob;
+          }
+        }
+      }
+
+      if (!primaryCompleted) {
+        throw new Error("沒有可送出的設計內容");
+      }
+
+      formData.append("completed", primaryCompleted, "completed.png");
       formData.append("designJson", designJson);
       formData.append("textJson", textJson);
       formData.append("applicantJson", JSON.stringify(applicationForm));
 
-      const firstImage = layers.find(
-        (l): l is ImageDesignLayer => l.type === "image",
-      );
+      let firstImage: ImageDesignLayer | undefined;
+      for (const templateGender of DESIGN_GENDERS) {
+        for (const templateSide of DESIGN_SIDES) {
+          const image = getLayersForSlot(
+            layersByTemplate,
+            templateGender,
+            templateSide,
+          ).find((l): l is ImageDesignLayer => l.type === "image");
+          if (image) {
+            firstImage = image;
+            break;
+          }
+        }
+        if (firstImage) break;
+      }
+
       if (firstImage) {
         formData.append(
           "original",
@@ -730,17 +831,11 @@ export function DesignerApp() {
         savedAt: new Date().toISOString(),
         expiresAt: new Date(Date.now() + DRAFT_TTL_MS).toISOString(),
         submitted: true,
-        config: {
-          templateType: gender,
-          side,
-          x: 0,
-          y: 0,
-          width: 0,
-          height: 0,
-          scale: 1,
-          rotation: 0,
-        },
+        activeGender: gender,
+        activeSide: side,
+        config: legacyConfigFromSlot(layersByTemplate, gender, side),
         hasImage: !!firstImage,
+        layersByTemplate: layersByTemplateToDraftSnapshot(layersByTemplate),
         layers: layersToDraftSnapshot(layers),
       });
 
@@ -779,14 +874,27 @@ export function DesignerApp() {
 
   const handleDeletePrimary = useCallback(() => {
     if (!primaryId) return;
-    deleteLayerById(primaryId);
-    if (layers.length <= 1) {
-      setWarnings([]);
-      setJpgHintShown(false);
-      void clearAllDrafts();
-    }
+    setLayersByTemplate((prev) => {
+      const target = getLayersForSlot(prev, gender, side).find(
+        (l) => l.id === primaryId,
+      );
+      if (target) {
+        revokeLayerAssets(target);
+        void clearLayerImages(target.id);
+      }
+      const next = updateLayersForSlot(prev, gender, side, (current) =>
+        current.filter((l) => l.id !== primaryId),
+      );
+      if (!hasAnyDesign(next)) {
+        setWarnings([]);
+        setJpgHintShown(false);
+        void clearAllDrafts();
+      }
+      return next;
+    });
+    setSelectedIds((prev) => prev.filter((id) => id !== primaryId));
     setStatusMessage("已刪除圖層");
-  }, [primaryId, layers.length, deleteLayerById]);
+  }, [primaryId, gender, side]);
 
   return (
     <div className="flex h-screen flex-col bg-zinc-50 text-zinc-900">
@@ -863,6 +971,7 @@ export function DesignerApp() {
           shirtColor={shirtColor}
           side={side}
           layers={layers}
+          layersByTemplate={layersByTemplate}
           selectedIds={selectedIds}
           showGrid={showGrid}
           gridSnapEnabled={gridSnapEnabled}
