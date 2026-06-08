@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Inter, Noto_Sans_TC, Roboto } from "next/font/google";
 import "./globals.css";
 
@@ -32,6 +32,11 @@ const notoSansTc = Noto_Sans_TC({
 export const metadata: Metadata = {
   title: "服飾客製化設計器",
   description: "線上服飾設計平台 MVP",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({

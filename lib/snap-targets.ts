@@ -20,7 +20,7 @@ export function buildSnapTargetsFromLayers(
 /** @deprecated 使用 buildSnapTargetsFromLayers */
 export function buildSnapTargets(
   activeLayerId: string,
-  image: {
+  cf: {
     x: number;
     y: number;
     width: number;
@@ -31,14 +31,14 @@ export function buildSnapTargets(
 ): SnapTarget[] {
   const targets: SnapTarget[] = [];
 
-  if (image && activeLayerId !== "image") {
+  if (cf && activeLayerId !== "cf") {
     targets.push({
-      id: "image",
-      x: image.x,
-      y: image.y,
-      width: image.width,
-      height: image.height,
-      scale: image.scale,
+      id: "cf",
+      x: cf.x,
+      y: cf.y,
+      width: cf.width,
+      height: cf.height,
+      scale: cf.scale,
     });
   }
 

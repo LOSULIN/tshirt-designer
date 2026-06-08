@@ -1,4 +1,4 @@
-import type { Gender, Side } from "./constants";
+import type { Fit, Gender, Material, Side } from "./constants";
 
 export interface DesignConfig {
   templateType: Gender;
@@ -101,4 +101,30 @@ export interface SubmitDesignResponse {
     config: string;
     texts?: string;
   };
+}
+
+export type PanelTab =
+  | "product"
+  | "model"
+  | "layers"
+  | "help";
+
+export interface ApplicationFormData {
+  applicantName: string;
+  applicantEmail: string;
+  applicantPhone: string;
+  notes: string;
+}
+
+export interface DesignSubmissionMeta {
+  product: string;
+  size: string;
+  shirtColor: string;
+  fit: Fit;
+  material: Material;
+  gender: Gender;
+  side: Side;
+  heightCm?: number;
+  weightKg?: number;
+  suggestedSize?: string;
 }

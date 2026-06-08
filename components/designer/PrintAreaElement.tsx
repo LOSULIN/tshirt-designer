@@ -25,6 +25,13 @@ const EMPTY_GUIDES: SnapGuidesState = {
   elementHorizontal: [],
 };
 
+function normalizeRotation(degrees: number) {
+  let next = degrees;
+  while (next > 180) next -= 360;
+  while (next < -180) next += 360;
+  return next;
+}
+
 export function PrintAreaElement({
   x,
   y,
@@ -33,6 +40,7 @@ export function PrintAreaElement({
   scale,
   rotation,
   isActive,
+  showControls,
   locked,
   gridSnapEnabled,
   elementSnapEnabled,
@@ -40,6 +48,9 @@ export function PrintAreaElement({
   otherElements,
   onSelect,
   onTransformChange,
+  onRotationChange,
+  onDuplicate,
+  onDelete,
   onSnapGuidesChange,
   children,
   className = "",
@@ -51,6 +62,7 @@ export function PrintAreaElement({
   scale: number;
   rotation: number;
   isActive: boolean;
+  showControls: boolean;
   locked: boolean;
   gridSnapEnabled: boolean;
   elementSnapEnabled: boolean;
@@ -58,6 +70,9 @@ export function PrintAreaElement({
   otherElements: SnapTarget[];
   onSelect: (shiftKey: boolean) => void;
   onTransformChange: (next: { x: number; y: number }) => void;
+  onRotationChange?: (rotation: number) => void;
+  onDuplicate?: () => void;
+  onDelete?: () => void;
   onSnapGuidesChange: (guides: SnapGuidesState) => void;
   children: React.ReactNode;
   className?: string;
@@ -67,6 +82,12 @@ export function PrintAreaElement({
     startY: number;
     originX: number;
     originY: number;
+  } | null>(null);
+  const rotateRef = useRef<{
+    originRotation: number;
+    startAngle: number;
+    centerX: number;
+    centerY: number;
   } | null>(null);
   const lastGuidesRef = useRef<SnapGuidesState>(EMPTY_GUIDES);
   const gridSnapRef = useRef(gridSnapEnabled);
@@ -185,10 +206,50 @@ export function PrintAreaElement({
     emitGuides(EMPTY_GUIDES);
   };
 
+  const onRotatePointerDown = (event: React.PointerEvent) => {
+    if (!onRotationChange) return;
+    event.stopPropagation();
+    const root = event.currentTarget.closest("[data-layer-root]");
+    if (!root) return;
+    const rect = root.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    rotateRef.current = {
+      originRotation: rotation,
+      startAngle:
+        (Math.atan2(event.clientY - centerY, event.clientX - centerX) * 180) /
+        Math.PI,
+      centerX,
+      centerY,
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const onRotatePointerMove = (event: React.PointerEvent) => {
+    if (!rotateRef.current || !onRotationChange) return;
+    const { originRotation, startAngle, centerX, centerY } = rotateRef.current;
+    const currentAngle =
+      (Math.atan2(event.clientY - centerY, event.clientX - centerX) * 180) /
+      Math.PI;
+    onRotationChange(normalizeRotation(originRotation + currentAngle - startAngle));
+  };
+
+  const onRotatePointerUp = (event: React.PointerEvent) => {
+    rotateRef.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  };
+
+  const stopControlEvent = (event: React.PointerEvent | React.MouseEvent) => {
+    event.stopPropagation();
+  };
+
   return (
     <div
+      data-layer-root
       className={`absolute ${locked ? "cursor-default" : "touch-none cursor-move"} ${className} ${
-        isActive ? "ring-2 ring-blue-400 ring-offset-1" : ""
+        isActive && !showControls ? "ring-2 ring-blue-400 ring-offset-1" : ""
       } ${locked ? "opacity-90" : ""}`}
       style={{
         left: `${(x / PRINT_AREA.width) * 100}%`,
@@ -202,14 +263,87 @@ export function PrintAreaElement({
       onPointerCancel={onPointerUp}
     >
       <div
-        className="flex h-full w-full items-center justify-center"
+        className="relative flex h-full w-full items-center justify-center"
         style={{
           transform: `rotate(${rotation}deg)`,
           transformOrigin: "center center",
         }}
       >
+        {showControls && (
+          <div className="pointer-events-none absolute inset-0 z-10">
+            <div className="absolute inset-0 border-2 border-dashed border-blue-500" />
+            {(
+              [
+                "left-0 top-0 -translate-x-1/2 -translate-y-1/2",
+                "right-0 top-0 translate-x-1/2 -translate-y-1/2",
+                "bottom-0 left-0 -translate-x-1/2 translate-y-1/2",
+                "bottom-0 right-0 translate-x-1/2 translate-y-1/2",
+              ] as const
+            ).map((position) => (
+              <span
+                key={position}
+                className={`absolute h-2.5 w-2.5 rounded-sm border-2 border-blue-500 bg-white ${position}`}
+              />
+            ))}
+          </div>
+        )}
+
         {children}
+
+        {showControls && onRotationChange && (
+          <div className="pointer-events-none absolute left-1/2 top-0 z-20 flex -translate-x-1/2 -translate-y-full flex-col items-center">
+            <button
+              type="button"
+              title="拖曳旋轉"
+              aria-label="拖曳旋轉"
+              className="pointer-events-auto flex h-5 w-5 cursor-grab touch-none items-center justify-center rounded-full border-2 border-blue-500 bg-white text-[10px] text-blue-600 shadow-sm active:cursor-grabbing"
+              onPointerDown={onRotatePointerDown}
+              onPointerMove={onRotatePointerMove}
+              onPointerUp={onRotatePointerUp}
+              onPointerCancel={onRotatePointerUp}
+            >
+              ↻
+            </button>
+            <span className="h-4 w-px bg-blue-500" />
+          </div>
+        )}
       </div>
+
+      {showControls && (onDuplicate || onDelete) && (
+        <div
+          className="absolute top-0 left-full z-30 ml-2 flex items-center gap-0.5 rounded-lg border border-zinc-200 bg-white p-1 shadow-lg"
+          onPointerDown={stopControlEvent}
+        >
+          {onDuplicate && (
+            <button
+              type="button"
+              title="複製"
+              aria-label="複製圖層"
+              className="flex h-7 w-7 items-center justify-center rounded-md text-sm text-zinc-700 hover:bg-zinc-100"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDuplicate();
+              }}
+            >
+              ⧉
+            </button>
+          )}
+          {onDelete && (
+            <button
+              type="button"
+              title="刪除"
+              aria-label="刪除圖層"
+              className="flex h-7 w-7 items-center justify-center rounded-md text-sm text-zinc-700 hover:bg-red-50 hover:text-red-600"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete();
+              }}
+            >
+              🗑
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

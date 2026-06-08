@@ -186,20 +186,4 @@ export function applySnapGuides(
   return applyDragSnap(x, y, width, height, scale, { gridSnap: false });
 }
 
-export function getInitialPlacement(
-  imageWidth: number,
-  imageHeight: number,
-): { x: number; y: number; width: number; height: number } {
-  const maxW = PRINT_AREA.width * 0.85;
-  const maxH = PRINT_AREA.height * 0.85;
-  const ratio = Math.min(maxW / imageWidth, maxH / imageHeight, 1);
-  const width = imageWidth * ratio;
-  const height = imageHeight * ratio;
-
-  return {
-    width,
-    height,
-    x: (PRINT_AREA.width - width) / 2,
-    y: (PRINT_AREA.height - height) / 2,
-  };
-}
+export { getAutoFitPlacement as getInitialPlacement } from "./design-placement";

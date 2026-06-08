@@ -1,9 +1,13 @@
 import {
   ACCEPTED_IMAGE_TYPES,
   MAX_FILE_SIZE_BYTES,
-  MIN_RESOLUTION,
+  MAX_IMAGE_HEIGHT,
+  MAX_IMAGE_WIDTH,
+  MIN_IMAGE_HEIGHT,
+  MIN_IMAGE_WIDTH,
   PREVIEW_MAX_EDGE,
-  RECOMMENDED_RESOLUTION,
+  RECOMMENDED_IMAGE_HEIGHT,
+  RECOMMENDED_IMAGE_WIDTH,
 } from "./constants";
 
 export type ImageValidationResult =
@@ -26,18 +30,30 @@ function loadImageFromFile(file: File): Promise<HTMLImageElement> {
   });
 }
 
+const ACCEPTED_EXTENSIONS_LIST = [".png", ".jpg", ".jpeg", ".webp"];
+
+function hasAcceptedExtension(fileName: string): boolean {
+  const lower = fileName.toLowerCase();
+  return ACCEPTED_EXTENSIONS_LIST.some((ext) => lower.endsWith(ext));
+}
+
 export function validateImageFile(file: File): ImageValidationResult {
   const normalizedType = file.type.toLowerCase();
-  if (
-    !ACCEPTED_IMAGE_TYPES.includes(
+  const typeOk =
+    normalizedType === "" ||
+    ACCEPTED_IMAGE_TYPES.includes(
       normalizedType as (typeof ACCEPTED_IMAGE_TYPES)[number],
-    )
-  ) {
-    return { ok: false, error: "僅支援 PNG、JPG、JPEG、WEBP 格式" };
+    );
+
+  if (!typeOk && !hasAcceptedExtension(file.name)) {
+    return {
+      ok: false,
+      error: "僅支援 PNG、JPG、JPEG、WEBP 格式",
+    };
   }
 
   if (file.size > MAX_FILE_SIZE_BYTES) {
-    return { ok: false, error: "檔案超過10MB限制" };
+    return { ok: false, error: "檔案大小超過 10MB" };
   }
 
   return { ok: true, isPng: false, lowResolution: false, belowRecommended: false };
@@ -57,13 +73,27 @@ export async function validateImageFileFull(
   if (!basic.ok) return basic;
 
   const { width, height } = await inspectImageDimensions(file);
-  const maxEdge = Math.max(width, height);
+
+  if (width < MIN_IMAGE_WIDTH || height < MIN_IMAGE_HEIGHT) {
+    return {
+      ok: false,
+      error: `圖片尺寸不可小於 ${MIN_IMAGE_WIDTH}×${MIN_IMAGE_HEIGHT}`,
+    };
+  }
+
+  if (width > MAX_IMAGE_WIDTH || height > MAX_IMAGE_HEIGHT) {
+    return {
+      ok: false,
+      error: `圖片尺寸不可超過 ${MAX_IMAGE_WIDTH}×${MAX_IMAGE_HEIGHT}`,
+    };
+  }
 
   return {
     ok: true,
     isPng: file.type === "image/png",
-    lowResolution: width < MIN_RESOLUTION || height < MIN_RESOLUTION,
-    belowRecommended: maxEdge < RECOMMENDED_RESOLUTION,
+    lowResolution: false,
+    belowRecommended:
+      width < RECOMMENDED_IMAGE_WIDTH || height < RECOMMENDED_IMAGE_HEIGHT,
   };
 }
 

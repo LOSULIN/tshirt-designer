@@ -1,11 +1,32 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { AppHeader } from "./AppHeader";
 import { DesignCanvas } from "./DesignCanvas";
-import { TemplateSidebar } from "./TemplateSidebar";
-import { ToolsSidebar } from "./ToolsSidebar";
-import type { Gender, Side } from "@/lib/constants";
-import { DRAFT_TTL_MS, PRINT_AREA } from "@/lib/constants";
+import { DesignPanel } from "./DesignPanel";
+import { IconNav } from "./IconNav";
+import { ModelPanel } from "./ModelPanel";
+import { ProductPanel } from "./ProductPanel";
+import { SubmitApplicationModal } from "./SubmitApplicationModal";
+import { UploadValidationModal } from "./UploadValidationModal";
+import type {
+  Gender,
+  Material,
+  Product,
+  ShirtColor,
+  Side,
+  Size,
+} from "@/lib/constants";
+import {
+  DEFAULT_MODEL_ID,
+  DRAFT_TTL_MS,
+  normalizeGender,
+  PRINT_AREA,
+  PRODUCTS,
+  RECOMMENDED_IMAGE_HEIGHT,
+  RECOMMENDED_IMAGE_WIDTH,
+  suggestSize,
+} from "@/lib/constants";
 import {
   clearAllDrafts,
   clearLayerImages,
@@ -30,16 +51,20 @@ import {
   measureTextBounds,
 } from "@/lib/text-layer";
 import {
+  canAddImageLayer,
+  canAddTextLayer,
   createImageLayer,
   defaultLayerName,
   duplicateImageLayerAsync,
   duplicateTextLayer,
   getNextZIndex,
+  imageLayerLimitMessage,
   migrateLegacyToLayers,
   layersToDraftSnapshot,
   moveLayerZIndex,
   reorderLayersByDrag,
   revokeLayerAssets,
+  textLayerLimitMessage,
 } from "@/lib/layers";
 import { buildSnapTargetsFromLayers } from "@/lib/snap-targets";
 import {
@@ -49,8 +74,10 @@ import {
   validateImageFileFull,
 } from "@/lib/image-processing";
 import type {
+  ApplicationFormData,
   DesignLayer,
   ImageDesignLayer,
+  PanelTab,
   TextDesignLayer,
   UploadedDesignImage,
 } from "@/lib/types";
@@ -146,9 +173,27 @@ async function hydrateImageLayer(
   };
 }
 
+const EMPTY_FORM: ApplicationFormData = {
+  applicantName: "",
+  applicantEmail: "",
+  applicantPhone: "",
+  notes: "",
+};
+
 export function DesignerApp() {
-  const [gender, setGender] = useState<Gender>("male");
+  const [activeTab, setActiveTab] = useState<PanelTab>("product");
+  const [gender, setGender] = useState<Gender>("child-male");
   const [side, setSide] = useState<Side>("front");
+  const [product, setProduct] = useState<Product>("basic-tshirt");
+  const [size, setSize] = useState<Size>("M");
+  const [shirtColor, setShirtColor] = useState<ShirtColor>("white");
+  const fit = "standard" as const;
+  const [material, setMaterial] = useState<Material>("cotton-200");
+  const [modelId, setModelId] = useState("child-male-1");
+  const [heightCm, setHeightCm] = useState(175);
+  const [weightKg, setWeightKg] = useState(65);
+  const [suggestedSize, setSuggestedSize] = useState<Size>("M");
+
   const [layers, setLayers] = useState<DesignLayer[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [warnings, setWarnings] = useState<string[]>([]);
@@ -159,14 +204,34 @@ export function DesignerApp() {
   const [showGrid, setShowGrid] = useState(true);
   const [gridSnapEnabled, setGridSnapEnabled] = useState(true);
   const [elementSnapDistance, setElementSnapDistance] = useState(10);
+  const [showSubmitModal, setShowSubmitModal] = useState(false);
+  const [uploadAlertDetail, setUploadAlertDetail] = useState<string | null>(
+    null,
+  );
+  const [focusTextEditor, setFocusTextEditor] = useState(false);
+  const [applicationForm, setApplicationForm] =
+    useState<ApplicationFormData>(EMPTY_FORM);
   const autoSaveTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const primaryId = selectedIds[selectedIds.length - 1] ?? null;
   const primaryLayer = layers.find((l) => l.id === primaryId) ?? null;
-
   const hasDesign = layers.length > 0;
   const selectedText =
     primaryLayer?.type === "text" ? primaryLayer : null;
+
+  const submissionMeta = {
+    product: PRODUCTS[product].name,
+    size,
+    shirtColor,
+    fit,
+    material,
+    gender,
+    side,
+    heightCm,
+    weightKg,
+    suggestedSize,
+    modelId,
+  };
 
   const updateWarnings = useCallback(() => {
     const next: string[] = [];
@@ -306,7 +371,7 @@ export function DesignerApp() {
     if (!meta) return;
 
     setDraftId(meta.id);
-    setGender(meta.config.templateType);
+    setGender(normalizeGender(meta.config.templateType));
     setSide(meta.config.side);
 
     let restored: DesignLayer[] = [];
@@ -412,7 +477,10 @@ export function DesignerApp() {
     try {
       const formData = new FormData();
       formData.append("draftId", draftId);
-      formData.append("designJson", buildDesignJson(gender, side, layers));
+      formData.append(
+        "designJson",
+        buildDesignJson(gender, side, layers, submissionMeta),
+      );
       formData.append("textJson", buildTextJson(layers));
       const firstImage = layers.find(
         (l): l is ImageDesignLayer => l.type === "image",
@@ -432,7 +500,7 @@ export function DesignerApp() {
     } catch {
       // 離線或尚未設定 Supabase 時仍保留本機暫存
     }
-  }, [draftId, gender, side, hasDesign, layers]);
+  }, [draftId, gender, side, hasDesign, layers, submissionMeta]);
 
   useEffect(() => {
     autoSaveTimer.current = setInterval(() => {
@@ -444,11 +512,21 @@ export function DesignerApp() {
     };
   }, [persistDraftLocally, syncDraftToServer]);
 
+  const showUploadError = useCallback((detail: string) => {
+    setUploadAlertDetail(detail);
+    setWarnings([]);
+  }, []);
+
   const handleUpload = async (file: File) => {
     setStatusMessage(null);
+    if (!canAddImageLayer(layers)) {
+      showUploadError(imageLayerLimitMessage());
+      return;
+    }
+
     const basic = validateImageFile(file);
     if (!basic.ok) {
-      setWarnings([basic.error]);
+      showUploadError(basic.error);
       return;
     }
 
@@ -456,14 +534,14 @@ export function DesignerApp() {
     try {
       const full = await validateImageFileFull(file);
       if (!full.ok) {
-        setWarnings([full.error]);
+        showUploadError(full.error);
         return;
       }
 
       const preview = await createPreviewFromFile(file);
       const placement = getInitialPlacement(
-        preview.previewWidth,
-        preview.previewHeight,
+        preview.naturalWidth,
+        preview.naturalHeight,
       );
 
       const originalUrl = URL.createObjectURL(file);
@@ -482,13 +560,11 @@ export function DesignerApp() {
       const newLayer = createImageLayer(layers, uploaded, placement);
       setLayers((prev) => [...prev, newLayer]);
       setSelectedIds([newLayer.id]);
-
       const msgs: string[] = [];
-      if (full.lowResolution) {
-        msgs.push("圖片解析度不足，可能影響印刷品質");
-      }
       if (full.belowRecommended) {
-        msgs.push("建議使用 3000px 以上解析度以獲得最佳印刷效果");
+        msgs.push(
+          `建議使用 ${RECOMMENDED_IMAGE_WIDTH}×${RECOMMENDED_IMAGE_HEIGHT} 以獲得最佳印刷效果`,
+        );
       }
       if (!full.isPng) {
         setJpgHintShown(true);
@@ -497,19 +573,40 @@ export function DesignerApp() {
       setWarnings(msgs);
       setStatusMessage("圖片已上傳，可拖曳、縮放與旋轉");
     } catch (error) {
-      setWarnings([
-        error instanceof Error ? error.message : "上傳失敗",
-      ]);
+      showUploadError(
+        error instanceof Error ? error.message : "圖片無法讀取",
+      );
     } finally {
       setIsBusy(false);
     }
   };
 
+  const handleClearAllDesign = useCallback(() => {
+    for (const layer of layers) {
+      revokeLayerAssets(layer);
+      void clearLayerImages(layer.id);
+    }
+    setLayers([]);
+    setSelectedIds([]);
+    setWarnings([]);
+    setJpgHintShown(false);
+    setFocusTextEditor(false);
+    void clearAllDrafts();
+    setDraftId(nanoid(12));
+    setStatusMessage("已清除全部設計，可重新開始");
+  }, [layers]);
+
   const handleAddText = () => {
+    if (!canAddTextLayer(layers)) {
+      setWarnings([textLayerLimitMessage()]);
+      return;
+    }
+
     const layer = createDefaultTextDesignLayer(layers);
     setLayers((prev) => [...prev, layer]);
     setSelectedIds([layer.id]);
-    setStatusMessage("已新增文字圖層");
+    setFocusTextEditor(true);
+    setStatusMessage("已新增文字圖層，請在預覽畫布下方輸入文字");
   };
 
   const handleReset = () => {
@@ -534,8 +631,8 @@ export function DesignerApp() {
     }
 
     const placement = getInitialPlacement(
-      primaryLayer.image.previewWidth,
-      primaryLayer.image.previewHeight,
+      primaryLayer.image.naturalWidth,
+      primaryLayer.image.naturalHeight,
     );
     updateLayer(primaryLayer.id, {
       x: placement.x,
@@ -545,17 +642,6 @@ export function DesignerApp() {
       width: placement.width,
       height: placement.height,
     });
-  };
-
-  const handleDeletePrimary = () => {
-    if (!primaryId) return;
-    deleteLayerById(primaryId);
-    if (layers.length <= 1) {
-      setWarnings([]);
-      setJpgHintShown(false);
-      void clearAllDrafts();
-    }
-    setStatusMessage("已刪除圖層");
   };
 
   const handleDuplicate = async (id: string) => {
@@ -584,7 +670,7 @@ export function DesignerApp() {
     try {
       await persistDraftLocally();
       await syncDraftToServer();
-      setStatusMessage("設計已儲存（含圖層順序、名稱與狀態）");
+      setStatusMessage("設計已儲存");
     } catch (error) {
       setWarnings([
         error instanceof Error ? error.message : "儲存失敗",
@@ -594,19 +680,27 @@ export function DesignerApp() {
     }
   };
 
-  const handleSubmit = async () => {
+  const handleSubmitRequest = () => {
     if (!hasDesign) return;
+    setShowSubmitModal(true);
+  };
+
+  const handleSubmitConfirm = async () => {
     setIsBusy(true);
     setStatusMessage(null);
     try {
       const completedBlob = await renderCompletedDesignPng(gender, side, layers);
-      const designJson = buildDesignJson(gender, side, layers);
+      const designJson = buildDesignJson(gender, side, layers, {
+        ...submissionMeta,
+        applicant: applicationForm,
+      });
       const textJson = buildTextJson(layers);
 
       const formData = new FormData();
       formData.append("completed", completedBlob, "completed.png");
       formData.append("designJson", designJson);
       formData.append("textJson", textJson);
+      formData.append("applicantJson", JSON.stringify(applicationForm));
 
       const firstImage = layers.find(
         (l): l is ImageDesignLayer => l.type === "image",
@@ -650,8 +744,10 @@ export function DesignerApp() {
         layers: layersToDraftSnapshot(layers),
       });
 
+      setShowSubmitModal(false);
+      setApplicationForm(EMPTY_FORM);
       setStatusMessage(
-        `設計已送出！編號：${data.designId}（${data.createdAt}）`,
+        `申請已發送！編號：${data.designId}（已寄送 Email 並儲存至雲端）`,
       );
       setDraftId(nanoid(12));
     } catch (error) {
@@ -663,6 +759,15 @@ export function DesignerApp() {
     }
   };
 
+  const handleGenderChange = (g: Gender) => {
+    setGender(g);
+    setModelId(DEFAULT_MODEL_ID[g]);
+  };
+
+  const handleUpdateBody = () => {
+    setSuggestedSize(suggestSize(heightCm, weightKg));
+  };
+
   const primaryScale =
     primaryLayer?.type === "text"
       ? primaryLayer.scale
@@ -672,64 +777,51 @@ export function DesignerApp() {
   const primaryRotation = primaryLayer?.rotation ?? 0;
   const primaryLocked = primaryLayer?.locked ?? false;
 
+  const handleDeletePrimary = useCallback(() => {
+    if (!primaryId) return;
+    deleteLayerById(primaryId);
+    if (layers.length <= 1) {
+      setWarnings([]);
+      setJpgHintShown(false);
+      void clearAllDrafts();
+    }
+    setStatusMessage("已刪除圖層");
+  }, [primaryId, layers.length, deleteLayerById]);
+
   return (
-    <div className="flex h-screen flex-col bg-zinc-100">
-      <header className="shrink-0 border-b border-zinc-200 bg-white px-6 py-4 shadow-sm">
-        <h1 className="text-lg font-semibold text-zinc-900">
-          服飾客製化設計器
-        </h1>
-      </header>
+    <div className="flex h-screen flex-col bg-zinc-50 text-zinc-900">
+      <AppHeader />
 
       <div className="flex min-h-0 flex-1">
-        <TemplateSidebar
-          gender={gender}
-          side={side}
-          onGenderChange={(g) => {
-            setGender(g);
-            setStatusMessage(null);
-          }}
-          onSideChange={(s) => {
-            setSide(s);
-            setStatusMessage(null);
-          }}
-        />
+        <IconNav active={activeTab} onChange={setActiveTab} />
 
-        <DesignCanvas
-          gender={gender}
-          side={side}
-          layers={layers}
-          selectedIds={selectedIds}
-          showGrid={showGrid}
-          gridSnapEnabled={gridSnapEnabled}
-          elementSnapDistance={elementSnapDistance}
-          onSelectLayer={handleSelectLayer}
-          onLayerTransformChange={(id, next) => {
-            if (layers.find((l) => l.id === id)?.locked) return;
-            applyClampedLayerTransform(id, next);
-          }}
-          onClearSelection={() => setSelectedIds([])}
-        />
+        {activeTab === "product" && (
+          <ProductPanel
+            product={product}
+            shirtColor={shirtColor}
+            material={material}
+            size={size}
+            onProductChange={setProduct}
+            onColorChange={setShirtColor}
+            onMaterialChange={setMaterial}
+            onSizeChange={setSize}
+          />
+        )}
 
-        <ToolsSidebar
+        <DesignPanel
+          activeTab={activeTab}
           layers={layers}
           selectedIds={selectedIds}
           primaryLayer={primaryLayer}
           scale={primaryScale}
           rotation={primaryRotation}
           primaryLocked={primaryLocked}
-          hasDesign={hasDesign}
           selectedText={selectedText}
+          isBusy={isBusy}
           showGrid={showGrid}
           gridSnapEnabled={gridSnapEnabled}
-          onShowGridChange={setShowGrid}
-          onGridSnapChange={setGridSnapEnabled}
           elementSnapDistance={elementSnapDistance}
-          onElementSnapDistanceChange={setElementSnapDistance}
           warnings={warnings}
-          statusMessage={statusMessage}
-          isBusy={isBusy}
-          onUpload={handleUpload}
-          onAddText={handleAddText}
           onScaleChange={(v) => {
             if (primaryId) applyClampedLayerTransform(primaryId, { scale: v });
           }}
@@ -743,6 +835,9 @@ export function DesignerApp() {
               updateLayer(primaryId, patch);
             }
           }}
+          onShowGridChange={setShowGrid}
+          onGridSnapChange={setGridSnapEnabled}
+          onElementSnapDistanceChange={setElementSnapDistance}
           onSelectLayer={handleSelectLayer}
           onRenameLayer={(id, name) => updateLayer(id, { name })}
           onToggleVisible={(id) => {
@@ -761,10 +856,87 @@ export function DesignerApp() {
           onReorderDrag={(dragId, targetId) => {
             setLayers((prev) => reorderLayersByDrag(prev, dragId, targetId));
           }}
+        />
+
+        <DesignCanvas
+          gender={gender}
+          shirtColor={shirtColor}
+          side={side}
+          layers={layers}
+          selectedIds={selectedIds}
+          showGrid={showGrid}
+          gridSnapEnabled={gridSnapEnabled}
+          elementSnapDistance={elementSnapDistance}
+          isBusy={isBusy}
+          selectedText={selectedText}
+          primaryLocked={primaryLocked}
+          focusTextEditor={focusTextEditor}
+          warnings={warnings}
+          onSelectLayer={handleSelectLayer}
+          onLayerTransformChange={(id, next) => {
+            if (layers.find((l) => l.id === id)?.locked) return;
+            applyClampedLayerTransform(id, next);
+          }}
+          onLayerRotationChange={(id, rotation) => {
+            if (layers.find((l) => l.id === id)?.locked) return;
+            applyClampedLayerTransform(id, { rotation });
+          }}
+          onClearSelection={() => setSelectedIds([])}
+          onSideChange={setSide}
+          onDuplicateLayer={(id) => void handleDuplicate(id)}
+          onDeleteLayer={deleteLayerById}
+          onMoveLayer={(id, action) => {
+            setLayers((prev) => moveLayerZIndex(prev, id, action));
+          }}
+          onUpload={handleUpload}
+          onAddText={handleAddText}
+          onTextChange={(patch) => {
+            if (primaryId && primaryLayer?.type === "text") {
+              setFocusTextEditor(false);
+              updateLayer(primaryId, patch);
+            }
+          }}
+          onClearAllDesign={handleClearAllDesign}
+        />
+
+        <ModelPanel
+          gender={gender}
+          heightCm={heightCm}
+          weightKg={weightKg}
+          suggestedSize={suggestedSize}
+          isBusy={isBusy}
+          hasDesign={hasDesign}
+          onGenderChange={handleGenderChange}
+          onHeightChange={setHeightCm}
+          onWeightChange={setWeightKg}
+          onUpdateBody={handleUpdateBody}
           onSave={() => void handleSave()}
-          onSubmit={() => void handleSubmit()}
+          onSubmit={handleSubmitRequest}
         />
       </div>
+
+      {statusMessage && (
+        <div className="border-t border-emerald-200 bg-emerald-50 px-4 py-2 text-center text-sm text-emerald-800">
+          {statusMessage}
+        </div>
+      )}
+
+      <SubmitApplicationModal
+        open={showSubmitModal}
+        isBusy={isBusy}
+        form={applicationForm}
+        onChange={(patch) =>
+          setApplicationForm((prev) => ({ ...prev, ...patch }))
+        }
+        onClose={() => setShowSubmitModal(false)}
+        onConfirm={() => void handleSubmitConfirm()}
+      />
+
+      <UploadValidationModal
+        open={uploadAlertDetail !== null}
+        detail={uploadAlertDetail}
+        onClose={() => setUploadAlertDetail(null)}
+      />
     </div>
   );
 }

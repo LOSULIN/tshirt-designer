@@ -49,17 +49,17 @@ export function LayerPanel({
 
   return (
     <div className="space-y-2 border-t border-zinc-100 pt-4">
-      <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+      <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-900">
         圖層管理
       </h3>
 
       {panelLayers.length === 0 ? (
-        <p className="text-xs text-zinc-400">尚無圖層，請上傳圖片或新增文字</p>
+        <p className="text-xs text-zinc-800">尚無圖層，請上傳圖片或新增文字</p>
       ) : (
         <ul className="max-h-64 space-y-1 overflow-y-auto">
           {panelLayers.map((layer) => {
             const selected = selectedIds.includes(layer.id);
-            const typeLabel = layer.type === "image" ? "Image" : "Text";
+            const typeLabel = layer.type === "image" ? "圖片" : "文字";
 
             return (
               <li
@@ -89,14 +89,14 @@ export function LayerPanel({
                   <span className="font-medium text-zinc-900">
                     {layer.name}
                   </span>
-                  <span className="ml-1 text-xs text-zinc-500">
+                  <span className="ml-1 text-xs text-zinc-800">
                     · {typeLabel}
                   </span>
                 </button>
 
                 {editingId === layer.id ? (
                   <input
-                    className="mb-2 w-full rounded border border-zinc-200 px-2 py-1 text-xs"
+                    className="mb-2 w-full rounded border border-zinc-200 bg-white px-2 py-1 text-xs text-zinc-900"
                     value={editName}
                     disabled={isBusy}
                     onChange={(e) => setEditName(e.target.value)}
@@ -191,7 +191,7 @@ export function LayerPanel({
           })}
         </ul>
       )}
-      <p className="text-[10px] text-zinc-400">
+      <p className="text-[10px] text-zinc-800">
         Shift + 點擊可多選 · 拖曳圖層列可調整順序
       </p>
     </div>

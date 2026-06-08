@@ -1,3 +1,4 @@
+import { MAX_IMAGES_PER_SIDE, MAX_TEXT_LAYERS } from "./constants";
 import type {
   DesignConfig,
   DesignLayer,
@@ -26,9 +27,25 @@ export function countLayersByType(layers: DesignLayer[], type: "image" | "text")
   return layers.filter((l) => l.type === type).length;
 }
 
+export function canAddImageLayer(layers: DesignLayer[]): boolean {
+  return countLayersByType(layers, "image") < MAX_IMAGES_PER_SIDE;
+}
+
+export function canAddTextLayer(layers: DesignLayer[]): boolean {
+  return countLayersByType(layers, "text") < MAX_TEXT_LAYERS;
+}
+
+export function imageLayerLimitMessage(): string {
+  return `單面最多上傳 ${MAX_IMAGES_PER_SIDE} 張圖片`;
+}
+
+export function textLayerLimitMessage(): string {
+  return `最多新增 ${MAX_TEXT_LAYERS} 個文字圖層`;
+}
+
 export function defaultLayerName(layers: DesignLayer[], type: "image" | "text") {
   const n = countLayersByType(layers, type) + 1;
-  return type === "image" ? `Image ${n}` : `Text ${n}`;
+  return type === "image" ? `圖片 ${n}` : `文字 ${n}`;
 }
 
 export function reindexLayers(ordered: DesignLayer[]): DesignLayer[] {
@@ -171,7 +188,7 @@ export function migrateLegacyToLayers(
   if (image) {
     layers.push({
       id: nanoid(),
-      name: "Image 1",
+      name: "圖片 1",
       type: "image",
       visible: true,
       locked: false,

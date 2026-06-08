@@ -18,6 +18,7 @@ export async function POST(request: Request) {
     const original = formData.get("original");
     const designJson = formData.get("designJson");
     const textJson = formData.get("textJson");
+    const applicantJson = formData.get("applicantJson");
 
     if (!(completed instanceof Blob)) {
       return NextResponse.json(
@@ -97,6 +98,14 @@ export async function POST(request: Request) {
       });
     }
 
+    if (typeof applicantJson === "string" && applicantJson.length > 0) {
+      jsonUploads.push({
+        path: `${basePath}/applicant.json`,
+        body: applicantJson,
+        contentType: "application/json",
+      });
+    }
+
     for (const file of jsonUploads) {
       const buffer = Buffer.from(file.body, "utf-8");
       const { error } = await supabase.storage
@@ -139,7 +148,18 @@ export async function POST(request: Request) {
       else if (path.includes("/original.")) fileMap.original = signedUrls[index];
       else if (path.endsWith("design.json")) fileMap.config = signedUrls[index];
       else if (path.endsWith("texts.json")) fileMap.texts = signedUrls[index];
+      else if (path.endsWith("applicant.json")) fileMap.applicant = signedUrls[index];
     });
+
+    const applicant =
+      typeof applicantJson === "string"
+        ? (JSON.parse(applicantJson) as {
+            applicantName?: string;
+            applicantEmail?: string;
+            applicantPhone?: string;
+            notes?: string;
+          })
+        : null;
 
     await supabase.from("design_submissions").insert({
       id: designId,
@@ -156,11 +176,13 @@ export async function POST(request: Request) {
       createdAt,
       templateType: config.templateType,
       side: config.side,
+      applicant,
       fileLinks: {
         completed: fileMap.completed,
         original: fileMap.original ?? fileMap.completed,
         config: fileMap.config,
         texts: fileMap.texts,
+        applicant: fileMap.applicant,
       },
     });
 

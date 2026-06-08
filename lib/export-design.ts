@@ -1,9 +1,10 @@
 import {
-  IMAGE_HEIGHT,
-  IMAGE_WIDTH,
+  EXPORT_DPI,
+  EXPORT_HEIGHT,
+  EXPORT_WIDTH,
   PRINT_AREA,
-  TEMPLATES,
 } from "./constants";
+import { embedPngDpi } from "./png-dpi";
 import { sortLayersByZIndex } from "./layers";
 import {
   ensureTextFontsLoaded,
@@ -17,6 +18,9 @@ import type {
   UploadedDesignImage,
 } from "./types";
 
+const EXPORT_SCALE_X = EXPORT_WIDTH / PRINT_AREA.width;
+const EXPORT_SCALE_Y = EXPORT_HEIGHT / PRINT_AREA.height;
+
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -27,68 +31,65 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   });
 }
 
-function drawImageLayer(
+function drawImageLayerExport(
   ctx: CanvasRenderingContext2D,
   layer: Extract<DesignLayer, { type: "image" }>,
   img: HTMLImageElement,
 ) {
-  const centerX = PRINT_AREA.x + layer.x + (layer.width * layer.scale) / 2;
-  const centerY = PRINT_AREA.y + layer.y + (layer.height * layer.scale) / 2;
+  const centerX =
+    (layer.x + (layer.width * layer.scale) / 2) * EXPORT_SCALE_X;
+  const centerY =
+    (layer.y + (layer.height * layer.scale) / 2) * EXPORT_SCALE_Y;
+  const drawW = layer.width * EXPORT_SCALE_X;
+  const drawH = layer.height * EXPORT_SCALE_Y;
 
   ctx.save();
   ctx.translate(centerX, centerY);
   ctx.rotate((layer.rotation * Math.PI) / 180);
   ctx.scale(layer.scale, layer.scale);
-  ctx.drawImage(
-    img,
-    -layer.width / 2,
-    -layer.height / 2,
-    layer.width,
-    layer.height,
-  );
+  ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
   ctx.restore();
 }
 
-function drawTextLayer(ctx: CanvasRenderingContext2D, layer: TextDesignLayer) {
-  const scaledW = layer.width * layer.scale;
-  const scaledH = layer.height * layer.scale;
-  const centerX = PRINT_AREA.x + layer.x + scaledW / 2;
-  const centerY = PRINT_AREA.y + layer.y + scaledH / 2;
+function drawTextLayerExport(
+  ctx: CanvasRenderingContext2D,
+  layer: TextDesignLayer,
+) {
+  const centerX = (layer.x + layer.width * layer.scale / 2) * EXPORT_SCALE_X;
+  const centerY = (layer.y + layer.height * layer.scale / 2) * EXPORT_SCALE_Y;
+  const fontSize = layer.fontSize * layer.scale * EXPORT_SCALE_Y;
 
   ctx.save();
   ctx.translate(centerX, centerY);
   ctx.rotate((layer.rotation * Math.PI) / 180);
   ctx.globalAlpha = layer.opacity;
   ctx.fillStyle = layer.color;
-  ctx.font = `${layer.fontWeight} ${layer.fontSize * layer.scale}px ${resolveFontFamily(layer.fontFamily)}`;
+  ctx.font = `${layer.fontWeight} ${fontSize}px ${resolveFontFamily(layer.fontFamily)}`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText(layer.text, 0, 0);
   ctx.restore();
 }
 
+/** 匯出 PNG 3600×4200 透明背景 300 DPI（僅設計圖層，不含模特） */
 export async function renderCompletedDesignPng(
-  templateType: DesignConfig["templateType"],
-  side: DesignConfig["side"],
+  _templateType: DesignConfig["templateType"],
+  _side: DesignConfig["side"],
   layers: DesignLayer[],
 ): Promise<Blob> {
   const canvas = document.createElement("canvas");
-  canvas.width = IMAGE_WIDTH;
-  canvas.height = IMAGE_HEIGHT;
+  canvas.width = EXPORT_WIDTH;
+  canvas.height = EXPORT_HEIGHT;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("無法建立畫布");
 
-  const templateSrc = TEMPLATES[templateType][side];
-  const templateImg = await loadImage(templateSrc);
-
-  ctx.drawImage(templateImg, 0, 0, IMAGE_WIDTH, IMAGE_HEIGHT);
+  const visibleLayers = sortLayersByZIndex(layers).filter((l) => l.visible);
 
   ctx.save();
   ctx.beginPath();
-  ctx.rect(PRINT_AREA.x, PRINT_AREA.y, PRINT_AREA.width, PRINT_AREA.height);
+  ctx.rect(0, 0, EXPORT_WIDTH, EXPORT_HEIGHT);
   ctx.clip();
 
-  const visibleLayers = sortLayersByZIndex(layers).filter((l) => l.visible);
   const textLayers = visibleLayers.filter(
     (l): l is TextDesignLayer => l.type === "text",
   );
@@ -110,23 +111,25 @@ export async function renderCompletedDesignPng(
         img = await loadImage(layer.image.originalUrl);
         imageCache.set(layer.id, img);
       }
-      drawImageLayer(ctx, layer, img);
+      drawImageLayerExport(ctx, layer, img);
     } else {
-      drawTextLayer(ctx, layer);
+      drawTextLayerExport(ctx, layer);
     }
   }
 
   ctx.restore();
 
-  return new Promise((resolve, reject) => {
+  const blob = await new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(
-      (blob) => {
-        if (!blob) reject(new Error("無法匯出設計圖"));
-        else resolve(blob);
+      (result) => {
+        if (!result) reject(new Error("無法匯出設計圖"));
+        else resolve(result);
       },
       "image/png",
     );
   });
+
+  return embedPngDpi(blob, EXPORT_DPI);
 }
 
 /** 向後相容 */
@@ -139,7 +142,7 @@ export async function renderCompletedDesignPngLegacy(
   if (designImage) {
     layers.push({
       id: "legacy-image",
-      name: "Image",
+      name: "圖片",
       type: "image",
       visible: true,
       locked: false,
@@ -169,6 +172,7 @@ export function buildDesignJson(
   templateType: DesignConfig["templateType"],
   side: DesignConfig["side"],
   layers: DesignLayer[],
+  meta?: Record<string, unknown>,
 ): string {
   const firstImage = layers.find((l) => l.type === "image");
 
@@ -176,8 +180,22 @@ export function buildDesignJson(
     {
       templateType,
       side,
+      export: {
+        format: "png",
+        width: EXPORT_WIDTH,
+        height: EXPORT_HEIGHT,
+        dpi: EXPORT_DPI,
+        background: "transparent",
+        designArea: {
+          width: EXPORT_WIDTH,
+          height: EXPORT_HEIGHT,
+          safeMargin: 0.05,
+          widthTargetRatio: 0.875,
+        },
+      },
+      ...meta,
       layers: layers.map((layer) => {
-        const meta = {
+        const base = {
           id: layer.id,
           name: layer.name,
           type: layer.type,
@@ -193,13 +211,13 @@ export function buildDesignJson(
         };
         if (layer.type === "image") {
           return {
-            ...meta,
+            ...base,
             fileName: layer.image.fileName,
             mimeType: layer.image.mimeType,
           };
         }
         return {
-          ...meta,
+          ...base,
           text: layer.text,
           fontSize: layer.fontSize,
           fontFamily: layer.fontFamily,

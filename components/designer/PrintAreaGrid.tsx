@@ -1,4 +1,4 @@
-import { GRID_SIZE, PRINT_AREA } from "@/lib/constants";
+import { DESIGN_SAFE_MARGIN, GRID_SIZE, PRINT_AREA } from "@/lib/constants";
 
 export function PrintAreaGrid({ visible }: { visible: boolean }) {
   if (!visible) return null;
@@ -16,6 +16,24 @@ export function PrintAreaGrid({ visible }: { visible: boolean }) {
           linear-gradient(to bottom, rgb(59 130 246 / 0.12) 1px, transparent 1px)
         `,
         backgroundSize: `${cellW}% ${cellH}%`,
+      }}
+    />
+  );
+}
+
+/** 安全設計區（5% 內縮邊界） */
+export function PrintSafeZoneGuide() {
+  const inset = DESIGN_SAFE_MARGIN * 100;
+
+  return (
+    <div
+      className="pointer-events-none absolute z-[6] border border-dashed border-amber-500/80"
+      aria-hidden
+      style={{
+        left: `${inset}%`,
+        top: `${inset}%`,
+        width: `${100 - inset * 2}%`,
+        height: `${100 - inset * 2}%`,
       }}
     />
   );
