@@ -25,6 +25,7 @@ import {
 } from "../../mockup-export";
 import { SHIRT_CONTAINER_HEIGHT, SHIRT_CONTAINER_WIDTH } from "../../printArea";
 import { getShirtColorName } from "../../shirt-template";
+import { embedPdfCjkFonts } from "../../pdf-fonts";
 import type { ProofOrder } from "../types";
 
 export const FACTORY_PROOF_A4_WIDTH_PT = 595.28;
@@ -88,7 +89,8 @@ function toPngBuffer(bytes: Uint8Array | Buffer): Buffer {
 
 function drawFooter(ctx: PageContext, order: ProofOrder, version: number) {
   const { page, fonts, gray } = ctx;
-  const label = `Order ${order.order_id}  |  Version v${version}  |  Page ${ctx.pageIndex} of ${ctx.totalPages}`;
+  const caseNo = order.submission_no ?? "—";
+  const label = `ZIIIGO  |  ${caseNo}  |  v${version}  |  Page ${ctx.pageIndex} of ${ctx.totalPages}`;
   page.drawText(label, {
     x: MARGIN,
     y: 16,
@@ -362,7 +364,7 @@ export async function generateFactoryProofPdf(
   input: FactoryProofPdfInput,
 ): Promise<Uint8Array> {
   const { order, version, mockupImages = {} } = input;
-  const { PDFDocument, StandardFonts, rgb } = await import("pdf-lib");
+  const { PDFDocument, rgb } = await import("pdf-lib");
 
   const { pages: pagePlan, mockupSides } = buildPagePlan(order, mockupImages);
   const totalPages = pagePlan.length;
@@ -372,10 +374,7 @@ export async function generateFactoryProofPdf(
   doc.setProducer("ZIIIGO Proof Engine");
   doc.setCreator("ZIIIGO Factory Proof Template");
 
-  const fonts: PdfFonts = {
-    regular: await doc.embedFont(StandardFonts.Helvetica),
-    bold: await doc.embedFont(StandardFonts.HelveticaBold),
-  };
+  const fonts: PdfFonts = await embedPdfCjkFonts(doc);
   const black = rgb(0.1, 0.1, 0.1);
   const gray = rgb(0.45, 0.45, 0.45);
   const accent = rgb(0.12, 0.35, 0.75);
@@ -405,20 +404,20 @@ export async function generateFactoryProofPdf(
     };
 
     if (pageType === "overview") {
-      drawPageTitle(ctx, "ORDER OVERVIEW", "Production proof — read all pages before print");
+      drawPageTitle(ctx, "ZIIIGO PROOF", "Production proof — read all pages before print");
       let y = FACTORY_PROOF_A4_HEIGHT_PT - MARGIN - HEADER_H - 28;
 
       y = drawKeyValueGrid(ctx, y, [
-        { label: "ORDER ID", value: order.order_id },
-        { label: "VERSION", value: `v${version}` },
         {
-          label: "SUBMISSION NO",
+          label: "CASE NO",
           value: order.submission_no ?? "—",
         },
+        { label: "VERSION", value: `v${version}` },
         {
-          label: "GENERATED",
+          label: "CREATED",
           value: formatGeneratedAt(order.created_at),
         },
+        { label: "BRAND", value: "ZIIIGO" },
         { label: "PRODUCT TYPE", value: getProductName() },
         { label: "TEMPLATE", value: order.gender },
         { label: "SIZE", value: garment.size },
@@ -466,30 +465,6 @@ export async function generateFactoryProofPdf(
         ],
         2,
       );
-
-      if (order.applicant?.applicantName || order.applicant?.applicantEmail) {
-        y -= 8;
-        drawHorizontalRule(ctx, y);
-        y -= 20;
-        page.drawText("CUSTOMER", {
-          x: MARGIN,
-          y,
-          size: 10,
-          font: fonts.bold,
-          color: black,
-        });
-        y -= 16;
-        y = drawKeyValueGrid(ctx, y, [
-          {
-            label: "NAME",
-            value: order.applicant?.applicantName ?? "—",
-          },
-          {
-            label: "EMAIL",
-            value: order.applicant?.applicantEmail ?? "—",
-          },
-        ]);
-      }
     }
 
     if (pageType === "mockup") {
@@ -604,7 +579,7 @@ export async function generateFactoryProofPdf(
         },
         {
           title: "3. Approved version rule",
-          body: `This document (Order ${order.order_id}, Version v${version}) is the production-approved reference. Any design change requires a new proof version before manufacturing.`,
+          body: `This document (Case ${order.submission_no ?? "—"}, Version v${version}) is the production-approved reference. Any design change requires a new proof version before manufacturing.`,
         },
         {
           title: "4. Coordinate system",
@@ -675,7 +650,7 @@ export async function generateFactoryProofPdf(
         color: accent,
       });
       page.drawText(
-        `${order.order_id}  ·  v${version}  ·  ${formatGeneratedAt(order.created_at)}`,
+        `${order.submission_no ?? "—"}  ·  v${version}  ·  ${formatGeneratedAt(order.created_at)}`,
         {
           x: MARGIN + 12,
           y: 88,

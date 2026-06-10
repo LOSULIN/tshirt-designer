@@ -18,4 +18,7 @@ export {
   hasProofArtifacts,
 } from "./parse-artifacts";
 export { buildProofStoragePath } from "./storage-manager";
-export { sendProofPackageEmails } from "./proof-email";
+export {
+  sendSubmissionAdminEmail,
+  sendProofPackageEmails,
+} from "./proof-email";

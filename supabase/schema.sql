@@ -29,7 +29,14 @@ create table if not exists public.design_submissions (
     ),
 
   submission_no text,
-  shirt_color text
+  shirt_color text,
+
+  proof_version integer,
+  mockup_front_url text,
+  mockup_back_url text,
+  print_file_url text,
+  proof_pdf_url text,
+  proof_package jsonb
 );
 
 comment on table public.design_submissions is '設計草稿、自由設計申請與徵選投稿紀錄';
@@ -38,6 +45,8 @@ comment on column public.design_submissions.expires_at is '草稿到期時間；
 comment on column public.design_submissions.submission_type is 'normal：自由設計；contest：徵選投稿';
 comment on column public.design_submissions.review_status is '徵選投稿審核狀態；normal 應為 null';
 comment on column public.design_submissions.shirt_color is '衣服顏色代碼，如 white、black、navy';
+comment on column public.design_submissions.proof_version is 'Proof Engine 版本號';
+comment on column public.design_submissions.proof_package is 'ProofPackage schema JSON';
 
 create index if not exists design_submissions_status_expires_idx
   on public.design_submissions (status, expires_at)

@@ -1,24 +1,26 @@
 /**
  * Proof Engine — generateProof(order, version)
- * Submit 僅觸發此服務；所有輸出經 Storage Manager 標準化存放。
+ * 產生 Proof PDF + 設計包 ZIP，僅寄一封管理員通知信。
  */
 
+import { buildDesignPackageZip } from "./design-package-zip";
 import { generateProofPdf } from "./generators/proof-pdf-generator";
 import {
-  buildProofStoragePath,
+  buildOrderProofPdfFilename,
+  buildOrderStoragePath,
+  buildOrderZipFilename,
   createProofSignedUrl,
-  uploadProofArtifacts,
-  uploadProofFile,
-  PROOF_STORAGE_FILES,
+  uploadOrderFile,
 } from "./storage-manager";
-import { sendProofPackageEmails, type ProofEmailResults } from "./proof-email";
+import { sendSubmissionAdminEmail, type ProofEmailResult } from "./proof-email";
 import type {
   ProofArtifactsInput,
   ProofEngineContext,
+  ProofInternalFiles,
   ProofOrder,
   ProofPackage,
 } from "./types";
-import type { Side } from "../constants";
+import { PROOF_STORAGE_FILES } from "./types";
 
 function bufferFrom(data: Uint8Array | Buffer): Buffer {
   return Buffer.isBuffer(data) ? data : Buffer.from(data);
@@ -26,7 +28,7 @@ function bufferFrom(data: Uint8Array | Buffer): Buffer {
 
 export interface ProofGenerationResult {
   package: ProofPackage;
-  emails: ProofEmailResults;
+  email: ProofEmailResult;
 }
 
 export async function generateProof(
@@ -34,40 +36,42 @@ export async function generateProof(
   version: number,
   artifacts: ProofArtifactsInput,
   ctx: ProofEngineContext,
+  internalFiles: ProofInternalFiles,
 ): Promise<ProofGenerationResult> {
+  if (!order.submission_no) {
+    throw new Error("generateProof 需要 submission_no");
+  }
+
   const createdAt = order.created_at ?? new Date().toISOString();
-  const storagePath = buildProofStoragePath(order.order_id, version);
+  const submissionNo = order.submission_no;
+  const storagePath = buildOrderStoragePath(submissionNo);
 
-  const uploadFiles: {
-    filename: string;
-    body: Uint8Array | Buffer | string;
-    contentType: string;
-  }[] = [];
+  await uploadOrderFile(
+    ctx,
+    submissionNo,
+    PROOF_STORAGE_FILES.designJson,
+    internalFiles.designJson,
+    "application/json",
+  );
 
-  for (const side of ["front", "back"] as const) {
-    const mockup = artifacts.mockups[side];
-    if (mockup && mockup.length > 0) {
-      uploadFiles.push({
-        filename:
-          side === "front"
-            ? PROOF_STORAGE_FILES.mockupFront
-            : PROOF_STORAGE_FILES.mockupBack,
-        body: bufferFrom(mockup),
-        contentType: "image/png",
-      });
-    }
+  if (internalFiles.textJson) {
+    await uploadOrderFile(
+      ctx,
+      submissionNo,
+      PROOF_STORAGE_FILES.textsJson,
+      internalFiles.textJson,
+      "application/json",
+    );
+  }
 
-    const print = artifacts.prints[side];
-    if (print && print.length > 0) {
-      uploadFiles.push({
-        filename:
-          side === "front"
-            ? PROOF_STORAGE_FILES.printFront
-            : PROOF_STORAGE_FILES.printBack,
-        body: bufferFrom(print),
-        contentType: "image/png",
-      });
-    }
+  if (internalFiles.applicantJson) {
+    await uploadOrderFile(
+      ctx,
+      submissionNo,
+      PROOF_STORAGE_FILES.applicantJson,
+      internalFiles.applicantJson,
+      "application/json",
+    );
   }
 
   const proofPdfBytes = await generateProofPdf({
@@ -75,93 +79,68 @@ export async function generateProof(
     version,
     mockupImages: artifacts.mockups,
   });
+  const proofPdf = bufferFrom(proofPdfBytes);
 
-  uploadFiles.push({
-    filename: PROOF_STORAGE_FILES.proofPdf,
-    body: proofPdfBytes,
-    contentType: "application/pdf",
+  const zipBuffer = await buildDesignPackageZip({
+    submissionNo,
+    proofPdf,
+    mockupFront: artifacts.mockups.front
+      ? bufferFrom(artifacts.mockups.front)
+      : undefined,
+    mockupBack: artifacts.mockups.back
+      ? bufferFrom(artifacts.mockups.back)
+      : undefined,
+    printFront: artifacts.prints.front
+      ? bufferFrom(artifacts.prints.front)
+      : undefined,
+    printBack: artifacts.prints.back
+      ? bufferFrom(artifacts.prints.back)
+      : undefined,
+    original: internalFiles.original,
   });
 
-  const storedPaths = await uploadProofArtifacts(
+  const proofPdfFilename = buildOrderProofPdfFilename(submissionNo);
+  const zipFilename = buildOrderZipFilename(submissionNo);
+
+  const proofPdfPath = await uploadOrderFile(
     ctx,
-    order.order_id,
-    version,
-    uploadFiles,
+    submissionNo,
+    proofPdfFilename,
+    proofPdf,
+    "application/pdf",
+  );
+
+  const zipPath = await uploadOrderFile(
+    ctx,
+    submissionNo,
+    zipFilename,
+    zipBuffer,
+    "application/zip",
   );
 
   const proofPackage: ProofPackage = {
     order_id: order.order_id,
+    submission_no: submissionNo,
     version,
     storage_path: storagePath,
-    mockup_front_url: storedPaths[PROOF_STORAGE_FILES.mockupFront]
-      ? await createProofSignedUrl(ctx, storedPaths[PROOF_STORAGE_FILES.mockupFront])
-      : null,
-    mockup_back_url: storedPaths[PROOF_STORAGE_FILES.mockupBack]
-      ? await createProofSignedUrl(ctx, storedPaths[PROOF_STORAGE_FILES.mockupBack])
-      : null,
-    print_file_url: await resolvePrintFileUrl(
-      ctx,
-      order.active_side,
-      storedPaths,
-    ),
-    print_back_url: await resolvePrintUrlForSide(
-      ctx,
-      "back",
-      storedPaths,
-      order.active_side,
-    ),
-    pdf_url: await createProofSignedUrl(
-      ctx,
-      storedPaths[PROOF_STORAGE_FILES.proofPdf],
-    ),
+    pdf_url: await createProofSignedUrl(ctx, proofPdfPath, {
+      downloadFilename: proofPdfFilename,
+    }),
+    zip_url: await createProofSignedUrl(ctx, zipPath, {
+      downloadFilename: zipFilename,
+    }),
     created_at: createdAt,
   };
 
-  await uploadProofFile(
+  await uploadOrderFile(
     ctx,
-    order.order_id,
-    version,
+    submissionNo,
     PROOF_STORAGE_FILES.proofPackage,
     JSON.stringify(proofPackage, null, 2),
     "application/json",
   );
 
-  const emails = await sendProofPackageEmails({ order, proofPackage });
+  const email = await sendSubmissionAdminEmail({ order, proofPackage });
 
-  return { package: proofPackage, emails };
-}
-
-async function resolvePrintFileUrl(
-  ctx: ProofEngineContext,
-  activeSide: Side,
-  storedPaths: Record<string, string>,
-): Promise<string | null> {
-  const primaryKey =
-    activeSide === "front"
-      ? PROOF_STORAGE_FILES.printFront
-      : PROOF_STORAGE_FILES.printBack;
-  const fallbackKey =
-    activeSide === "front"
-      ? PROOF_STORAGE_FILES.printBack
-      : PROOF_STORAGE_FILES.printFront;
-
-  const path = storedPaths[primaryKey] ?? storedPaths[fallbackKey];
-  if (!path) return null;
-  return createProofSignedUrl(ctx, path);
-}
-
-async function resolvePrintUrlForSide(
-  ctx: ProofEngineContext,
-  side: Side,
-  storedPaths: Record<string, string>,
-  activeSide: Side,
-): Promise<string | null> {
-  if (side === activeSide) return null;
-  const key =
-    side === "front"
-      ? PROOF_STORAGE_FILES.printFront
-      : PROOF_STORAGE_FILES.printBack;
-  const path = storedPaths[key];
-  if (!path) return null;
-  return createProofSignedUrl(ctx, path);
+  return { package: proofPackage, email };
 }

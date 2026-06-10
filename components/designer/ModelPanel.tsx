@@ -61,8 +61,9 @@ export function ModelPanel({
   onHeightChange,
   onWeightChange,
   onUpdateBody,
-  onSave,
   onSubmit,
+  submitLabel = "確認發送申請",
+  designLocked = false,
 }: {
   gender: Gender;
   heightCm: number;
@@ -70,12 +71,13 @@ export function ModelPanel({
   suggestedSize: SizeSuggestion;
   isBusy: boolean;
   hasDesign: boolean;
+  designLocked?: boolean;
   onGenderChange: (gender: Gender) => void;
   onHeightChange: (height: number) => void;
   onWeightChange: (weight: number) => void;
   onUpdateBody: () => void;
-  onSave: () => void;
   onSubmit: () => void;
+  submitLabel?: string;
 }) {
   const [showSizeGuide, setShowSizeGuide] = useState(false);
   const modelType = getModelType(gender);
@@ -197,22 +199,14 @@ export function ModelPanel({
         onClose={() => setShowSizeGuide(false)}
       />
 
-      <div className="mt-auto shrink-0 space-y-2 border-t border-zinc-200 p-4">
+      <div className="mt-auto shrink-0 border-t border-zinc-200 p-4">
         <button
           type="button"
-          disabled={isBusy || !hasDesign}
-          onClick={onSave}
-          className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-sm font-medium text-zinc-800 hover:bg-zinc-50 disabled:opacity-50"
-        >
-          儲存設計
-        </button>
-        <button
-          type="button"
-          disabled={isBusy || !hasDesign}
+          disabled={isBusy || !hasDesign || designLocked}
           onClick={onSubmit}
           className="w-full rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-50"
         >
-          儲存並發送申請
+          {submitLabel}
         </button>
       </div>
     </aside>

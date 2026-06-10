@@ -6,6 +6,7 @@ import type { Gender, ShirtColor, Side } from "./constants";
 import { formatInspectorCm } from "./design-inspector";
 import { buildLiveDesignState } from "./live-design-state";
 import { getShirtColorName } from "./shirt-template";
+import { embedPdfCjkFonts } from "./pdf-fonts";
 import type { DesignLayer } from "./types";
 
 const A4_WIDTH_PT = 595.28;
@@ -37,14 +38,13 @@ export async function renderProofSheetPdf(params: {
   const designState = buildLiveDesignState(layers, size);
   const { garment, elements } = designState;
 
-  const { PDFDocument, StandardFonts, rgb } = await import("pdf-lib");
+  const { PDFDocument, rgb } = await import("pdf-lib");
   const pdfDoc = await PDFDocument.create();
   pdfDoc.setTitle(`ZIIIGO Proof ${gender} ${side} ${size}`);
   pdfDoc.setProducer("ZIIIGO T-Shirt Designer");
   pdfDoc.setCreator("ZIIIGO T-Shirt Designer");
 
-  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-  const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  const { regular: font, bold: fontBold } = await embedPdfCjkFonts(pdfDoc);
   const black = rgb(0, 0, 0);
   const gray = rgb(0.35, 0.35, 0.35);
 

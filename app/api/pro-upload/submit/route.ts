@@ -13,6 +13,7 @@ import {
   validateDesignFile,
 } from "@/lib/pro-upload-submit";
 import { getFitLabel, getProductLabel } from "@/lib/pro-upload-proof";
+import { formatDbWriteError } from "@/lib/db-error";
 import { createAdminClient, DESIGNS_BUCKET } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
@@ -99,14 +100,20 @@ export async function POST(request: Request) {
       if (!isSubmissionNoConflict(error) || attempt === 7) {
         console.error(error);
         await supabase.storage.from(DESIGNS_BUCKET).remove([designPath]);
-        return NextResponse.json({ error: "寫入資料庫失敗" }, { status: 500 });
+        return NextResponse.json(
+          { error: formatDbWriteError(error) },
+          { status: 500 },
+        );
       }
     }
 
     if (insertError) {
       console.error(insertError);
       await supabase.storage.from(DESIGNS_BUCKET).remove([designPath]);
-      return NextResponse.json({ error: "寫入資料庫失敗" }, { status: 500 });
+      return NextResponse.json(
+        { error: formatDbWriteError(insertError) },
+        { status: 500 },
+      );
     }
 
     const emailResult = await sendProUploadSubmittedEmail({

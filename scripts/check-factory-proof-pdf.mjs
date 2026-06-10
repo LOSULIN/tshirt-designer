@@ -2,7 +2,7 @@
  * 驗證：工廠級 Proof PDF Template（A4 · 4~5 pages）
  */
 
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -28,8 +28,12 @@ assert(
   "generateFactoryProofPdf 已實作",
 );
 assert(
-  templateSrc.includes("ORDER OVERVIEW"),
-  "PAGE 1: Order Overview",
+  templateSrc.includes("ZIIIGO PROOF"),
+  "PAGE 1: ZIIIGO Proof Overview",
+);
+assert(
+  !templateSrc.includes("CUSTOMER"),
+  "Proof PDF 不含 CUSTOMER 個資區塊",
 );
 assert(
   templateSrc.includes("PRINT AREA") &&
@@ -64,6 +68,20 @@ assert(
 assert(
   !templateSrc.includes("html2canvas") && !templateSrc.includes("screenshot"),
   "不使用 UI 截圖",
+);
+assert(
+  templateSrc.includes("embedPdfCjkFonts"),
+  "使用 CJK 字型（非 WinAnsi StandardFonts）",
+);
+
+const pdfFontsSrc = readFileSync(join(root, "lib/pdf-fonts.ts"), "utf8");
+assert(
+  pdfFontsSrc.includes("noto-sans-tc") && pdfFontsSrc.includes("pdf-fontkit"),
+  "pdf-fonts 使用 pdf-fontkit（CJK subset 修正）",
+);
+assert(
+  existsSync(join(root, "public/fonts/noto-sans-tc-400.woff")),
+  "public/fonts 含 Noto Sans TC 400（執行 npm run postinstall）",
 );
 
 const wrapperSrc = readFileSync(

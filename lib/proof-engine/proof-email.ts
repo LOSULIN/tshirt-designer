@@ -1,80 +1,84 @@
 /**
- * Proof Engine Email — 校稿完成後發送 mockup / pdf / print 連結。
+ * 送件通知 — 僅寄一封至 ADMIN_EMAIL（Proof PDF + ZIP 下載連結）。
  */
 
+import {
+  getProductName,
+  GENDER_OPTIONS,
+  type Gender,
+} from "../constants";
 import { getShirtColorName } from "../shirt-template";
-import { formatSubmissionDisplayLabel } from "../submission-no";
 import type { EmailSendResult } from "../email";
 import { Resend } from "resend";
 import type { ProofOrder, ProofPackage } from "./types";
 
-export interface ProofEmailRecipients {
-  customer: string[];
-  internal: string[];
-  factory: string[];
+function formatGenderLabel(gender: Gender): string {
+  return GENDER_OPTIONS.find((g) => g.id === gender)?.label ?? gender;
 }
 
-export function resolveProofEmailRecipients(
-  order: ProofOrder,
-): ProofEmailRecipients {
-  const internal = process.env.ADMIN_EMAIL ? [process.env.ADMIN_EMAIL] : [];
-  const factoryEmail = process.env.FACTORY_EMAIL ?? process.env.ADMIN_EMAIL;
-  const factory = factoryEmail ? [factoryEmail] : [];
-
-  const customerEmail = order.applicant?.applicantEmail?.trim();
-  const customer = customerEmail ? [customerEmail] : [];
-
-  return { customer, internal, factory };
+function formatCreatedAt(iso: string): string {
+  return new Date(iso).toLocaleString("zh-TW", {
+    timeZone: "Asia/Taipei",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
-function buildProofEmailHtml(params: {
+function buildSubmissionAdminEmailHtml(params: {
   order: ProofOrder;
   proofPackage: ProofPackage;
-  audience: "customer" | "internal" | "factory";
 }): string {
-  const { order, proofPackage, audience } = params;
-  const displayLabel = formatSubmissionDisplayLabel(
-    order.submission_no ?? order.order_id,
-    order.applicant?.applicantName,
-  );
+  const { order, proofPackage } = params;
+  const applicant = order.applicant;
 
-  const intro =
-    audience === "customer"
-      ? "您的設計校稿文件已產生，請查閱以下連結（7 天有效）。"
-      : audience === "factory"
-        ? "新訂單校稿文件已就緒，請使用印刷檔進行生產。"
-        : "新設計校稿已透過 Proof Engine 產生。";
-
-  const links = [
-    proofPackage.mockup_front_url
-      ? `<li><a href="${proofPackage.mockup_front_url}">Mockup — Front</a></li>`
-      : "",
-    proofPackage.mockup_back_url
-      ? `<li><a href="${proofPackage.mockup_back_url}">Mockup — Back</a></li>`
-      : "",
-    proofPackage.print_file_url
-      ? `<li><a href="${proofPackage.print_file_url}">Print File（主面向）</a></li>`
-      : "",
-    proofPackage.print_back_url
-      ? `<li><a href="${proofPackage.print_back_url}">Print File — 另一面向</a></li>`
-      : "",
-    `<li><a href="${proofPackage.pdf_url}">Proof PDF</a></li>`,
-  ].join("");
+  const applicantBlock = applicant
+    ? `
+    <h3>申請人（僅存於系統與本信，不出現在 Proof PDF）</h3>
+    <p><strong>姓名：</strong>${applicant.applicantName ?? "—"}</p>
+    <p><strong>Email：</strong>${applicant.applicantEmail ?? "—"}</p>
+    <p><strong>電話：</strong>${applicant.applicantPhone ?? "—"}</p>
+    ${
+      applicant.notes
+        ? `<p><strong>備註：</strong>${applicant.notes}</p>`
+        : ""
+    }
+  `
+    : "";
 
   return `
-    <h2>ZIIIGO Proof Engine</h2>
-    <p>${intro}</p>
-    <p><strong>訂單／編號：</strong>${displayLabel}</p>
-    <p><strong>Order ID：</strong>${proofPackage.order_id}</p>
-    <p><strong>Version：</strong>v${proofPackage.version}</p>
+    <h2>ZIIIGO 新設計申請</h2>
+    <p>客戶已送出自由設計申請，請使用下方連結下載校稿與完整設計包（7 天有效）。</p>
+
+    <h3>案件資訊</h3>
+    <p><strong>案件編號：</strong>${proofPackage.submission_no}</p>
+    <p><strong>送件時間：</strong>${formatCreatedAt(proofPackage.created_at)}</p>
+
+    <h3>商品資訊</h3>
+    <p><strong>商品：</strong>${getProductName()}</p>
+    <p><strong>版型／模特：</strong>${formatGenderLabel(order.gender)}</p>
     <p><strong>尺碼：</strong>${order.size}</p>
     <p><strong>衣服顏色：</strong>${getShirtColorName(order.shirt_color)}</p>
-    <h3>校稿檔案</h3>
-    <ul>${links}</ul>
+    <p><strong>主設計面向：</strong>${order.active_side === "front" ? "正面" : "背面"}</p>
+
+    <h3>設計資訊</h3>
+    <p><strong>Storage：</strong>${proofPackage.storage_path}</p>
+    <p><strong>Proof 版本：</strong>v${proofPackage.version}</p>
+
+    ${applicantBlock}
+
+    <h3>下載檔案</h3>
+    <ul>
+      <li><a href="${proofPackage.pdf_url}" download>Proof PDF（${proofPackage.submission_no}-proof.pdf）</a></li>
+      <li><a href="${proofPackage.zip_url}" download>完整設計包 ZIP（${proofPackage.submission_no}.zip）</a></li>
+    </ul>
+    <p style="color:#666;font-size:12px;">ZIP 內含：Proof PDF、mockup／print 圖檔、客戶原始上傳檔。</p>
   `;
 }
 
-async function sendProofEmailToRecipients(params: {
+async function sendAdminEmail(params: {
   recipients: string[];
   subject: string;
   html: string;
@@ -86,7 +90,7 @@ async function sendProofEmailToRecipients(params: {
     return {
       sent: false,
       reason: "missing_admin_email",
-      message: "無收件人，略過寄信",
+      message: "未設定 ADMIN_EMAIL，略過寄信",
     };
   }
 
@@ -117,40 +121,31 @@ async function sendProofEmailToRecipients(params: {
   }
 }
 
-export interface ProofEmailResults {
-  customer: EmailSendResult;
-  internal: EmailSendResult;
-  factory: EmailSendResult;
+export interface ProofEmailResult {
+  admin: EmailSendResult;
 }
 
+export async function sendSubmissionAdminEmail(params: {
+  order: ProofOrder;
+  proofPackage: ProofPackage;
+}): Promise<ProofEmailResult> {
+  const { order, proofPackage } = params;
+  const adminEmail = process.env.ADMIN_EMAIL;
+  const recipients = adminEmail ? [adminEmail] : [];
+
+  const admin = await sendAdminEmail({
+    recipients,
+    subject: `【ZIIIGO】新設計申請｜${proofPackage.submission_no}`,
+    html: buildSubmissionAdminEmailHtml({ order, proofPackage }),
+  });
+
+  return { admin };
+}
+
+/** @deprecated 使用 sendSubmissionAdminEmail */
 export async function sendProofPackageEmails(params: {
   order: ProofOrder;
   proofPackage: ProofPackage;
-}): Promise<ProofEmailResults> {
-  const { order, proofPackage } = params;
-  const recipients = resolveProofEmailRecipients(order);
-  const displayLabel = formatSubmissionDisplayLabel(
-    order.submission_no ?? order.order_id,
-    order.applicant?.applicantName,
-  );
-
-  const [customer, internal, factory] = await Promise.all([
-    sendProofEmailToRecipients({
-      recipients: recipients.customer,
-      subject: `【ZIIIGO】設計校稿已就緒｜${displayLabel}`,
-      html: buildProofEmailHtml({ order, proofPackage, audience: "customer" }),
-    }),
-    sendProofEmailToRecipients({
-      recipients: recipients.internal,
-      subject: `【ZIIIGO】Proof Engine｜${displayLabel}`,
-      html: buildProofEmailHtml({ order, proofPackage, audience: "internal" }),
-    }),
-    sendProofEmailToRecipients({
-      recipients: recipients.factory,
-      subject: `【ZIIIGO】工廠印刷檔｜${displayLabel}`,
-      html: buildProofEmailHtml({ order, proofPackage, audience: "factory" }),
-    }),
-  ]);
-
-  return { customer, internal, factory };
+}): Promise<ProofEmailResult> {
+  return sendSubmissionAdminEmail(params);
 }

@@ -132,6 +132,33 @@ if (insertError) {
   await supabase.from("design_submissions").delete().eq("id", TEST_ID);
 }
 
+const PROOF_TEST_ID = `proof-${TEST_ID}`;
+const { error: proofInsertError } = await supabase
+  .from("design_submissions")
+  .insert({
+    id: PROOF_TEST_ID,
+    created_at: now,
+    template_type: "male",
+    side: "front",
+    status: "submitted",
+    storage_path: `orders/${PROOF_TEST_ID}/v1`,
+    expires_at: null,
+    submission_type: "normal",
+    review_status: null,
+    submission_no: `FD-PROOF-${TEST_ID}`,
+    shirt_color: "white",
+    proof_version: 1,
+  });
+
+if (proofInsertError) {
+  fail(
+    `Proof Engine 欄位寫入失敗（請執行 supabase/migrations/20250611120000_add_proof_engine_fields.sql）：${proofInsertError.message}`,
+  );
+} else {
+  pass("design_submissions Proof Engine 欄位寫入測試成功");
+  await supabase.from("design_submissions").delete().eq("id", PROOF_TEST_ID);
+}
+
 const { error: submissionsInsertError } = await supabase.from("submissions").insert({
   id: TEST_ID,
   created_at: now,

@@ -2,15 +2,18 @@
 
 export function DesignToolbar({
   isBusy,
+  readOnly = false,
   warnings,
   onUpload,
   onAddText,
 }: {
   isBusy: boolean;
+  readOnly?: boolean;
   warnings: string[];
   onUpload: (file: File) => void;
   onAddText: () => void;
 }) {
+  const disabled = isBusy || readOnly;
   return (
     <div className="shrink-0 border-t border-zinc-200 bg-white px-3 py-3">
       <div className="flex flex-wrap items-center gap-2">
@@ -21,7 +24,7 @@ export function DesignToolbar({
             type="file"
             accept=".png,.jpg,.jpeg,.webp"
             className="hidden"
-            disabled={isBusy}
+            disabled={disabled}
             onChange={(e) => {
               const file = e.target.files?.[0];
               if (file) onUpload(file);
@@ -31,7 +34,7 @@ export function DesignToolbar({
         </label>
         <button
           type="button"
-          disabled={isBusy}
+          disabled={disabled}
           onClick={onAddText}
           className="flex items-center gap-1.5 rounded-md border border-zinc-300 bg-zinc-50 px-3 py-1.5 text-xs font-medium text-zinc-900 hover:bg-zinc-100 disabled:opacity-50"
         >

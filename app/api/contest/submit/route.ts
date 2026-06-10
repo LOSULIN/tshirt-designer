@@ -18,6 +18,7 @@ import {
   allocateSubmissionNo,
   isSubmissionNoConflict,
 } from "@/lib/submission-no";
+import { formatDbWriteError } from "@/lib/db-error";
 import { createAdminClient, DESIGNS_BUCKET } from "@/lib/supabase/admin";
 
 function formatContestProductLabel(productType: string | null): string {
@@ -248,15 +249,16 @@ export async function POST(request: Request) {
         }
 
         return NextResponse.json(
-          { error: "寫入資料庫失敗" },
+          { error: formatDbWriteError(error) },
           { status: 500 },
         );
       }
     }
 
     if (insertError) {
+      console.error("design_submissions contest insert failed:", insertError);
       return NextResponse.json(
-        { error: "寫入資料庫失敗" },
+        { error: formatDbWriteError(insertError) },
         { status: 500 },
       );
     }

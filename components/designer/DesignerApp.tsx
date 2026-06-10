@@ -42,6 +42,7 @@ import {
   DESIGNER_MODE_DEFAULT,
   type DesignerMode,
 } from "@/lib/designer-mode";
+import { lockAllLayersInTemplate } from "@/lib/design-lock";
 import {
   createEmptyDesignLayersByTemplate,
   DESIGN_GENDERS,
@@ -65,7 +66,7 @@ import {
   appendProofArtifactsToFormData,
   buildProofOrder,
   prepareProofSubmission,
-} from "@/lib/proof-engine";
+} from "@/lib/proof-engine/client";
 import {
   cmToUiPx,
   getPrintAreaCmBounds,
@@ -304,6 +305,10 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
     null,
   );
   const [focusTextEditor, setFocusTextEditor] = useState(false);
+  const [pendingTextEditLayerId, setPendingTextEditLayerId] = useState<
+    string | null
+  >(null);
+  const [isDesignLocked, setIsDesignLocked] = useState(false);
   const [applicationForm, setApplicationForm] =
     useState<ApplicationFormData>(EMPTY_FORM);
   const [contestApplicationForm, setContestApplicationForm] =
@@ -393,6 +398,11 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
   useEffect(() => {
     updateWarnings();
   }, [updateWarnings]);
+
+  const guardEditable = useCallback(() => {
+    if (isDesignLocked || isBusy) return false;
+    return true;
+  }, [isDesignLocked, isBusy]);
 
   const updateLayer = useCallback(
     (id: string, patch: Partial<DesignLayer>) => {
@@ -567,6 +577,70 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
     [setLayers, printArea],
   );
 
+  const handleTextInspectorPatch = useCallback(
+    (
+      id: string,
+      patch: {
+        text?: string;
+        fontSize_cm?: number;
+        x_cm?: number;
+        y_cm?: number;
+        rotation?: number;
+      },
+    ) => {
+      if (!guardEditable()) return;
+      if (patch.rotation !== undefined) {
+        applyClampedLayerTransform(id, { rotation: patch.rotation });
+        return;
+      }
+      if (patch.x_cm !== undefined || patch.y_cm !== undefined) {
+        applyClampedLayerTransform(id, {
+          x_cm: patch.x_cm,
+          y_cm: patch.y_cm,
+        });
+        return;
+      }
+      if (patch.fontSize_cm !== undefined) {
+        updateLayer(id, { fontSize_cm: patch.fontSize_cm, scale: 1 });
+        return;
+      }
+      if (patch.text !== undefined) {
+        updateLayer(id, { text: patch.text });
+      }
+    },
+    [guardEditable, updateLayer, applyClampedLayerTransform],
+  );
+
+  const handleInspectorImageTransform = useCallback(
+    (
+      id: string,
+      patch: { x_cm?: number; y_cm?: number; scale?: number; rotation?: number },
+    ) => {
+      if (!guardEditable()) return;
+      applyClampedLayerTransform(id, patch);
+    },
+    [guardEditable, applyClampedLayerTransform],
+  );
+
+  const handleInspectorImageResize = useCallback(
+    (
+      id: string,
+      next: { x_cm: number; y_cm: number; width_cm: number; height_cm: number },
+    ) => {
+      if (!guardEditable()) return;
+      applyLayerResize(id, next);
+    },
+    [guardEditable, applyLayerResize],
+  );
+
+  const handleInspectorRotation = useCallback(
+    (id: string, rotation: number) => {
+      if (!guardEditable()) return;
+      applyClampedLayerTransform(id, { rotation });
+    },
+    [guardEditable, applyClampedLayerTransform],
+  );
+
   const handleSelectLayer = useCallback((id: string, shiftKey: boolean) => {
     setSelectedIds((prev) => {
       if (shiftKey) {
@@ -580,6 +654,7 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
 
   const deleteLayerById = useCallback(
     (id: string) => {
+      if (!guardEditable()) return;
       setLayersByTemplate((prev) => {
         const target = getLayersForSlot(prev, gender, side).find(
           (l) => l.id === id,
@@ -601,7 +676,7 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
       setSelectedIds((prev) => prev.filter((x) => x !== id));
       setStatusMessage("已刪除圖層");
     },
-    [draftStorage, gender, side],
+    [draftStorage, gender, side, guardEditable],
   );
 
   const restoreDraft = useCallback(async () => {
@@ -774,6 +849,7 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
   }, []);
 
   const handleUpload = async (file: File) => {
+    if (!guardEditable()) return;
     setStatusMessage(null);
     if (!canAddImageLayer(layers)) {
       showUploadError(imageLayerLimitMessage());
@@ -869,6 +945,8 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
     setWarnings([]);
     setJpgHintShown(false);
     setFocusTextEditor(false);
+    setPendingTextEditLayerId(null);
+    setIsDesignLocked(false);
     setStatusMessage("已清除目前面向設計");
   }, [draftStorage, gender, side]);
 
@@ -890,12 +968,15 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
     setWarnings([]);
     setJpgHintShown(false);
     setFocusTextEditor(false);
+    setPendingTextEditLayerId(null);
+    setIsDesignLocked(false);
     void draftStorage.clearAllDrafts();
     setDraftId(nanoid(12));
     setStatusMessage("已清除全部設計，可重新開始");
   }, [draftStorage, layersByTemplate]);
 
   const handleAddText = () => {
+    if (!guardEditable()) return;
     if (!canAddTextLayer(layers)) {
       setWarnings([textLayerLimitMessage()]);
       return;
@@ -904,8 +985,8 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
     const layer = createDefaultTextDesignLayer(layers, printArea);
     setLayers((prev) => [...prev, layer]);
     setSelectedIds([layer.id]);
-    setFocusTextEditor(false);
-    setStatusMessage("已新增文字 TEST，可拖曳或使用 +/− 調整大小");
+    setPendingTextEditLayerId(layer.id);
+    setStatusMessage("已新增文字 TEST，輸入後按 Enter 或點擊空白確認");
   };
 
   const handleDuplicate = async (id: string) => {
@@ -928,31 +1009,6 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
       }
     }
     setStatusMessage("已複製圖層");
-  };
-
-  const handleSave = async () => {
-    if (!hasDesign) return;
-    setIsBusy(true);
-    setStatusMessage(null);
-    try {
-      await persistDraftLocally();
-      const cloud = await syncDraftToServer();
-      if (cloud.ok) {
-        setCloudSyncWarning(null);
-        setWarnings([]);
-        setStatusMessage("設計已儲存（本機與雲端）");
-      } else {
-        setCloudSyncWarning(cloud.error);
-        setWarnings([`雲端同步失敗：${cloud.error}`]);
-        setStatusMessage("設計已儲存至本機（雲端同步失敗）");
-      }
-    } catch (error) {
-      setWarnings([
-        error instanceof Error ? error.message : "儲存失敗",
-      ]);
-    } finally {
-      setIsBusy(false);
-    }
   };
 
   const handleSubmitRequest = () => {
@@ -1055,6 +1111,9 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
         setShowContestSubmitModal(false);
         setContestApplicationForm(EMPTY_CONTEST_FORM);
         setCloudSyncWarning(null);
+        setLayersByTemplate((prev) => lockAllLayersInTemplate(prev));
+        setIsDesignLocked(true);
+        setPendingTextEditLayerId(null);
         setSubmissionSuccess({
           submissionNo: data.submissionNo,
           applicantName: authorName,
@@ -1156,6 +1215,9 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
       setApplicationForm(EMPTY_FORM);
       setContestApplicationForm(EMPTY_CONTEST_FORM);
       setCloudSyncWarning(null);
+      setLayersByTemplate((prev) => lockAllLayersInTemplate(prev));
+      setIsDesignLocked(true);
+      setPendingTextEditLayerId(null);
       setSubmissionSuccess({
         submissionNo: data.submissionNo,
         applicantName,
@@ -1261,19 +1323,28 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
           gridSnapEnabled={gridSnapEnabled}
           elementSnapDistance={elementSnapDistance}
           isBusy={isBusy}
+          readOnly={isDesignLocked}
           focusTextEditor={focusTextEditor}
+          pendingTextEditLayerId={pendingTextEditLayerId}
+          onPendingTextEditConsumed={() => setPendingTextEditLayerId(null)}
           warnings={warnings}
           onSelectLayer={handleSelectLayer}
           onLayerTransformChange={(id, next) => {
-            if (layers.find((l) => l.id === id)?.locked) return;
+            if (isDesignLocked || layers.find((l) => l.id === id)?.locked) {
+              return;
+            }
             applyClampedLayerTransform(id, next);
           }}
           onLayerRotationChange={(id, rotation) => {
-            if (layers.find((l) => l.id === id)?.locked) return;
+            if (isDesignLocked || layers.find((l) => l.id === id)?.locked) {
+              return;
+            }
             applyClampedLayerTransform(id, { rotation });
           }}
           onLayerResize={(id, next) => {
-            if (layers.find((l) => l.id === id)?.locked) return;
+            if (isDesignLocked || layers.find((l) => l.id === id)?.locked) {
+              return;
+            }
             applyLayerResize(id, next);
           }}
           onClearSelection={() => setSelectedIds([])}
@@ -1282,6 +1353,7 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
           onDuplicateLayer={(id) => void handleDuplicate(id)}
           onDeleteLayer={deleteLayerById}
           onMoveLayer={(id, action) => {
+            if (isDesignLocked) return;
             setLayers((prev) => moveLayerZIndex(prev, id, action));
           }}
           onUpload={handleUpload}
@@ -1292,6 +1364,10 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
               updateLayer(primaryId, patch);
             }
           }}
+          onTextPatch={handleTextInspectorPatch}
+          onImageTransform={handleInspectorImageTransform}
+          onImageResize={handleInspectorImageResize}
+          onRotationChange={handleInspectorRotation}
           onClearCurrentSlotDesign={handleClearCurrentSlotDesign}
           onClearAllDesign={handleClearAllDesign}
         />
@@ -1307,7 +1383,8 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
           onHeightChange={setHeightCm}
           onWeightChange={setWeightKg}
           onUpdateBody={handleUpdateBody}
-          onSave={() => void handleSave()}
+          designLocked={isDesignLocked}
+          submitLabel={isContestMode ? "確認投稿" : "確認發送申請"}
           onSubmit={handleSubmitRequest}
         />
       </div>

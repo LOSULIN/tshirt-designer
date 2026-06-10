@@ -10,12 +10,12 @@ import {
   parseProofArtifactsFromFormData,
   type ProofOrder,
 } from "@/lib/proof-engine";
-import { uploadProofFile } from "@/lib/proof-engine/storage-manager";
-import { PROOF_STORAGE_FILES } from "@/lib/proof-engine/types";
+import { buildOrderStoragePath } from "@/lib/proof-engine/storage-manager";
 import {
   allocateSubmissionNo,
   isSubmissionNoConflict,
 } from "@/lib/submission-no";
+import { formatDbWriteError } from "@/lib/db-error";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
@@ -26,6 +26,10 @@ function extFromMime(mime: string) {
   if (mime === "image/png") return "png";
   if (mime === "image/webp") return "webp";
   return "jpg";
+}
+
+function originalFilename(ext: string, submissionNo: string) {
+  return `original-${submissionNo}.${ext}`;
 }
 
 export async function POST(request: Request) {
@@ -61,55 +65,6 @@ export async function POST(request: Request) {
       );
     }
 
-    const orderId = nanoid(12);
-    const createdAt = new Date().toISOString();
-    const supabase = createAdminClient();
-    const ctx = { supabase };
-
-    await uploadProofFile(
-      ctx,
-      orderId,
-      PROOF_VERSION,
-      PROOF_STORAGE_FILES.designJson,
-      designJson,
-      "application/json",
-    );
-
-    if (typeof textJson === "string" && textJson.length > 0) {
-      await uploadProofFile(
-        ctx,
-        orderId,
-        PROOF_VERSION,
-        "texts.json",
-        textJson,
-        "application/json",
-      );
-    }
-
-    if (typeof applicantJson === "string" && applicantJson.length > 0) {
-      await uploadProofFile(
-        ctx,
-        orderId,
-        PROOF_VERSION,
-        "applicant.json",
-        applicantJson,
-        "application/json",
-      );
-    }
-
-    if (original instanceof Blob && original.size > 0) {
-      const originalExt = extFromMime(original.type || "image/png");
-      const buffer = Buffer.from(await original.arrayBuffer());
-      await uploadProofFile(
-        ctx,
-        orderId,
-        PROOF_VERSION,
-        `original.${originalExt}`,
-        buffer,
-        original.type || "application/octet-stream",
-      );
-    }
-
     const applicant =
       typeof applicantJson === "string"
         ? (JSON.parse(applicantJson) as ProofOrder["applicant"])
@@ -129,6 +84,11 @@ export async function POST(request: Request) {
       );
     }
 
+    const orderId = nanoid(12);
+    const createdAt = new Date().toISOString();
+    const supabase = createAdminClient();
+    const ctx = { supabase };
+
     let submissionNo = "";
     let insertError: { code?: string; message?: string } | null = null;
 
@@ -140,7 +100,7 @@ export async function POST(request: Request) {
         template_type: templateType,
         side,
         status: "submitted",
-        storage_path: `orders/${orderId}/v${PROOF_VERSION}`,
+        storage_path: buildOrderStoragePath(submissionNo),
         expires_at: null,
         submission_type: "normal",
         review_status: null,
@@ -156,15 +116,29 @@ export async function POST(request: Request) {
 
       insertError = error;
       if (!isSubmissionNoConflict(error) || attempt === 7) {
+        console.error("design_submissions insert failed:", error);
         return NextResponse.json(
-          { error: "寫入資料庫失敗" },
+          { error: formatDbWriteError(error) },
           { status: 500 },
         );
       }
     }
 
     if (insertError) {
-      return NextResponse.json({ error: "寫入資料庫失敗" }, { status: 500 });
+      console.error("design_submissions insert failed:", insertError);
+      return NextResponse.json(
+        { error: formatDbWriteError(insertError) },
+        { status: 500 },
+      );
+    }
+
+    let originalFile: { buffer: Buffer; filename: string } | undefined;
+    if (original instanceof Blob && original.size > 0) {
+      const originalExt = extFromMime(original.type || "image/png");
+      originalFile = {
+        buffer: Buffer.from(await original.arrayBuffer()),
+        filename: originalFilename(originalExt, submissionNo),
+      };
     }
 
     const proofOrder: ProofOrder = {
@@ -179,21 +153,29 @@ export async function POST(request: Request) {
       created_at: createdAt,
     };
 
-    const { package: proofPackage, emails } = await generateProof(
+    const { package: proofPackage, email } = await generateProof(
       proofOrder,
       PROOF_VERSION,
       artifacts,
       ctx,
+      {
+        designJson,
+        textJson: typeof textJson === "string" ? textJson : undefined,
+        applicantJson:
+          typeof applicantJson === "string" ? applicantJson : undefined,
+        original: originalFile,
+      },
     );
 
     await supabase
       .from("design_submissions")
       .update({
-        mockup_front_url: proofPackage.mockup_front_url,
-        mockup_back_url: proofPackage.mockup_back_url,
-        print_file_url: proofPackage.print_file_url,
+        storage_path: proofPackage.storage_path,
         proof_pdf_url: proofPackage.pdf_url,
         proof_package: proofPackage,
+        mockup_front_url: null,
+        mockup_back_url: null,
+        print_file_url: null,
       })
       .eq("id", orderId);
 
@@ -202,7 +184,7 @@ export async function POST(request: Request) {
       orderId,
       createdAt,
       proof: proofPackage,
-      email: emails,
+      email,
     });
   } catch (error) {
     console.error(error);

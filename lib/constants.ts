@@ -145,6 +145,11 @@ export const TEMPLATES: Record<Gender, Record<Side, string>> = {
   },
 };
 
+/** 設計畫布／模特校稿：依性別的正背面模特圖 */
+export function getModelTemplateSrc(gender: Gender, side: Side): string {
+  return TEMPLATES[gender][side];
+}
+
 export const MODEL_PREVIEWS: Record<Gender, { id: string; label: string }[]> = {
   male: [{ id: "male-1", label: "模特 A" }],
   female: [{ id: "female-1", label: "模特 A" }],

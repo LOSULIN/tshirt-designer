@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { resolveFontFamily } from "@/lib/text-layer";
+import { resolveCssFontFamily } from "@/lib/text-layer";
 import type { TextDesignLayer } from "@/lib/types";
 
 export function CanvasInlineTextEditor({
@@ -48,9 +48,10 @@ export function CanvasInlineTextEditor({
       onPointerDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
       onDoubleClick={(e) => e.stopPropagation()}
+      onBlur={onCommit}
       className="h-full w-full resize-none border-none bg-transparent p-0 text-center leading-[1.3] text-zinc-900 outline-none"
       style={{
-        fontFamily: resolveFontFamily(layer.fontFamily),
+        fontFamily: resolveCssFontFamily(layer.fontFamily),
         fontSize: `calc(${fontSizeCm / printAreaHeight} * 100cqh)`,
         fontWeight: layer.fontWeight,
         color: layer.color,

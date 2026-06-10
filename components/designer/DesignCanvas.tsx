@@ -24,7 +24,6 @@ import type { DesignLayer, TextDesignLayer } from "@/lib/types";
 import { CanvasInfoPanel } from "./CanvasInfoPanel";
 import { ClothingBrowseModal } from "./ClothingBrowseModal";
 import { ClothingBrowsePanel } from "./ClothingBrowsePanel";
-import { DesignExportModal } from "./DesignExportModal";
 import { DesignReviewModal } from "./DesignReviewModal";
 import { DesignToolbar } from "./DesignToolbar";
 import { TemplateImage } from "./TemplateImage";
@@ -62,7 +61,10 @@ export function DesignCanvas({
   gridSnapEnabled,
   elementSnapDistance,
   isBusy,
+  readOnly = false,
   focusTextEditor,
+  pendingTextEditLayerId,
+  onPendingTextEditConsumed,
   warnings,
   onSelectLayer,
   onLayerTransformChange,
@@ -79,6 +81,10 @@ export function DesignCanvas({
   onTextChange,
   onClearCurrentSlotDesign,
   onClearAllDesign,
+  onTextPatch,
+  onImageTransform,
+  onImageResize,
+  onRotationChange,
 }: {
   gender: Gender;
   shirtColor: ShirtColor;
@@ -91,7 +97,10 @@ export function DesignCanvas({
   gridSnapEnabled: boolean;
   elementSnapDistance: number;
   isBusy: boolean;
+  readOnly?: boolean;
   focusTextEditor: boolean;
+  pendingTextEditLayerId?: string | null;
+  onPendingTextEditConsumed?: () => void;
   warnings: string[];
   onSelectLayer: (id: string, shiftKey: boolean) => void;
   onLayerTransformChange: (
@@ -114,6 +123,25 @@ export function DesignCanvas({
   onTextChange: (patch: Partial<TextDesignLayer>) => void;
   onClearCurrentSlotDesign: () => void;
   onClearAllDesign: () => void;
+  onTextPatch: (
+    id: string,
+    patch: {
+      text?: string;
+      fontSize_cm?: number;
+      x_cm?: number;
+      y_cm?: number;
+      rotation?: number;
+    },
+  ) => void;
+  onImageTransform: (
+    id: string,
+    patch: { x_cm?: number; y_cm?: number; scale?: number; rotation?: number },
+  ) => void;
+  onImageResize: (
+    id: string,
+    next: { x_cm: number; y_cm: number; width_cm: number; height_cm: number },
+  ) => void;
+  onRotationChange: (id: string, rotation: number) => void;
 }) {
   const [snapGuides, setSnapGuides] = useState<SnapGuidesState>(EMPTY_GUIDES);
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
@@ -121,7 +149,6 @@ export function DesignCanvas({
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [showDesignReview, setShowDesignReview] = useState(false);
   const [showClothingBrowse, setShowClothingBrowse] = useState(false);
-  const [showDesignExport, setShowDesignExport] = useState(false);
   const hasCurrentSlotDesign = layers.length > 0;
   const hasAnyDesignContent = hasAnyDesign(layersByTemplate);
   const sideLabel = side === "front" ? "正面" : "背面";
@@ -142,10 +169,12 @@ export function DesignCanvas({
   );
   const primaryId = selectedIds[selectedIds.length - 1] ?? null;
   const primaryLayer = layers.find((layer) => layer.id === primaryId) ?? null;
+  const interactionLocked = isBusy || readOnly;
+
   const showPrimaryActions =
     primaryLayer != null &&
     !primaryLayer.locked &&
-    !isBusy &&
+    !interactionLocked &&
     editingTextId !== primaryLayer.id;
   const primaryActionRect = useMemo(() => {
     if (!primaryLayer) return null;
@@ -154,11 +183,29 @@ export function DesignCanvas({
   const zoom = ZOOM_STEPS[zoomIndex];
 
   useEffect(() => {
-    if (!focusTextEditor || !primaryId) return;
+    if (!focusTextEditor || !primaryId || readOnly) return;
     const layer = layers.find((l) => l.id === primaryId && l.type === "text");
     if (layer) setEditingTextId(primaryId);
     onFocusTextEditorConsumed();
-  }, [focusTextEditor, primaryId, layers, onFocusTextEditorConsumed]);
+  }, [focusTextEditor, primaryId, layers, onFocusTextEditorConsumed, readOnly]);
+
+  useEffect(() => {
+    if (!pendingTextEditLayerId || readOnly) return;
+    const layer = layers.find(
+      (l) => l.id === pendingTextEditLayerId && l.type === "text",
+    );
+    if (layer) {
+      setEditingTextId(pendingTextEditLayerId);
+      onSelectLayer(pendingTextEditLayerId, false);
+    }
+    onPendingTextEditConsumed?.();
+  }, [
+    pendingTextEditLayerId,
+    layers,
+    readOnly,
+    onSelectLayer,
+    onPendingTextEditConsumed,
+  ]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -168,7 +215,7 @@ export function DesignCanvas({
       if (
         (e.key === "Delete" || e.key === "Backspace") &&
         selectedIds.length > 0 &&
-        !isBusy
+        !interactionLocked
       ) {
         e.preventDefault();
         for (const id of [...selectedIds].reverse()) {
@@ -179,7 +226,7 @@ export function DesignCanvas({
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [editingTextId, selectedIds, layers, isBusy, onDeleteLayer]);
+  }, [editingTextId, selectedIds, layers, interactionLocked, onDeleteLayer]);
 
   const finishTextEdit = useCallback(() => {
     setEditingTextId(null);
@@ -210,16 +257,6 @@ export function DesignCanvas({
           <div className="flex items-center gap-2">
             <button
               type="button"
-              title="匯出 mockup、印刷檔與校稿 PDF"
-              disabled={isBusy || !hasCurrentSlotDesign}
-              onClick={() => setShowDesignExport(true)}
-              className="flex items-center gap-1 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              <span aria-hidden>⬇</span>
-              <span>Export</span>
-            </button>
-            <button
-              type="button"
               title="瀏覽完整衣服設計（正面與背面）"
               disabled={isBusy || !canReviewGenderDesign}
               onClick={() => setShowDesignReview(true)}
@@ -231,7 +268,7 @@ export function DesignCanvas({
             <button
               type="button"
               title="清除目前模特與面向的設計"
-              disabled={isBusy || !hasCurrentSlotDesign}
+              disabled={isBusy || readOnly || !hasCurrentSlotDesign}
               onClick={() => setShowClearConfirm(true)}
               className="flex items-center gap-1 rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40"
             >
@@ -247,8 +284,13 @@ export function DesignCanvas({
             layers={layers}
             selectedLayerId={primaryId}
             isBusy={isBusy}
+            readOnly={readOnly}
             onSelectLayer={(id) => onSelectLayer(id, false)}
             onMoveLayer={(id, direction) => onMoveLayer(id, direction)}
+            onTextPatch={onTextPatch}
+            onImageTransform={onImageTransform}
+            onImageResize={onImageResize}
+            onRotationChange={onRotationChange}
           />
 
           <div className="@container relative flex min-h-0 min-w-0 flex-1 items-center justify-center p-2">
@@ -292,7 +334,10 @@ export function DesignCanvas({
                 const isPrimary = layer.id === primaryId;
                 const isEditing = editingTextId === layer.id;
                 const showControls =
-                  isPrimary && !layer.locked && !isBusy && !isEditing;
+                  isPrimary &&
+                  !layer.locked &&
+                  !interactionLocked &&
+                  !isEditing;
                 const rect = getLayerEffectiveCmRect(layer);
                 const scale = layer.type === "image" ? layer.scale : 1;
 
@@ -312,7 +357,7 @@ export function DesignCanvas({
                     rotation={layer.rotation}
                     isActive={isActive}
                     showControls={showControls}
-                    locked={layer.locked}
+                    locked={layer.locked || readOnly}
                     isEditing={isEditing}
                     onSelect={(shiftKey) => onSelectLayer(layer.id, shiftKey)}
                     onTransformChange={(next) =>
@@ -337,7 +382,7 @@ export function DesignCanvas({
                       if (
                         layer.type === "text" &&
                         !layer.locked &&
-                        !isBusy
+                        !interactionLocked
                       ) {
                         setEditingTextId(layer.id);
                         onSelectLayer(layer.id, false);
@@ -357,7 +402,7 @@ export function DesignCanvas({
                       <CanvasInlineTextEditor
                         layer={layer}
                         printAreaHeight={printArea.height}
-                        onChange={(text) => onTextChange({ text })}
+                        onChange={(text) => onTextPatch(layer.id, { text })}
                         onCommit={finishTextEdit}
                         onCancel={finishTextEdit}
                       />
@@ -501,21 +546,12 @@ export function DesignCanvas({
 
         <DesignToolbar
           isBusy={isBusy}
+          readOnly={readOnly}
           warnings={warnings}
           onUpload={onUpload}
           onAddText={onAddText}
         />
       </div>
-
-      <DesignExportModal
-        open={showDesignExport}
-        gender={gender}
-        side={side}
-        shirtColor={shirtColor}
-        size={size}
-        layers={layers}
-        onClose={() => setShowDesignExport(false)}
-      />
 
       <DesignReviewModal
         open={showDesignReview}

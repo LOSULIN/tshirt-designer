@@ -10,6 +10,7 @@ import {
   type LiveDesignStateElement,
 } from "@/lib/live-design-state";
 import type { DesignLayer } from "@/lib/types";
+import { LayerInspectorEditor } from "./LayerInspectorEditor";
 
 function InfoRow({
   label,
@@ -89,14 +90,6 @@ function ElementInspectorCard({
           <dd className={`text-right font-medium ${statusTone}`}>{statusLabel}</dd>
         </div>
       </dl>
-      {element.warnings.length > 0 && (
-        <p className="mt-1.5 rounded border border-amber-300 bg-amber-50 px-2 py-1 text-[10px] leading-snug text-amber-950">
-          {element.warnings.join(" · ")}
-        </p>
-      )}
-      <p className="mt-1 truncate font-mono text-[9px] text-zinc-400" title={element.id}>
-        ID: {element.id}
-      </p>
     </article>
   );
 }
@@ -105,11 +98,38 @@ export function PreviewInfoPanel({
   size,
   layers,
   selectedLayerId,
+  readOnly = false,
+  isBusy = false,
+  onTextPatch,
+  onImageTransform,
+  onImageResize,
+  onRotationChange,
   className = "",
 }: {
   size: Size;
   layers: DesignLayer[];
   selectedLayerId: string | null;
+  readOnly?: boolean;
+  isBusy?: boolean;
+  onTextPatch: (
+    id: string,
+    patch: {
+      text?: string;
+      fontSize_cm?: number;
+      x_cm?: number;
+      y_cm?: number;
+      rotation?: number;
+    },
+  ) => void;
+  onImageTransform: (
+    id: string,
+    patch: { x_cm?: number; y_cm?: number; scale?: number; rotation?: number },
+  ) => void;
+  onImageResize: (
+    id: string,
+    next: { x_cm: number; y_cm: number; width_cm: number; height_cm: number },
+  ) => void;
+  onRotationChange: (id: string, rotation: number) => void;
   className?: string;
 }) {
   const designState = useMemo(
@@ -117,8 +137,15 @@ export function PreviewInfoPanel({
     [layers, size, selectedLayerId],
   );
   const { garment, elements } = designState;
+  const selectedLayer = selectedLayerId
+    ? (layers.find((layer) => layer.id === selectedLayerId) ?? null)
+    : null;
+  const otherElements = elements.filter(
+    (element) => element.id !== selectedLayerId,
+  );
 
   const printAreaLabel = `${formatInspectorCm(garment.printArea.width_cm, 0)} × ${formatInspectorCm(garment.printArea.height_cm, 0)}`;
+  const inspectorDisabled = readOnly || isBusy;
 
   return (
     <div
@@ -137,22 +164,51 @@ export function PreviewInfoPanel({
 
       <section className="space-y-2">
         <h4 className="text-[10px] font-semibold uppercase tracking-wide text-zinc-700">
-          Elements ({elements.length})
+          Inspector
         </h4>
-        {elements.length === 0 ? (
-          <p className="text-[11px] text-zinc-500">尚無設計元素</p>
+        {readOnly && (
+          <p className="rounded border border-zinc-200 bg-zinc-50 px-2 py-1.5 text-[10px] text-zinc-600">
+            已送出 — 設計已鎖定，僅供檢視
+          </p>
+        )}
+        {selectedLayer ? (
+          <div className="rounded-md border border-sky-300 bg-sky-50/40 px-2 py-2">
+            <p className="mb-2 text-[10px] font-semibold text-zinc-800">
+              {selectedLayer.name}
+              <span className="ml-1 font-normal text-zinc-500">
+                ({selectedLayer.type === "text" ? "Text" : "Image"})
+              </span>
+            </p>
+            <LayerInspectorEditor
+              layer={selectedLayer}
+              disabled={inspectorDisabled}
+              onTextPatch={onTextPatch}
+              onImageTransform={onImageTransform}
+              onImageResize={onImageResize}
+              onRotationChange={onRotationChange}
+            />
+          </div>
         ) : (
+          <p className="text-[11px] text-zinc-500">請選取圖層以編輯屬性</p>
+        )}
+      </section>
+
+      {otherElements.length > 0 && (
+        <section className="space-y-2">
+          <h4 className="text-[10px] font-semibold uppercase tracking-wide text-zinc-700">
+            Other Elements ({otherElements.length})
+          </h4>
           <div className="space-y-2">
-            {elements.map((element) => (
+            {otherElements.map((element) => (
               <ElementInspectorCard
                 key={element.id}
                 element={element}
-                selected={element.isSelected}
+                selected={false}
               />
             ))}
           </div>
-        )}
-      </section>
+        </section>
+      )}
     </div>
   );
 }

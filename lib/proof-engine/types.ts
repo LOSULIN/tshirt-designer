@@ -30,16 +30,21 @@ export interface ProofArtifactsInput {
   prints: Partial<Record<Side, Uint8Array | Buffer>>;
 }
 
+export interface ProofInternalFiles {
+  designJson: string;
+  textJson?: string;
+  applicantJson?: string;
+  original?: { buffer: Buffer; filename: string };
+}
+
 /** 標準化輸出 schema */
 export interface ProofPackage {
   order_id: string;
+  submission_no: string;
   version: number;
   storage_path: string;
-  mockup_front_url: string | null;
-  mockup_back_url: string | null;
-  print_file_url: string | null;
-  print_back_url: string | null;
   pdf_url: string;
+  zip_url: string;
   created_at: string;
 }
 
@@ -55,7 +60,8 @@ export const PROOF_STORAGE_FILES = {
   mockupBack: "mockup-back.png",
   printFront: "print-front.png",
   printBack: "print-back.png",
-  proofPdf: "proof.pdf",
   proofPackage: "proof-package.json",
   designJson: "design.json",
+  textsJson: "texts.json",
+  applicantJson: "applicant.json",
 } as const;

@@ -1,6 +1,6 @@
 "use client";
 
-import { getAdultTshirtTemplateSrc, type ShirtColor } from "@/lib/constants";
+import { getModelTemplateSrc, type ShirtColor } from "@/lib/constants";
 import {
   getLayerEffectiveCmRect,
   getPrintAreaCmBounds,
@@ -85,7 +85,7 @@ export function ModelDesignPreview({
   zoom?: number;
   fitRatio?: number;
 }) {
-  const templateSrc = getAdultTshirtTemplateSrc(shirtColor, side);
+  const templateSrc = getModelTemplateSrc(gender, side);
   const visibleLayers = sortLayersByZIndex(layers).filter((l) => l.visible);
   const printArea = getPrintAreaCmBounds();
   const printAreaStyle = getPrintAreaContainerStyle(side);

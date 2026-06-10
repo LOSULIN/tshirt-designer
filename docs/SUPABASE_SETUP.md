@@ -173,6 +173,23 @@ curl -H "Authorization: Bearer $CRON_SECRET" https://你的網域/api/cron/clean
 ### 上傳失敗 `Payload too large`
 單檔超過 50 MB。可於 Supabase Storage 設定調高，或壓縮上傳圖片。
 
+### 送出申請顯示「寫入資料庫失敗」
+多半是資料表尚未套用 Proof Engine 等新欄位。請在 **SQL Editor** 執行：
+
+[`supabase/migrations/APPLY_ALL.sql`](../supabase/migrations/APPLY_ALL.sql)
+
+或至少執行：
+
+[`supabase/migrations/20250611120000_add_proof_engine_fields.sql`](../supabase/migrations/20250611120000_add_proof_engine_fields.sql)
+
+完成後再跑：
+
+```bash
+npm run check:supabase
+```
+
+應看到 `design_submissions Proof Engine 欄位寫入測試成功`。
+
 ---
 
 ## 下一步
