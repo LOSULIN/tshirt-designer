@@ -6,6 +6,14 @@ import { DesignPanel } from "./DesignPanel";
 import { IconNav } from "./IconNav";
 import { ModelPanel } from "./ModelPanel";
 import { ProductPanel } from "./ProductPanel";
+import {
+  contestFormToApplicantPayload,
+  createEmptyContestSubmissionForm,
+  type ContestSubmissionFormData,
+} from "@/lib/contest-submission";
+import { ContestSubmitSuccess } from "@/components/contest/ContestSubmitSuccess";
+import { formatSubmissionDisplayLabel } from "@/lib/submission-no";
+import { ContestSubmitModal } from "./ContestSubmitModal";
 import { SubmitApplicationModal } from "./SubmitApplicationModal";
 import { UploadValidationModal } from "./UploadValidationModal";
 import type {
@@ -23,14 +31,13 @@ import {
   suggestSize,
 } from "@/lib/constants";
 import {
-  clearAllDrafts,
-  clearLayerImages,
-  loadDraftImages,
-  loadDraftMetadata,
-  loadLayerImages,
-  saveAllLayerImagesFromState,
-  saveDraftMetadata,
+  createDraftStorage,
+  type DraftStorage,
 } from "@/lib/draft-storage";
+import {
+  DESIGNER_MODE_DEFAULT,
+  type DesignerMode,
+} from "@/lib/designer-mode";
 import {
   completedDesignFormField,
   createEmptyDesignLayersByTemplate,
@@ -47,6 +54,7 @@ import {
 } from "@/lib/design-state";
 import {
   buildAllTextsJson,
+  buildDesignJson,
   buildFullDesignJson,
   renderCompletedDesignPng,
 } from "@/lib/export-design";
@@ -198,6 +206,7 @@ async function hydrateImageLayer(
 
 async function hydrateDesignLayersByTemplate(
   snapshot: ReturnType<typeof layersByTemplateToDraftSnapshot>,
+  draftStorage: DraftStorage,
 ) {
   let result = createEmptyDesignLayersByTemplate();
   let legacyDraftImagesUsed = false;
@@ -208,9 +217,9 @@ async function hydrateDesignLayersByTemplate(
 
       for (const layer of getLayersForSlot(snapshot, templateGender, templateSide)) {
         if (layer.type === "image") {
-          let blobs = await loadLayerImages(layer.id);
+          let blobs = await draftStorage.loadLayerImages(layer.id);
           if ((!blobs.original || !blobs.preview) && !legacyDraftImagesUsed) {
-            const legacy = await loadDraftImages();
+            const legacy = await draftStorage.loadDraftImages();
             if (legacy.original && legacy.preview) {
               blobs = legacy;
               legacyDraftImagesUsed = true;
@@ -247,7 +256,15 @@ const EMPTY_FORM: ApplicationFormData = {
   notes: "",
 };
 
-export function DesignerApp() {
+const EMPTY_CONTEST_FORM = createEmptyContestSubmissionForm();
+
+type DesignerAppProps = {
+  mode?: DesignerMode;
+};
+
+export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) {
+  const isContestMode = mode === "contest";
+  const draftStorage = useMemo(() => createDraftStorage(mode), [mode]);
   const [activeTab, setActiveTab] = useState<PanelTab>("product");
   const [gender, setGender] = useState<Gender>("child-male");
   const [side, setSide] = useState<Side>("front");
@@ -275,12 +292,20 @@ export function DesignerApp() {
   const [gridSnapEnabled, setGridSnapEnabled] = useState(true);
   const [elementSnapDistance, setElementSnapDistance] = useState(10);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
+  const [showContestSubmitModal, setShowContestSubmitModal] = useState(false);
+  const [contestSubmitted, setContestSubmitted] = useState(false);
+  const [contestSubmissionInfo, setContestSubmissionInfo] = useState<{
+    submissionNo: string;
+    authorName: string;
+  } | null>(null);
   const [uploadAlertDetail, setUploadAlertDetail] = useState<string | null>(
     null,
   );
   const [focusTextEditor, setFocusTextEditor] = useState(false);
   const [applicationForm, setApplicationForm] =
     useState<ApplicationFormData>(EMPTY_FORM);
+  const [contestApplicationForm, setContestApplicationForm] =
+    useState<ContestSubmissionFormData>(EMPTY_CONTEST_FORM);
   const autoSaveTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const layers = useMemo(
@@ -315,6 +340,20 @@ export function DesignerApp() {
     setSelectedIds([]);
     setFocusTextEditor(false);
   }, [gender, side]);
+
+  useEffect(() => {
+    if (isContestMode) {
+      setShirtColor("white");
+    }
+  }, [isContestMode]);
+
+  const handleShirtColorChange = useCallback(
+    (color: ShirtColor) => {
+      if (isContestMode) return;
+      setShirtColor(color);
+    },
+    [isContestMode],
+  );
 
   const submissionMeta = {
     product: PRODUCTS[product].name,
@@ -473,7 +512,7 @@ export function DesignerApp() {
         );
         if (target) {
           revokeLayerAssets(target);
-          void clearLayerImages(id);
+          void draftStorage.clearLayerImages(id);
         }
         const next = updateLayersForSlot(prev, gender, side, (current) =>
           current.filter((l) => l.id !== id),
@@ -481,25 +520,25 @@ export function DesignerApp() {
         if (!hasAnyDesign(next)) {
           setWarnings([]);
           setJpgHintShown(false);
-          void clearAllDrafts();
+          void draftStorage.clearAllDrafts();
         }
         return next;
       });
       setSelectedIds((prev) => prev.filter((x) => x !== id));
       setStatusMessage("已刪除圖層");
     },
-    [gender, side],
+    [draftStorage, gender, side],
   );
 
   const restoreDraft = useCallback(async () => {
-    const meta = loadDraftMetadata();
+    const meta = draftStorage.loadDraftMetadata();
     if (!meta) return;
 
     setDraftId(meta.id);
 
     let legacyImage: UploadedDesignImage | null = null;
     if (!meta.layersByTemplate && !meta.layers?.length) {
-      const images = await loadDraftImages();
+      const images = await draftStorage.loadDraftImages();
       if (images.original && images.preview) {
         const originalUrl = URL.createObjectURL(images.original);
         const previewUrl = URL.createObjectURL(images.preview);
@@ -540,13 +579,14 @@ export function DesignerApp() {
 
     const hydrated = await hydrateDesignLayersByTemplate(
       layersByTemplateToDraftSnapshot(snapshot),
+      draftStorage,
     );
 
     if (hasAnyDesign(hydrated)) {
       setLayersByTemplate(hydrated);
       setStatusMessage("已恢復未送出的暫存設計");
     }
-  }, []);
+  }, [draftStorage]);
 
   useEffect(() => {
     void restoreDraft();
@@ -559,7 +599,7 @@ export function DesignerApp() {
     const activeConfig = legacyConfigFromSlot(layersByTemplate, gender, side);
     const firstImage = layers.find((l) => l.type === "image");
 
-    saveDraftMetadata({
+    draftStorage.saveDraftMetadata({
       id: draftId,
       savedAt: new Date().toISOString(),
       expiresAt,
@@ -572,8 +612,8 @@ export function DesignerApp() {
       layers: layersToDraftSnapshot(layers),
     });
 
-    await saveAllLayerImagesFromState(layersByTemplate);
-  }, [draftId, gender, side, hasDesign, layers, layersByTemplate]);
+    await draftStorage.saveAllLayerImagesFromState(layersByTemplate);
+  }, [draftId, draftStorage, gender, side, hasDesign, layers, layersByTemplate]);
 
   const syncDraftToServer = useCallback(async (): Promise<
     { ok: true } | { ok: false; error: string }
@@ -715,11 +755,11 @@ export function DesignerApp() {
     setLayersByTemplate((prev) => {
       for (const layer of getLayersForSlot(prev, gender, side)) {
         revokeLayerAssets(layer);
-        void clearLayerImages(layer.id);
+        void draftStorage.clearLayerImages(layer.id);
       }
       const next = setLayersForSlot(prev, gender, side, []);
       if (!hasAnyDesign(next)) {
-        void clearAllDrafts();
+        void draftStorage.clearAllDrafts();
         setDraftId(nanoid(12));
       }
       return next;
@@ -729,7 +769,7 @@ export function DesignerApp() {
     setJpgHintShown(false);
     setFocusTextEditor(false);
     setStatusMessage("已清除目前面向設計");
-  }, [gender, side]);
+  }, [draftStorage, gender, side]);
 
   const handleClearAllDesign = useCallback(() => {
     for (const templateGender of DESIGN_GENDERS) {
@@ -740,7 +780,7 @@ export function DesignerApp() {
           templateSide,
         )) {
           revokeLayerAssets(layer);
-          void clearLayerImages(layer.id);
+          void draftStorage.clearLayerImages(layer.id);
         }
       }
     }
@@ -749,10 +789,10 @@ export function DesignerApp() {
     setWarnings([]);
     setJpgHintShown(false);
     setFocusTextEditor(false);
-    void clearAllDrafts();
+    void draftStorage.clearAllDrafts();
     setDraftId(nanoid(12));
     setStatusMessage("已清除全部設計，可重新開始");
-  }, [layersByTemplate]);
+  }, [draftStorage, layersByTemplate]);
 
   const handleAddText = () => {
     if (!canAddTextLayer(layers)) {
@@ -850,6 +890,10 @@ export function DesignerApp() {
 
   const handleSubmitRequest = () => {
     if (!hasDesign) return;
+    if (isContestMode) {
+      setShowContestSubmitModal(true);
+      return;
+    }
     setShowSubmitModal(true);
   };
 
@@ -857,9 +901,107 @@ export function DesignerApp() {
     setIsBusy(true);
     setStatusMessage(null);
     try {
+      if (isContestMode) {
+        const applicantPayload = contestFormToApplicantPayload(contestApplicationForm);
+        const contestMeta = {
+          ...submissionMeta,
+          applicant: applicantPayload,
+        };
+        const formData = new FormData();
+        formData.append("contestFormJson", JSON.stringify(contestApplicationForm));
+        formData.append("productType", product);
+        formData.append("templateType", gender);
+        formData.append("side", side);
+
+        let hasSideDesign = false;
+
+        for (const templateSide of DESIGN_SIDES) {
+          if (!hasDesignInSlot(layersByTemplate, gender, templateSide)) {
+            continue;
+          }
+
+          hasSideDesign = true;
+          const slotLayers = getLayersForSlot(
+            layersByTemplate,
+            gender,
+            templateSide,
+          );
+          const sideJson = buildDesignJson(
+            gender,
+            templateSide,
+            slotLayers,
+            contestMeta,
+          );
+          const previewBlob = await renderCompletedDesignPng(
+            gender,
+            templateSide,
+            slotLayers,
+          );
+
+          if (templateSide === "front") {
+            formData.append("frontDesignJson", sideJson);
+            formData.append("previewFront", previewBlob, "preview-front.png");
+          } else {
+            formData.append("backDesignJson", sideJson);
+            formData.append("previewBack", previewBlob, "preview-back.png");
+          }
+        }
+
+        if (!hasSideDesign) {
+          throw new Error("沒有可送出的設計內容");
+        }
+
+        const res = await fetch("/api/contest/submit", {
+          method: "POST",
+          body: formData,
+        });
+        const data = (await res.json()) as {
+          submissionNo?: string;
+          authorName?: string;
+          error?: string;
+        };
+
+        if (!res.ok) {
+          throw new Error(data.error ?? "投稿送出失敗");
+        }
+
+        if (!data.submissionNo) {
+          throw new Error("投稿送出失敗");
+        }
+
+        draftStorage.saveDraftMetadata({
+          id: draftId,
+          savedAt: new Date().toISOString(),
+          expiresAt: new Date(Date.now() + DRAFT_TTL_MS).toISOString(),
+          submitted: true,
+          activeGender: gender,
+          activeSide: side,
+          config: legacyConfigFromSlot(layersByTemplate, gender, side),
+          hasImage: layers.some((layer) => layer.type === "image"),
+          layersByTemplate: layersByTemplateToDraftSnapshot(layersByTemplate),
+          layers: layersToDraftSnapshot(layers),
+        });
+
+        const authorName =
+          data.authorName ?? contestApplicationForm.authorName.trim();
+
+        setShowContestSubmitModal(false);
+        setContestApplicationForm(EMPTY_CONTEST_FORM);
+        setCloudSyncWarning(null);
+        setContestSubmissionInfo({
+          submissionNo: data.submissionNo,
+          authorName,
+        });
+        setContestSubmitted(true);
+        setDraftId(nanoid(12));
+        return;
+      }
+
+      const applicantPayload = applicationForm;
+
       const designJson = buildFullDesignJson(layersByTemplate, gender, side, {
         ...submissionMeta,
-        applicant: applicationForm,
+        applicant: applicantPayload,
       });
       const textJson = buildAllTextsJson(layersByTemplate);
 
@@ -896,7 +1038,7 @@ export function DesignerApp() {
       formData.append("completed", primaryCompleted, "completed.png");
       formData.append("designJson", designJson);
       formData.append("textJson", textJson);
-      formData.append("applicantJson", JSON.stringify(applicationForm));
+      formData.append("applicantJson", JSON.stringify(applicantPayload));
 
       let firstImage: ImageDesignLayer | undefined;
       for (const templateGender of DESIGN_GENDERS) {
@@ -934,7 +1076,7 @@ export function DesignerApp() {
         throw new Error(data.error ?? "送出失敗");
       }
 
-      saveDraftMetadata({
+      draftStorage.saveDraftMetadata({
         id: draftId,
         savedAt: new Date().toISOString(),
         expiresAt: new Date(Date.now() + DRAFT_TTL_MS).toISOString(),
@@ -948,7 +1090,9 @@ export function DesignerApp() {
       });
 
       setShowSubmitModal(false);
+      setShowContestSubmitModal(false);
       setApplicationForm(EMPTY_FORM);
+      setContestApplicationForm(EMPTY_CONTEST_FORM);
       setCloudSyncWarning(null);
 
       const emailInfo = data.email as
@@ -956,17 +1100,22 @@ export function DesignerApp() {
         | { sent: false; message?: string }
         | undefined;
 
+      const displayLabel = formatSubmissionDisplayLabel(
+        data.submissionNo,
+        applicationForm.applicantName,
+      );
+
       if (emailInfo?.sent) {
         setStatusMessage(
-          `申請已發送！編號：${data.designId}（已儲存至雲端並寄送 Email 通知）`,
+          `申請已發送！編號：${displayLabel}（已儲存至雲端並寄送 Email 通知）`,
         );
       } else if (emailInfo && !emailInfo.sent && emailInfo.message) {
         setStatusMessage(
-          `申請已發送！編號：${data.designId}（已儲存至雲端；${emailInfo.message}）`,
+          `申請已發送！編號：${displayLabel}（已儲存至雲端；${emailInfo.message}）`,
         );
       } else {
         setStatusMessage(
-          `申請已發送！編號：${data.designId}（已儲存至雲端）`,
+          `申請已發送！編號：${displayLabel}（已儲存至雲端）`,
         );
       }
 
@@ -1015,9 +1164,10 @@ export function DesignerApp() {
             material={material}
             size={size}
             onProductChange={setProduct}
-            onColorChange={setShirtColor}
+            onColorChange={handleShirtColorChange}
             onMaterialChange={setMaterial}
             onSizeChange={setSize}
+            hideColorPicker={isContestMode}
           />
         )}
 
@@ -1145,22 +1295,42 @@ export function DesignerApp() {
         </div>
       )}
 
-      <SubmitApplicationModal
-        open={showSubmitModal}
-        isBusy={isBusy}
-        form={applicationForm}
-        onChange={(patch) =>
-          setApplicationForm((prev) => ({ ...prev, ...patch }))
-        }
-        onClose={() => setShowSubmitModal(false)}
-        onConfirm={() => void handleSubmitConfirm()}
-      />
+      {isContestMode ? (
+        <ContestSubmitModal
+          open={showContestSubmitModal}
+          isBusy={isBusy}
+          form={contestApplicationForm}
+          onChange={(patch) =>
+            setContestApplicationForm((prev) => ({ ...prev, ...patch }))
+          }
+          onClose={() => setShowContestSubmitModal(false)}
+          onConfirm={() => void handleSubmitConfirm()}
+        />
+      ) : (
+        <SubmitApplicationModal
+          open={showSubmitModal}
+          isBusy={isBusy}
+          form={applicationForm}
+          onChange={(patch) =>
+            setApplicationForm((prev) => ({ ...prev, ...patch }))
+          }
+          onClose={() => setShowSubmitModal(false)}
+          onConfirm={() => void handleSubmitConfirm()}
+        />
+      )}
 
       <UploadValidationModal
         open={uploadAlertDetail !== null}
         detail={uploadAlertDetail}
         onClose={() => setUploadAlertDetail(null)}
       />
+
+      {isContestMode && contestSubmitted && contestSubmissionInfo && (
+        <ContestSubmitSuccess
+          submissionNo={contestSubmissionInfo.submissionNo}
+          authorName={contestSubmissionInfo.authorName}
+        />
+      )}
     </div>
   );
 }

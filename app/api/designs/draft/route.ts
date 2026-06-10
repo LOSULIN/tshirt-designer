@@ -85,6 +85,8 @@ export async function POST(request: Request) {
         status: "draft",
         storage_path: basePath,
         expires_at: expiresAt.toISOString(),
+        submission_type: "normal",
+        review_status: null,
       },
       { onConflict: "id" },
     );

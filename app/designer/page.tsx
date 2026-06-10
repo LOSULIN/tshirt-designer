@@ -11,7 +11,7 @@ export default function DesignerPage() {
     <div className="flex h-screen flex-col">
       <LandingNav />
       <div className="min-h-0 flex-1">
-        <DesignerApp />
+        <DesignerApp mode="normal" />
       </div>
     </div>
   );

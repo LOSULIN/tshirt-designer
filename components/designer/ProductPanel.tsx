@@ -19,6 +19,7 @@ export function ProductPanel({
   onColorChange,
   onMaterialChange,
   onSizeChange,
+  hideColorPicker = false,
 }: {
   product: Product;
   shirtColor: ShirtColor;
@@ -28,6 +29,7 @@ export function ProductPanel({
   onColorChange: (color: ShirtColor) => void;
   onMaterialChange: (material: Material) => void;
   onSizeChange: (size: Size) => void;
+  hideColorPicker?: boolean;
 }) {
   return (
     <div className="flex w-60 shrink-0 flex-col gap-5 overflow-y-auto border-r border-zinc-200 bg-white p-4">
@@ -66,25 +68,27 @@ export function ProductPanel({
         </div>
       </div>
 
-      <div>
-        <h2 className="mb-2 text-sm font-semibold text-zinc-900">顏色選擇</h2>
-        <div className="flex flex-wrap gap-2">
-          {SHIRT_COLORS.map((color) => (
-            <button
-              key={color.id}
-              type="button"
-              title={color.name}
-              onClick={() => onColorChange(color.id as ShirtColor)}
-              className={`h-8 w-8 rounded-full border-2 transition-all ${
-                shirtColor === color.id
-                  ? "border-zinc-900 scale-110"
-                  : "border-zinc-300"
-              }`}
-              style={{ backgroundColor: color.hex }}
-            />
-          ))}
+      {!hideColorPicker && (
+        <div>
+          <h2 className="mb-2 text-sm font-semibold text-zinc-900">顏色選擇</h2>
+          <div className="flex flex-wrap gap-2">
+            {SHIRT_COLORS.map((color) => (
+              <button
+                key={color.id}
+                type="button"
+                title={color.name}
+                onClick={() => onColorChange(color.id as ShirtColor)}
+                className={`h-8 w-8 rounded-full border-2 transition-all ${
+                  shirtColor === color.id
+                    ? "border-zinc-900 scale-110"
+                    : "border-zinc-300"
+                }`}
+                style={{ backgroundColor: color.hex }}
+              />
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       <div>
         <h2 className="mb-2 text-sm font-semibold text-zinc-900">版型</h2>

@@ -6,6 +6,10 @@ import {
   DESIGN_SIDES,
 } from "@/lib/design-state";
 import { sendDesignSubmittedEmail } from "@/lib/email";
+import {
+  allocateSubmissionNo,
+  isSubmissionNoConflict,
+} from "@/lib/submission-no";
 import { createAdminClient, DESIGNS_BUCKET } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
@@ -194,18 +198,44 @@ export async function POST(request: Request) {
     const templateType = config.activeGender ?? config.templateType;
     const side = config.activeSide ?? config.side;
 
-    await supabase.from("design_submissions").insert({
-      id: designId,
-      created_at: createdAt,
-      template_type: templateType,
-      side,
-      status: "submitted",
-      storage_path: basePath,
-      expires_at: null,
-    });
+    let submissionNo = "";
+    let insertError: { code?: string; message?: string } | null = null;
+
+    for (let attempt = 0; attempt < 8; attempt++) {
+      submissionNo = await allocateSubmissionNo(supabase, "FD");
+      const { error } = await supabase.from("design_submissions").insert({
+        id: designId,
+        created_at: createdAt,
+        template_type: templateType,
+        side,
+        status: "submitted",
+        storage_path: basePath,
+        expires_at: null,
+        submission_type: "normal",
+        review_status: null,
+        submission_no: submissionNo,
+      });
+
+      if (!error) {
+        insertError = null;
+        break;
+      }
+
+      insertError = error;
+      if (!isSubmissionNoConflict(error) || attempt === 7) {
+        return NextResponse.json(
+          { error: "寫入資料庫失敗" },
+          { status: 500 },
+        );
+      }
+    }
+
+    if (insertError) {
+      return NextResponse.json({ error: "寫入資料庫失敗" }, { status: 500 });
+    }
 
     const emailResult = await sendDesignSubmittedEmail({
-      designId,
+      submissionNo,
       createdAt,
       templateType,
       side,
@@ -221,7 +251,7 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json({
-      designId,
+      submissionNo,
       createdAt,
       email: emailResult.sent
         ? { sent: true, recipients: emailResult.recipients }

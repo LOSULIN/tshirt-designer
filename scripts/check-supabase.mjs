@@ -120,6 +120,9 @@ const { error: insertError } = await supabase.from("design_submissions").insert(
   status: "draft",
   storage_path: `drafts/${TEST_ID}`,
   expires_at: expires,
+  submission_type: "normal",
+  review_status: null,
+  submission_no: `FD-${TEST_ID}`,
 });
 
 if (insertError) {
@@ -145,6 +148,7 @@ const { error: submissionsInsertError } = await supabase.from("submissions").ins
   applicant_name: "測試",
   applicant_email: "test@example.com",
   applicant_phone: "0900000000",
+  submission_no: `PD-${TEST_ID}`,
 });
 
 if (submissionsInsertError) {
@@ -152,6 +156,33 @@ if (submissionsInsertError) {
 } else {
   pass("資料表 submissions 寫入測試成功");
   await supabase.from("submissions").delete().eq("id", TEST_ID);
+}
+
+const CONTEST_TEST_ID = `contest-${TEST_ID}`;
+
+const { error: contestInsertError } = await supabase.from("design_submissions").insert({
+  id: CONTEST_TEST_ID,
+  created_at: now,
+  template_type: "male",
+  side: "front",
+  status: "submitted",
+  storage_path: `submitted/${CONTEST_TEST_ID}`,
+  expires_at: null,
+  submission_type: "contest",
+  design_name: "測試作品",
+  description: "測試投稿說明",
+  author_name: "測試作者",
+  author_email: "test@example.com",
+  product_type: "basic-tshirt",
+  review_status: "pending",
+  submission_no: `CT-${CONTEST_TEST_ID}`,
+});
+
+if (contestInsertError) {
+  fail(`design_submissions 徵選投稿寫入失敗：${contestInsertError.message}`);
+} else {
+  pass("design_submissions 徵選投稿寫入測試成功");
+  await supabase.from("design_submissions").delete().eq("id", CONTEST_TEST_ID);
 }
 
 console.log("");

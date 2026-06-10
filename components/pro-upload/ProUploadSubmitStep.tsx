@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { formatSubmissionDisplayLabel } from "@/lib/submission-no";
 import {
   getFitLabel,
   getProductLabel,
@@ -19,6 +20,7 @@ type ProUploadSubmitStepProps = {
   onBack: () => void;
   onSubmit: () => void;
   submitted: boolean;
+  submissionNo: string | null;
   isSubmitting: boolean;
   submitError: string | null;
 };
@@ -39,10 +41,15 @@ export function ProUploadSubmitStep({
   onBack,
   onSubmit,
   submitted,
+  submissionNo,
   isSubmitting,
   submitError,
 }: ProUploadSubmitStepProps) {
   if (submitted) {
+    const displayLabel = submissionNo
+      ? formatSubmissionDisplayLabel(submissionNo, caseForm.name)
+      : null;
+
     return (
       <div className="w-full max-w-2xl">
         <div className="rounded-2xl bg-white p-8 shadow-[0_8px_30px_rgba(0,0,0,0.04)] ring-1 ring-gray-100 sm:p-10">
@@ -53,6 +60,9 @@ export function ProUploadSubmitStep({
               </svg>
             </div>
             <h1 className="mt-5 text-2xl font-semibold tracking-tight text-gray-900">申請送出成功</h1>
+            {displayLabel && (
+              <p className="mt-4 text-sm font-medium text-gray-900">{displayLabel}</p>
+            )}
             <p className="mt-4 text-sm leading-relaxed text-gray-500">
               感謝您的提交。
               <br />

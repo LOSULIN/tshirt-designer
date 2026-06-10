@@ -11,12 +11,31 @@ create table if not exists public.design_submissions (
   side text not null,
   status text not null check (status in ('draft', 'submitted')),
   storage_path text not null,
-  expires_at timestamptz
+  expires_at timestamptz,
+
+  submission_type text not null default 'normal'
+    check (submission_type in ('normal', 'contest')),
+  design_name text,
+  description text,
+  author_name text,
+  author_email text,
+  product_type text,
+  preview_front_url text,
+  preview_back_url text,
+  review_status text default 'pending'
+    check (
+      review_status is null
+      or review_status in ('pending', 'reviewing', 'approved', 'rejected')
+    ),
+
+  submission_no text
 );
 
-comment on table public.design_submissions is '設計草稿與已送出申請紀錄';
+comment on table public.design_submissions is '設計草稿、自由設計申請與徵選投稿紀錄';
 comment on column public.design_submissions.storage_path is 'Storage 資料夾路徑，如 drafts/xxx 或 submitted/xxx';
 comment on column public.design_submissions.expires_at is '草稿到期時間；submitted 為 null';
+comment on column public.design_submissions.submission_type is 'normal：自由設計；contest：徵選投稿';
+comment on column public.design_submissions.review_status is '徵選投稿審核狀態；normal 應為 null';
 
 create index if not exists design_submissions_status_expires_idx
   on public.design_submissions (status, expires_at)
@@ -24,6 +43,21 @@ create index if not exists design_submissions_status_expires_idx
 
 create index if not exists design_submissions_created_at_idx
   on public.design_submissions (created_at desc);
+
+create index if not exists design_submissions_submission_type_idx
+  on public.design_submissions (submission_type);
+
+create index if not exists design_submissions_review_status_idx
+  on public.design_submissions (review_status)
+  where submission_type = 'contest';
+
+create unique index if not exists design_submissions_submission_no_unique_idx
+  on public.design_submissions (submission_no)
+  where submission_no is not null;
+
+create index if not exists design_submissions_submission_no_idx
+  on public.design_submissions (submission_no)
+  where submission_no is not null;
 
 -- ---------------------------------------------------------------------------
 -- 2. RLS（僅後端 Service Role 存取，前端不直連資料表）
@@ -72,7 +106,9 @@ create table if not exists public.submissions (
   bulk_order boolean not null default false,
   quantity_range text,
   marketplace_apply boolean not null default false,
-  notes text
+  notes text,
+
+  submission_no text
 );
 
 comment on table public.submissions is '專業交稿申請紀錄';
@@ -84,6 +120,14 @@ create index if not exists submissions_created_at_idx
 create index if not exists submissions_status_idx
   on public.submissions (status);
 
+create unique index if not exists submissions_submission_no_unique_idx
+  on public.submissions (submission_no)
+  where submission_no is not null;
+
+create index if not exists submissions_submission_no_idx
+  on public.submissions (submission_no)
+  where submission_no is not null;
+
 alter table public.submissions enable row level security;
 
 -- 若 submissions 表已存在，請執行：
@@ -91,3 +135,4 @@ alter table public.submissions enable row level security;
 --   add column if not exists fit text check (fit in ('male', 'female', 'child'));
 -- update public.submissions set fit = 'male' where fit is null;
 -- alter table public.submissions alter column fit set not null;
+

@@ -67,6 +67,7 @@ export function ProUploadPanel() {
   });
   const [caseForm, setCaseForm] = useState<ProUploadCaseFormData>(createEmptyCaseForm);
   const [submitted, setSubmitted] = useState(false);
+  const [submissionNo, setSubmissionNo] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -143,10 +144,20 @@ export function ProUploadPanel() {
         body: formData,
       });
 
+      const data = (await response.json()) as {
+        submissionNo?: string;
+        error?: string;
+      };
+
       if (!response.ok) {
+        throw new Error(data.error ?? "submit failed");
+      }
+
+      if (!data.submissionNo) {
         throw new Error("submit failed");
       }
 
+      setSubmissionNo(data.submissionNo);
       setSubmitted(true);
     } catch {
       setSubmitError("送出失敗，請稍後再試。");
@@ -247,6 +258,7 @@ export function ProUploadPanel() {
           inspection={inspection}
           caseForm={caseForm}
           submitted={submitted}
+          submissionNo={submissionNo}
           isSubmitting={isSubmitting}
           submitError={submitError}
           onBack={() => {

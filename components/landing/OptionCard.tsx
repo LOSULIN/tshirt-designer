@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 type OptionCardProps = {
-  theme: "green" | "blue";
+  theme: "green" | "blue" | "purple";
   icon: ReactNode;
   title: string;
   subtitle: string;
@@ -22,6 +22,11 @@ const THEME_STYLES = {
     iconBg: "bg-blue-500",
     check: "text-blue-500",
     button: "bg-blue-500 hover:bg-blue-600",
+  },
+  purple: {
+    iconBg: "bg-violet-500",
+    check: "text-violet-500",
+    button: "bg-violet-500 hover:bg-violet-600",
   },
 } as const;
 
