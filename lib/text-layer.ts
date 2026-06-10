@@ -17,7 +17,21 @@ export const TEXT_FONT_OPTIONS: { label: TextFontFamily; value: TextFontFamily }
     { label: "Noto Sans TC", value: "Noto Sans TC" },
   ];
 
-export function resolveFontFamily(fontFamily: TextFontFamily): string {
+const CSS_FONT_VAR: Partial<Record<TextFontFamily, string>> = {
+  Inter: "--font-inter",
+  Roboto: "--font-roboto",
+  "Noto Sans TC": "--font-noto-sans-tc",
+};
+
+const CANVAS_FONT_FALLBACK: Record<TextFontFamily, string> = {
+  Inter: "Inter",
+  Roboto: "Roboto",
+  "Noto Sans TC": '"Noto Sans TC"',
+  Arial: "Arial",
+};
+
+/** DOM / CSS — 可使用 Next.js font variable */
+export function resolveCssFontFamily(fontFamily: TextFontFamily): string {
   switch (fontFamily) {
     case "Inter":
       return "var(--font-inter), Inter, sans-serif";
@@ -29,6 +43,39 @@ export function resolveFontFamily(fontFamily: TextFontFamily): string {
     default:
       return "Arial, Helvetica, sans-serif";
   }
+}
+
+/** @deprecated 使用 resolveCssFontFamily（DOM）或 resolveCanvasFontFamily（Canvas） */
+export function resolveFontFamily(fontFamily: TextFontFamily): string {
+  return resolveCssFontFamily(fontFamily);
+}
+
+function readResolvedCssFontFamily(cssVar: string): string | null {
+  if (typeof document === "undefined") return null;
+  const raw = getComputedStyle(document.documentElement)
+    .getPropertyValue(cssVar)
+    .trim();
+  if (!raw) return null;
+  const first = raw.split(",")[0]?.trim().replace(/^['"]|['"]$/g, "");
+  return first || null;
+}
+
+/** Canvas / document.fonts.load — 不可含 var() */
+export function resolveCanvasFontFamily(fontFamily: TextFontFamily): string {
+  const cssVar = CSS_FONT_VAR[fontFamily];
+  if (cssVar) {
+    const resolved = readResolvedCssFontFamily(cssVar);
+    if (resolved) return resolved;
+  }
+  return CANVAS_FONT_FALLBACK[fontFamily] ?? "Arial";
+}
+
+export function buildCanvasFont(
+  fontWeight: number,
+  fontSizePx: number,
+  fontFamily: TextFontFamily,
+): string {
+  return `${fontWeight} ${fontSizePx}px ${resolveCanvasFontFamily(fontFamily)}`;
 }
 
 export function measureTextBoundsCm(
@@ -52,7 +99,7 @@ export function measureTextBoundsCm(
     return { width_cm: fontSize_cm * 4, height_cm: fontSize_cm * 1.3 };
   }
 
-  ctx.font = `${fontWeight} ${fontSizePx}px ${resolveFontFamily(fontFamily)}`;
+  ctx.font = buildCanvasFont(fontWeight, fontSizePx, fontFamily);
   const metrics = ctx.measureText(text || " ");
   return {
     width_cm: uiPxToCm(Math.ceil(metrics.width) + 12),
@@ -115,10 +162,26 @@ export async function ensureTextFontsLoaded(layers: TextLayer[]) {
   if (typeof document === "undefined" || !document.fonts) return;
 
   await Promise.all(
-    layers.map((layer) =>
-      document.fonts.load(
-        `${layer.fontWeight} ${cmToUiPx(layer.fontSize_cm * layer.scale)}px ${resolveFontFamily(layer.fontFamily)}`,
-      ),
-    ),
+    layers.map(async (layer) => {
+      const font = buildCanvasFont(
+        layer.fontWeight,
+        cmToUiPx(layer.fontSize_cm * layer.scale),
+        layer.fontFamily,
+      );
+      try {
+        await document.fonts.load(font);
+      } catch {
+        const fallback = buildCanvasFont(
+          layer.fontWeight,
+          cmToUiPx(layer.fontSize_cm * layer.scale),
+          "Arial",
+        );
+        try {
+          await document.fonts.load(fallback);
+        } catch {
+          // 略過無法載入的字體，避免阻斷匯出／送出
+        }
+      }
+    }),
   );
 }

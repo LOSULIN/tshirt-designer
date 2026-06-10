@@ -12,10 +12,7 @@ import { getLayerInspectorCmRect } from "./design-inspector";
 import { embedPngDpi } from "./png-dpi";
 import { PRINT_AREA } from "./printArea";
 import { sortLayersByZIndex } from "./layers";
-import {
-  ensureTextFontsLoaded,
-  resolveFontFamily,
-} from "./text-layer";
+import { buildCanvasFont, ensureTextFontsLoaded } from "./text-layer";
 import type { DesignLayer, TextDesignLayer } from "./types";
 
 export const PRINT_EXPORT_DPI = EXPORT_DPI;
@@ -111,7 +108,7 @@ function drawTextLayer(
   ctx.rotate((layer.rotation * Math.PI) / 180);
   ctx.globalAlpha = layer.opacity;
   ctx.fillStyle = layer.color;
-  ctx.font = `${layer.fontWeight} ${fontSizePx}px ${resolveFontFamily(layer.fontFamily)}`;
+  ctx.font = buildCanvasFont(layer.fontWeight, fontSizePx, layer.fontFamily);
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText(layer.text, 0, 0);

@@ -13,10 +13,7 @@ import {
   SHIRT_CONTAINER_WIDTH,
 } from "./printArea";
 import { getAdultTshirtTemplateSrc } from "./shirt-template";
-import {
-  ensureTextFontsLoaded,
-  resolveFontFamily,
-} from "./text-layer";
+import { buildCanvasFont, ensureTextFontsLoaded } from "./text-layer";
 import type { DesignLayer, TextDesignLayer } from "./types";
 
 export const MOCKUP_EXPORT_SCALE = 2;
@@ -97,7 +94,7 @@ function drawTextLayerOnMockup(
   ctx.rotate((layer.rotation * Math.PI) / 180);
   ctx.globalAlpha = layer.opacity;
   ctx.fillStyle = layer.color;
-  ctx.font = `${layer.fontWeight} ${fontSizePx}px ${resolveFontFamily(layer.fontFamily)}`;
+  ctx.font = buildCanvasFont(layer.fontWeight, fontSizePx, layer.fontFamily);
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText(layer.text, 0, 0);
