@@ -1,18 +1,26 @@
 import { NextResponse } from "next/server";
 import { nanoid } from "nanoid";
 import {
-  completedDesignFileName,
-  DESIGN_GENDERS,
-  DESIGN_SIDES,
-} from "@/lib/design-state";
-import { sendDesignSubmittedEmail } from "@/lib/email";
+  extractShirtColorFromDesignJson,
+  normalizeShirtColor,
+} from "@/lib/constants";
+import {
+  generateProof,
+  hasProofArtifacts,
+  parseProofArtifactsFromFormData,
+  type ProofOrder,
+} from "@/lib/proof-engine";
+import { uploadProofFile } from "@/lib/proof-engine/storage-manager";
+import { PROOF_STORAGE_FILES } from "@/lib/proof-engine/types";
 import {
   allocateSubmissionNo,
   isSubmissionNoConflict,
 } from "@/lib/submission-no";
-import { createAdminClient, DESIGNS_BUCKET } from "@/lib/supabase/admin";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
+
+const PROOF_VERSION = 1;
 
 function extFromMime(mime: string) {
   if (mime === "image/png") return "png";
@@ -23,11 +31,10 @@ function extFromMime(mime: string) {
 export async function POST(request: Request) {
   try {
     const formData = await request.formData();
-    const completed = formData.get("completed");
-    const original = formData.get("original");
     const designJson = formData.get("designJson");
     const textJson = formData.get("textJson");
     const applicantJson = formData.get("applicantJson");
+    const original = formData.get("original");
 
     if (typeof designJson !== "string") {
       return NextResponse.json(
@@ -41,162 +48,86 @@ export async function POST(request: Request) {
       side: string;
       activeGender?: string;
       activeSide?: string;
+      shirtColor?: string;
+      size?: string;
+      layersByTemplate?: ProofOrder["layers_by_template"];
     };
 
-    const designId = nanoid(12);
-    const createdAt = new Date().toISOString();
-    const basePath = `submitted/${designId}`;
-    const supabase = createAdminClient();
-
-    const binaryUploads: {
-      path: string;
-      body: Blob;
-      contentType: string;
-    }[] = [];
-
-    if (completed instanceof Blob && completed.size > 0) {
-      binaryUploads.push({
-        path: `${basePath}/completed.png`,
-        body: completed,
-        contentType: "image/png",
-      });
-    }
-
-    for (const gender of DESIGN_GENDERS) {
-      for (const side of DESIGN_SIDES) {
-        const field = `completed-${gender}-${side}`;
-        const blob = formData.get(field);
-        if (blob instanceof Blob && blob.size > 0) {
-          binaryUploads.push({
-            path: `${basePath}/${completedDesignFileName(gender, side)}`,
-            body: blob,
-            contentType: "image/png",
-          });
-        }
-      }
-    }
-
-    if (binaryUploads.length === 0) {
+    const artifacts = await parseProofArtifactsFromFormData(formData);
+    if (!hasProofArtifacts(artifacts)) {
       return NextResponse.json(
-        { error: "缺少設計完成圖" },
+        { error: "缺少 Proof Engine 校稿檔案，請重新送出" },
         { status: 400 },
+      );
+    }
+
+    const orderId = nanoid(12);
+    const createdAt = new Date().toISOString();
+    const supabase = createAdminClient();
+    const ctx = { supabase };
+
+    await uploadProofFile(
+      ctx,
+      orderId,
+      PROOF_VERSION,
+      PROOF_STORAGE_FILES.designJson,
+      designJson,
+      "application/json",
+    );
+
+    if (typeof textJson === "string" && textJson.length > 0) {
+      await uploadProofFile(
+        ctx,
+        orderId,
+        PROOF_VERSION,
+        "texts.json",
+        textJson,
+        "application/json",
+      );
+    }
+
+    if (typeof applicantJson === "string" && applicantJson.length > 0) {
+      await uploadProofFile(
+        ctx,
+        orderId,
+        PROOF_VERSION,
+        "applicant.json",
+        applicantJson,
+        "application/json",
       );
     }
 
     if (original instanceof Blob && original.size > 0) {
       const originalExt = extFromMime(original.type || "image/png");
-      binaryUploads.push({
-        path: `${basePath}/original.${originalExt}`,
-        body: original,
-        contentType: original.type || "application/octet-stream",
-      });
+      const buffer = Buffer.from(await original.arrayBuffer());
+      await uploadProofFile(
+        ctx,
+        orderId,
+        PROOF_VERSION,
+        `original.${originalExt}`,
+        buffer,
+        original.type || "application/octet-stream",
+      );
     }
-
-    for (const file of binaryUploads) {
-      const buffer = Buffer.from(await file.body.arrayBuffer());
-      const { error } = await supabase.storage
-        .from(DESIGNS_BUCKET)
-        .upload(file.path, buffer, {
-          contentType: file.contentType,
-          upsert: false,
-        });
-
-      if (error) {
-        return NextResponse.json(
-          { error: `上傳失敗: ${error.message}` },
-          { status: 500 },
-        );
-      }
-    }
-
-    const jsonUploads: { path: string; body: string; contentType: string }[] = [
-      {
-        path: `${basePath}/design.json`,
-        body: designJson,
-        contentType: "application/json",
-      },
-    ];
-
-    if (typeof textJson === "string" && textJson.length > 0) {
-      jsonUploads.push({
-        path: `${basePath}/texts.json`,
-        body: textJson,
-        contentType: "application/json",
-      });
-    }
-
-    if (typeof applicantJson === "string" && applicantJson.length > 0) {
-      jsonUploads.push({
-        path: `${basePath}/applicant.json`,
-        body: applicantJson,
-        contentType: "application/json",
-      });
-    }
-
-    for (const file of jsonUploads) {
-      const buffer = Buffer.from(file.body, "utf-8");
-      const { error } = await supabase.storage
-        .from(DESIGNS_BUCKET)
-        .upload(file.path, buffer, {
-          contentType: file.contentType,
-          upsert: false,
-        });
-
-      if (error) {
-        return NextResponse.json(
-          { error: `上傳失敗: ${error.message}` },
-          { status: 500 },
-        );
-      }
-    }
-
-    const allPaths = [
-      ...binaryUploads.map((f) => f.path),
-      ...jsonUploads.map((f) => f.path),
-    ];
-
-    const signedUrls = await Promise.all(
-      allPaths.map(async (path) => {
-        const { data, error } = await supabase.storage
-          .from(DESIGNS_BUCKET)
-          .createSignedUrl(path, 60 * 60 * 24 * 7);
-
-        if (error || !data?.signedUrl) {
-          throw new Error(error?.message ?? "無法建立檔案連結");
-        }
-
-        return data.signedUrl;
-      }),
-    );
-
-    const fileMap: Record<string, string> = {};
-    const completedAll: Record<string, string> = {};
-
-    allPaths.forEach((path, index) => {
-      const url = signedUrls[index];
-      if (path.endsWith("/completed.png")) fileMap.completed = url;
-      else if (path.includes("/original.")) fileMap.original = url;
-      else if (path.endsWith("design.json")) fileMap.config = url;
-      else if (path.endsWith("texts.json")) fileMap.texts = url;
-      else if (path.endsWith("applicant.json")) fileMap.applicant = url;
-      else if (path.includes("/completed-")) {
-        const name = path.split("/").pop()?.replace(".png", "") ?? path;
-        completedAll[name] = url;
-      }
-    });
 
     const applicant =
       typeof applicantJson === "string"
-        ? (JSON.parse(applicantJson) as {
-            applicantName?: string;
-            applicantEmail?: string;
-            applicantPhone?: string;
-            notes?: string;
-          })
+        ? (JSON.parse(applicantJson) as ProofOrder["applicant"])
         : null;
 
     const templateType = config.activeGender ?? config.templateType;
-    const side = config.activeSide ?? config.side;
+    const side = (config.activeSide ?? config.side) as ProofOrder["active_side"];
+    const shirtColor = normalizeShirtColor(
+      config.shirtColor ?? extractShirtColorFromDesignJson(designJson),
+    );
+    const size = (config.size ?? "M") as ProofOrder["size"];
+
+    if (!config.layersByTemplate) {
+      return NextResponse.json(
+        { error: "設計資料不完整（缺少 layersByTemplate）" },
+        { status: 400 },
+      );
+    }
 
     let submissionNo = "";
     let insertError: { code?: string; message?: string } | null = null;
@@ -204,16 +135,18 @@ export async function POST(request: Request) {
     for (let attempt = 0; attempt < 8; attempt++) {
       submissionNo = await allocateSubmissionNo(supabase, "FD");
       const { error } = await supabase.from("design_submissions").insert({
-        id: designId,
+        id: orderId,
         created_at: createdAt,
         template_type: templateType,
         side,
         status: "submitted",
-        storage_path: basePath,
+        storage_path: `orders/${orderId}/v${PROOF_VERSION}`,
         expires_at: null,
         submission_type: "normal",
         review_status: null,
         submission_no: submissionNo,
+        shirt_color: shirtColor,
+        proof_version: PROOF_VERSION,
       });
 
       if (!error) {
@@ -234,39 +167,42 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "寫入資料庫失敗" }, { status: 500 });
     }
 
-    const emailResult = await sendDesignSubmittedEmail({
-      submissionNo,
-      createdAt,
-      templateType,
-      side,
+    const proofOrder: ProofOrder = {
+      order_id: orderId,
+      submission_no: submissionNo,
+      gender: templateType as ProofOrder["gender"],
+      active_side: side,
+      shirt_color: shirtColor,
+      size,
+      layers_by_template: config.layersByTemplate,
       applicant,
-      fileLinks: {
-        completed: fileMap.completed,
-        completedAll,
-        original: fileMap.original ?? fileMap.completed,
-        config: fileMap.config,
-        texts: fileMap.texts,
-        applicant: fileMap.applicant,
-      },
-    });
+      created_at: createdAt,
+    };
+
+    const { package: proofPackage, emails } = await generateProof(
+      proofOrder,
+      PROOF_VERSION,
+      artifacts,
+      ctx,
+    );
+
+    await supabase
+      .from("design_submissions")
+      .update({
+        mockup_front_url: proofPackage.mockup_front_url,
+        mockup_back_url: proofPackage.mockup_back_url,
+        print_file_url: proofPackage.print_file_url,
+        proof_pdf_url: proofPackage.pdf_url,
+        proof_package: proofPackage,
+      })
+      .eq("id", orderId);
 
     return NextResponse.json({
       submissionNo,
+      orderId,
       createdAt,
-      email: emailResult.sent
-        ? { sent: true, recipients: emailResult.recipients }
-        : {
-            sent: false,
-            reason: emailResult.reason,
-            message: emailResult.message,
-          },
-      files: {
-        completed: fileMap.completed,
-        completedAll,
-        original: fileMap.original,
-        config: fileMap.config,
-        texts: fileMap.texts,
-      },
+      proof: proofPackage,
+      email: emails,
     });
   } catch (error) {
     console.error(error);

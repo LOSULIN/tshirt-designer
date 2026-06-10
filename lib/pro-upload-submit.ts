@@ -1,9 +1,8 @@
-import type { ModelType, Product } from "./constants";
+import { PRODUCT_ID, type ModelType, type Product } from "./constants";
 import { validateCaseForm, type ProUploadCaseFormData } from "./pro-upload-case";
 import type { ProUploadInspection } from "./pro-upload-inspect";
 import { isAllowedProUploadFile } from "./pro-upload";
 
-const ALLOWED_PRODUCTS = new Set<Product>(["basic-tshirt", "sweatshirt"]);
 const ALLOWED_FITS = new Set<ModelType>(["male", "female", "child"]);
 
 export const PRO_UPLOAD_DEFAULT_PRINT_SIDE = "front" as const;
@@ -31,14 +30,9 @@ export function parseSubmissionPayload(
   }
 
   const record = parsed as Record<string, unknown>;
-  const product = record.product;
   const fit = record.fit;
   const inspection = record.inspection;
   const caseForm = record.caseForm;
-
-  if (typeof product !== "string" || !ALLOWED_PRODUCTS.has(product as Product)) {
-    return { ok: false, error: "商品資料不正確" };
-  }
 
   if (typeof fit !== "string" || !ALLOWED_FITS.has(fit as ModelType)) {
     return { ok: false, error: "版型資料不正確" };
@@ -71,7 +65,7 @@ export function parseSubmissionPayload(
   return {
     ok: true,
     data: {
-      product: product as Product,
+      product: PRODUCT_ID,
       fit: fit as ModelType,
       inspection: inspectionRecord,
       caseForm: form,

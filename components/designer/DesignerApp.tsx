@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DesignCanvas } from "./DesignCanvas";
 import { DesignPanel } from "./DesignPanel";
+import { LiveDesignStateProvider } from "./LiveDesignStateContext";
 import { IconNav } from "./IconNav";
 import { ModelPanel } from "./ModelPanel";
 import { ProductPanel } from "./ProductPanel";
@@ -11,23 +12,26 @@ import {
   createEmptyContestSubmissionForm,
   type ContestSubmissionFormData,
 } from "@/lib/contest-submission";
-import { ContestSubmitSuccess } from "@/components/contest/ContestSubmitSuccess";
-import { formatSubmissionDisplayLabel } from "@/lib/submission-no";
+import { SubmissionSuccessModal } from "@/components/SubmissionSuccessModal";
 import { ContestSubmitModal } from "./ContestSubmitModal";
 import { SubmitApplicationModal } from "./SubmitApplicationModal";
 import { UploadValidationModal } from "./UploadValidationModal";
 import type {
   Gender,
   Material,
-  Product,
   ShirtColor,
   Side,
   Size,
+  SizeSuggestion,
 } from "@/lib/constants";
 import {
+  DEFAULT_MATERIAL,
   DEFAULT_MODEL_ID,
   DRAFT_TTL_MS,
-  PRODUCTS,
+  getProductName,
+  normalizeMaterial,
+  normalizeShirtColor,
+  PRODUCT_ID,
   suggestSize,
 } from "@/lib/constants";
 import {
@@ -39,7 +43,6 @@ import {
   type DesignerMode,
 } from "@/lib/designer-mode";
 import {
-  completedDesignFormField,
   createEmptyDesignLayersByTemplate,
   DESIGN_GENDERS,
   DESIGN_SIDES,
@@ -56,21 +59,33 @@ import {
   buildAllTextsJson,
   buildDesignJson,
   buildFullDesignJson,
-  renderCompletedDesignPng,
 } from "@/lib/export-design";
+import { renderMockupPreviewPng } from "@/lib/mockup-export";
 import {
-  getExportDimensionsForGender,
-  getPrintAreaForGender,
+  appendProofArtifactsToFormData,
+  buildProofOrder,
+  prepareProofSubmission,
+} from "@/lib/proof-engine";
+import {
+  cmToUiPx,
+  getPrintAreaCmBounds,
+  migrateDesignLayersToCm,
+  type PrintAreaCmBounds,
+} from "@/lib/design-cm";
+import {
+  getExportDimensions,
+  migrateLayersFromLegacyCanvasUnits,
 } from "@/lib/print-area";
-import type { PrintAreaBounds } from "@/lib/print-area";
+import { applyDragSnap, getInitialPlacement } from "@/lib/geometry";
+import { getStaggeredPlacement } from "@/lib/layer-placement";
 import {
-  applyDragSnap,
-  clampPositionToPrintArea,
-  getInitialPlacement,
-} from "@/lib/geometry";
+  fitDesignLayers,
+  fitImageLayer,
+  fitTextLayer,
+} from "@/lib/layer-constraints";
 import {
   createDefaultTextLayer,
-  measureTextBounds,
+  measureTextBoundsCm,
 } from "@/lib/text-layer";
 import {
   canAddImageLayer,
@@ -104,34 +119,18 @@ import type {
 } from "@/lib/types";
 import { nanoid } from "nanoid";
 
-function withMeasuredTextLayer(
-  layer: TextDesignLayer,
-  printArea: PrintAreaBounds,
-): TextDesignLayer {
-  const { width, height } = measureTextBounds(
-    layer.text,
-    layer.fontSize * layer.scale,
-    layer.fontFamily,
-    layer.fontWeight,
-  );
-  const clamped = clampPositionToPrintArea(
-    layer.x,
-    layer.y,
-    width,
-    height,
-    1,
-    layer.rotation,
-    printArea,
-  );
-  return { ...layer, width, height, x: clamped.x, y: clamped.y };
-}
-
 function createDefaultTextDesignLayer(
   layers: DesignLayer[],
-  printArea: PrintAreaBounds,
+  printArea: PrintAreaCmBounds,
 ): TextDesignLayer {
   const base = createDefaultTextLayer(printArea);
-  return withMeasuredTextLayer(
+  const stagger = getStaggeredPlacement(
+    printArea,
+    base.width_cm,
+    base.height_cm,
+    layers.length,
+  );
+  return fitTextLayer(
     {
       id: base.id,
       name: defaultLayerName(layers, "text"),
@@ -139,14 +138,14 @@ function createDefaultTextDesignLayer(
       visible: true,
       locked: false,
       zIndex: getNextZIndex(layers),
-      x: base.x,
-      y: base.y,
-      width: base.width,
-      height: base.height,
+      x_cm: stagger.x_cm,
+      y_cm: stagger.y_cm,
+      width_cm: base.width_cm,
+      height_cm: base.height_cm,
       scale: base.scale,
       rotation: base.rotation,
       text: base.text,
-      fontSize: base.fontSize,
+      fontSize_cm: base.fontSize_cm,
       fontFamily: base.fontFamily,
       color: base.color,
       opacity: base.opacity,
@@ -241,7 +240,12 @@ async function hydrateDesignLayersByTemplate(
         result,
         templateGender,
         templateSide,
-        hydrated,
+        fitDesignLayers(
+          migrateDesignLayersToCm(
+            migrateLayersFromLegacyCanvasUnits(hydrated),
+          ),
+          getPrintAreaCmBounds(),
+        ),
       );
     }
   }
@@ -268,15 +272,14 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
   const [activeTab, setActiveTab] = useState<PanelTab>("product");
   const [gender, setGender] = useState<Gender>("child-male");
   const [side, setSide] = useState<Side>("front");
-  const [product, setProduct] = useState<Product>("basic-tshirt");
   const [size, setSize] = useState<Size>("M");
   const [shirtColor, setShirtColor] = useState<ShirtColor>("white");
   const fit = "standard" as const;
-  const [material, setMaterial] = useState<Material>("cotton-200");
+  const [material, setMaterial] = useState<Material>(DEFAULT_MATERIAL);
   const [modelId, setModelId] = useState("child-male-1");
   const [heightCm, setHeightCm] = useState(175);
   const [weightKg, setWeightKg] = useState(65);
-  const [suggestedSize, setSuggestedSize] = useState<Size>("M");
+  const [suggestedSize, setSuggestedSize] = useState<SizeSuggestion>("M");
 
   const [layersByTemplate, setLayersByTemplate] = useState(
     createEmptyDesignLayersByTemplate,
@@ -293,10 +296,9 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
   const [elementSnapDistance, setElementSnapDistance] = useState(10);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [showContestSubmitModal, setShowContestSubmitModal] = useState(false);
-  const [contestSubmitted, setContestSubmitted] = useState(false);
-  const [contestSubmissionInfo, setContestSubmissionInfo] = useState<{
+  const [submissionSuccess, setSubmissionSuccess] = useState<{
     submissionNo: string;
-    authorName: string;
+    applicantName: string;
   } | null>(null);
   const [uploadAlertDetail, setUploadAlertDetail] = useState<string | null>(
     null,
@@ -313,18 +315,17 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
     [layersByTemplate, gender, side],
   );
 
-  const printArea = useMemo(() => getPrintAreaForGender(gender), [gender]);
-  const exportDims = useMemo(
-    () => getExportDimensionsForGender(gender),
-    [gender],
-  );
+  const printArea = useMemo(() => getPrintAreaCmBounds(), []);
+  const exportDims = useMemo(() => getExportDimensions(), []);
 
   const setLayers = useCallback(
     (updater: DesignLayer[] | ((prev: DesignLayer[]) => DesignLayer[])) => {
       setLayersByTemplate((prev) =>
-        updateLayersForSlot(prev, gender, side, (current) =>
-          typeof updater === "function" ? updater(current) : updater,
-        ),
+        updateLayersForSlot(prev, gender, side, (current) => {
+          const next =
+            typeof updater === "function" ? updater(current) : updater;
+          return fitDesignLayers(next, getPrintAreaCmBounds());
+        }),
       );
     },
     [gender, side],
@@ -333,8 +334,6 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
   const primaryId = selectedIds[selectedIds.length - 1] ?? null;
   const primaryLayer = layers.find((l) => l.id === primaryId) ?? null;
   const hasDesign = hasAnyDesign(layersByTemplate);
-  const selectedText =
-    primaryLayer?.type === "text" ? primaryLayer : null;
 
   useEffect(() => {
     setSelectedIds([]);
@@ -356,7 +355,7 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
   );
 
   const submissionMeta = {
-    product: PRODUCTS[product].name,
+    product: getProductName(),
     size,
     shirtColor,
     fit,
@@ -375,8 +374,8 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
       const img = primaryLayer.image;
       if (
         isUpscaledBeyondOriginal(
-          primaryLayer.width,
-          primaryLayer.height,
+          cmToUiPx(primaryLayer.width_cm),
+          cmToUiPx(primaryLayer.height_cm),
           primaryLayer.scale,
           img.naturalWidth,
           img.naturalHeight,
@@ -401,9 +400,13 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
         prev.map((layer) => {
           if (layer.id !== id) return layer;
           const merged = { ...layer, ...patch } as DesignLayer;
-          return merged.type === "text"
-            ? withMeasuredTextLayer(merged, printArea)
-            : merged;
+          if (merged.type === "text") {
+            return fitTextLayer(merged, printArea);
+          }
+          if (merged.type === "image") {
+            return fitImageLayer(merged, printArea);
+          }
+          return merged;
         }),
       );
     },
@@ -413,84 +416,155 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
   const applyClampedLayerTransform = useCallback(
     (
       id: string,
-      patch: Partial<{ x: number; y: number; scale: number; rotation: number }>,
+      patch: Partial<{
+        x_cm: number;
+        y_cm: number;
+        scale: number;
+        rotation: number;
+      }>,
     ) => {
       setLayers((prev) =>
         prev.map((layer) => {
           if (layer.id !== id) return layer;
 
-          const nextX = patch.x ?? layer.x;
-          const nextY = patch.y ?? layer.y;
-          const nextScale = patch.scale ?? layer.scale;
           const nextRotation = patch.rotation ?? layer.rotation;
-          const layerScale = layer.type === "image" ? nextScale : 1;
-          const textScale = layer.type === "text" ? nextScale : 1;
+          const positionChanged =
+            patch.x_cm !== undefined || patch.y_cm !== undefined;
 
-          let w = layer.width;
-          let h = layer.height;
           if (layer.type === "text") {
-            const measured = measureTextBounds(
+            const nextScale = patch.scale ?? layer.scale;
+            const { width_cm, height_cm } = measureTextBoundsCm(
               layer.text,
-              layer.fontSize * textScale,
+              layer.fontSize_cm * nextScale,
               layer.fontFamily,
               layer.fontWeight,
             );
-            w = measured.width;
-            h = measured.height;
-          }
 
-          const snap = applyDragSnap(
-            nextX,
-            nextY,
-            w,
-            h,
-            layerScale,
-            printArea,
-            {
-              gridSnap: gridSnapEnabled,
-              elementSnap: true,
-              elementSnapThreshold: elementSnapDistance,
-              otherElements: buildSnapTargetsFromLayers(
-                id,
-                prev.filter((l) => l.visible && !l.locked),
-              ),
-            },
-          );
+            let nextX = patch.x_cm ?? layer.x_cm;
+            let nextY = patch.y_cm ?? layer.y_cm;
 
-          const clamped = clampPositionToPrintArea(
-            snap.x,
-            snap.y,
-            w,
-            h,
-            layerScale,
-            nextRotation,
-            printArea,
-          );
+            if (positionChanged) {
+              const snap = applyDragSnap(
+                nextX,
+                nextY,
+                width_cm,
+                height_cm,
+                1,
+                printArea,
+                {
+                  gridSnap: gridSnapEnabled,
+                  elementSnap: true,
+                  elementSnapThreshold: elementSnapDistance,
+                  otherElements: buildSnapTargetsFromLayers(
+                    id,
+                    prev.filter((l) => l.visible && !l.locked),
+                  ),
+                },
+              );
+              nextX = snap.x;
+              nextY = snap.y;
+            }
 
-          if (layer.type === "text") {
-            return withMeasuredTextLayer(
+            return fitTextLayer(
               {
                 ...layer,
-                x: clamped.x,
-                y: clamped.y,
-                scale: textScale,
+                x_cm: nextX,
+                y_cm: nextY,
+                scale: nextScale,
                 rotation: nextRotation,
+                width_cm,
+                height_cm,
               },
               printArea,
             );
           }
 
-          return {
-            ...layer,
-            x: clamped.x,
-            y: clamped.y,
-            scale: nextScale,
-            rotation: nextRotation,
-          };
+          const nextScale = patch.scale ?? layer.scale;
+          let nextX = patch.x_cm ?? layer.x_cm;
+          let nextY = patch.y_cm ?? layer.y_cm;
+
+          if (positionChanged) {
+            const snap = applyDragSnap(
+              nextX,
+              nextY,
+              layer.width_cm,
+              layer.height_cm,
+              nextScale,
+              printArea,
+              {
+                gridSnap: gridSnapEnabled,
+                elementSnap: true,
+                elementSnapThreshold: elementSnapDistance,
+                otherElements: buildSnapTargetsFromLayers(
+                  id,
+                  prev.filter((l) => l.visible && !l.locked),
+                ),
+              },
+            );
+            nextX = snap.x;
+            nextY = snap.y;
+          }
+
+          return fitImageLayer(
+            {
+              ...layer,
+              x_cm: nextX,
+              y_cm: nextY,
+              scale: nextScale,
+              rotation: nextRotation,
+            },
+            printArea,
+          );
         }),
       );
     },
     [setLayers, printArea, gridSnapEnabled, elementSnapDistance],
+  );
+
+  const applyLayerResize = useCallback(
+    (
+      id: string,
+      next: { x_cm: number; y_cm: number; width_cm: number; height_cm: number },
+    ) => {
+      setLayers((prev) =>
+        prev.map((layer) => {
+          if (layer.id !== id) return layer;
+
+          if (layer.type === "image") {
+            const nextScale = next.width_cm / layer.width_cm;
+            return fitImageLayer(
+              {
+                ...layer,
+                x_cm: next.x_cm,
+                y_cm: next.y_cm,
+                scale: nextScale,
+              },
+              printArea,
+            );
+          }
+
+          const unit = measureTextBoundsCm(
+            layer.text,
+            layer.fontSize_cm,
+            layer.fontFamily,
+            layer.fontWeight,
+          );
+          const nextScale =
+            unit.height_cm > 0 ? next.height_cm / unit.height_cm : layer.scale;
+
+          return fitTextLayer(
+            {
+              ...layer,
+              x_cm: next.x_cm,
+              y_cm: next.y_cm,
+              scale: nextScale,
+            },
+            printArea,
+          );
+        }),
+      );
+    },
+    [setLayers, printArea],
   );
 
   const handleSelectLayer = useCallback((id: string, shiftKey: boolean) => {
@@ -576,6 +650,9 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
 
     setGender(restoredGender);
     setSide(restoredSide);
+    if (meta.shirtColor) {
+      setShirtColor(normalizeShirtColor(meta.shirtColor));
+    }
 
     const hydrated = await hydrateDesignLayersByTemplate(
       layersByTemplateToDraftSnapshot(snapshot),
@@ -604,6 +681,7 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
       savedAt: new Date().toISOString(),
       expiresAt,
       submitted: false,
+      shirtColor,
       activeGender: gender,
       activeSide: side,
       config: activeConfig,
@@ -613,7 +691,16 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
     });
 
     await draftStorage.saveAllLayerImagesFromState(layersByTemplate);
-  }, [draftId, draftStorage, gender, side, hasDesign, layers, layersByTemplate]);
+  }, [
+    draftId,
+    draftStorage,
+    gender,
+    side,
+    shirtColor,
+    hasDesign,
+    layers,
+    layersByTemplate,
+  ]);
 
   const syncDraftToServer = useCallback(async (): Promise<
     { ok: true } | { ok: false; error: string }
@@ -713,6 +800,17 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
         preview.naturalHeight,
         printArea,
       );
+      const stagger = getStaggeredPlacement(
+        printArea,
+        placement.width_cm,
+        placement.height_cm,
+        layers.length,
+      );
+      const staggeredPlacement = {
+        ...placement,
+        x_cm: stagger.x_cm,
+        y_cm: stagger.y_cm,
+      };
 
       const originalUrl = URL.createObjectURL(file);
       const uploaded: UploadedDesignImage = {
@@ -727,7 +825,10 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
         fileName: file.name,
       };
 
-      const newLayer = createImageLayer(layers, uploaded, placement);
+      const newLayer = fitImageLayer(
+        createImageLayer(layers, uploaded, staggeredPlacement),
+        printArea,
+      );
       setLayers((prev) => [...prev, newLayer]);
       setSelectedIds([newLayer.id]);
       const msgs: string[] = [];
@@ -803,44 +904,8 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
     const layer = createDefaultTextDesignLayer(layers, printArea);
     setLayers((prev) => [...prev, layer]);
     setSelectedIds([layer.id]);
-    setFocusTextEditor(true);
-    setStatusMessage("已新增文字圖層，請在預覽畫布下方輸入文字");
-  };
-
-  const handleReset = () => {
-    if (!primaryLayer || primaryLayer.locked) return;
-
-    if (primaryLayer.type === "text") {
-      const { width: w, height: h } = measureTextBounds(
-        primaryLayer.text,
-        primaryLayer.fontSize,
-        primaryLayer.fontFamily,
-        primaryLayer.fontWeight,
-      );
-      updateLayer(primaryLayer.id, {
-        scale: 1,
-        rotation: 0,
-        width: w,
-        height: h,
-        x: (printArea.width - w) / 2,
-        y: (printArea.height - h) / 2,
-      });
-      return;
-    }
-
-    const placement = getInitialPlacement(
-      primaryLayer.image.naturalWidth,
-      primaryLayer.image.naturalHeight,
-      printArea,
-    );
-    updateLayer(primaryLayer.id, {
-      x: placement.x,
-      y: placement.y,
-      scale: 1,
-      rotation: 0,
-      width: placement.width,
-      height: placement.height,
-    });
+    setFocusTextEditor(false);
+    setStatusMessage("已新增文字 TEST，可拖曳或使用 +/− 調整大小");
   };
 
   const handleDuplicate = async (id: string) => {
@@ -849,15 +914,17 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
 
     if (source.type === "image") {
       const dup = await duplicateImageLayerAsync(layers, id);
-      if (dup) {
-        setLayers((prev) => [...prev, dup]);
-        setSelectedIds([dup.id]);
+      if (dup && dup.type === "image") {
+        const fitted = fitImageLayer(dup, printArea);
+        setLayers((prev) => [...prev, fitted]);
+        setSelectedIds([fitted.id]);
       }
     } else {
       const dup = duplicateTextLayer(layers, id);
       if (dup) {
-        setLayers((prev) => [...prev, dup]);
-        setSelectedIds([dup.id]);
+        const fitted = fitTextLayer(dup, printArea);
+        setLayers((prev) => [...prev, fitted]);
+        setSelectedIds([fitted.id]);
       }
     }
     setStatusMessage("已複製圖層");
@@ -909,7 +976,7 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
         };
         const formData = new FormData();
         formData.append("contestFormJson", JSON.stringify(contestApplicationForm));
-        formData.append("productType", product);
+        formData.append("productType", PRODUCT_ID);
         formData.append("templateType", gender);
         formData.append("side", side);
 
@@ -932,11 +999,11 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
             slotLayers,
             contestMeta,
           );
-          const previewBlob = await renderCompletedDesignPng(
-            gender,
-            templateSide,
-            slotLayers,
-          );
+          const previewBlob = await renderMockupPreviewPng({
+            shirtColor,
+            side: templateSide,
+            layers: slotLayers,
+          });
 
           if (templateSide === "front") {
             formData.append("frontDesignJson", sideJson);
@@ -988,11 +1055,10 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
         setShowContestSubmitModal(false);
         setContestApplicationForm(EMPTY_CONTEST_FORM);
         setCloudSyncWarning(null);
-        setContestSubmissionInfo({
+        setSubmissionSuccess({
           submissionNo: data.submissionNo,
-          authorName,
+          applicantName: authorName,
         });
-        setContestSubmitted(true);
         setDraftId(nanoid(12));
         return;
       }
@@ -1005,37 +1071,22 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
       });
       const textJson = buildAllTextsJson(layersByTemplate);
 
+      const proofOrder = buildProofOrder({
+        orderId: draftId,
+        gender,
+        activeSide: side,
+        shirtColor,
+        size,
+        layersByTemplate,
+        applicant: applicantPayload,
+        designMeta: submissionMeta,
+      });
+
+      setStatusMessage("Proof Engine 產生校稿檔案中…");
+      const proofArtifacts = await prepareProofSubmission(proofOrder);
+
       const formData = new FormData();
-      let primaryCompleted: Blob | null = null;
-
-      for (const templateGender of DESIGN_GENDERS) {
-        for (const templateSide of DESIGN_SIDES) {
-          const slotLayers = getLayersForSlot(
-            layersByTemplate,
-            templateGender,
-            templateSide,
-          );
-          if (!hasDesignInSlot(layersByTemplate, templateGender, templateSide)) {
-            continue;
-          }
-          const blob = await renderCompletedDesignPng(
-            templateGender,
-            templateSide,
-            slotLayers,
-          );
-          const field = completedDesignFormField(templateGender, templateSide);
-          formData.append(field, blob, `${field}.png`);
-          if (templateGender === gender && templateSide === side) {
-            primaryCompleted = blob;
-          }
-        }
-      }
-
-      if (!primaryCompleted) {
-        throw new Error("沒有可送出的設計內容");
-      }
-
-      formData.append("completed", primaryCompleted, "completed.png");
+      appendProofArtifactsToFormData(formData, proofArtifacts);
       formData.append("designJson", designJson);
       formData.append("textJson", textJson);
       formData.append("applicantJson", JSON.stringify(applicantPayload));
@@ -1071,10 +1122,21 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
         body: formData,
       });
 
-      const data = await res.json();
+      const data = (await res.json()) as {
+        submissionNo?: string;
+        error?: string;
+        email?: { sent: boolean; message?: string };
+      };
+
       if (!res.ok) {
         throw new Error(data.error ?? "送出失敗");
       }
+
+      if (!data.submissionNo) {
+        throw new Error("送出失敗");
+      }
+
+      const applicantName = applicationForm.applicantName.trim();
 
       draftStorage.saveDraftMetadata({
         id: draftId,
@@ -1094,31 +1156,10 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
       setApplicationForm(EMPTY_FORM);
       setContestApplicationForm(EMPTY_CONTEST_FORM);
       setCloudSyncWarning(null);
-
-      const emailInfo = data.email as
-        | { sent: true }
-        | { sent: false; message?: string }
-        | undefined;
-
-      const displayLabel = formatSubmissionDisplayLabel(
-        data.submissionNo,
-        applicationForm.applicantName,
-      );
-
-      if (emailInfo?.sent) {
-        setStatusMessage(
-          `申請已發送！編號：${displayLabel}（已儲存至雲端並寄送 Email 通知）`,
-        );
-      } else if (emailInfo && !emailInfo.sent && emailInfo.message) {
-        setStatusMessage(
-          `申請已發送！編號：${displayLabel}（已儲存至雲端；${emailInfo.message}）`,
-        );
-      } else {
-        setStatusMessage(
-          `申請已發送！編號：${displayLabel}（已儲存至雲端）`,
-        );
-      }
-
+      setSubmissionSuccess({
+        submissionNo: data.submissionNo,
+        applicantName,
+      });
       setDraftId(nanoid(12));
     } catch (error) {
       setWarnings([
@@ -1132,38 +1173,44 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
   const handleGenderChange = (g: Gender) => {
     setGender(g);
     setModelId(DEFAULT_MODEL_ID[g]);
+    setLayersByTemplate((prev) => {
+      let next = prev;
+      for (const templateGender of DESIGN_GENDERS) {
+        for (const templateSide of DESIGN_SIDES) {
+          next = setLayersForSlot(
+            next,
+            templateGender,
+            templateSide,
+            fitDesignLayers(
+              getLayersForSlot(next, templateGender, templateSide),
+              getPrintAreaCmBounds(),
+            ),
+          );
+        }
+      }
+      return next;
+    });
   };
 
   const handleUpdateBody = () => {
     setSuggestedSize(suggestSize(heightCm, weightKg));
   };
 
-  const primaryScale =
-    primaryLayer?.type === "text"
-      ? primaryLayer.scale
-      : primaryLayer?.type === "image"
-        ? primaryLayer.scale
-        : 1;
-  const primaryRotation = primaryLayer?.rotation ?? 0;
-  const primaryLocked = primaryLayer?.locked ?? false;
-
-  const handleDeletePrimary = useCallback(() => {
-    if (!primaryId) return;
-    deleteLayerById(primaryId);
-  }, [primaryId, deleteLayerById]);
-
   return (
+    <LiveDesignStateProvider
+      size={size}
+      layers={layers}
+      selectedLayerId={primaryId}
+    >
     <div className="flex h-full flex-col bg-zinc-50 text-zinc-900">
       <div className="flex min-h-0 flex-1">
         <IconNav active={activeTab} onChange={setActiveTab} />
 
         {activeTab === "product" && (
           <ProductPanel
-            product={product}
             shirtColor={shirtColor}
             material={material}
             size={size}
-            onProductChange={setProduct}
             onColorChange={handleShirtColorChange}
             onMaterialChange={setMaterial}
             onSizeChange={setSize}
@@ -1175,29 +1222,10 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
           activeTab={activeTab}
           layers={layers}
           selectedIds={selectedIds}
-          primaryLayer={primaryLayer}
-          scale={primaryScale}
-          rotation={primaryRotation}
-          primaryLocked={primaryLocked}
-          selectedText={selectedText}
           isBusy={isBusy}
           showGrid={showGrid}
           gridSnapEnabled={gridSnapEnabled}
           elementSnapDistance={elementSnapDistance}
-          warnings={warnings}
-          onScaleChange={(v) => {
-            if (primaryId) applyClampedLayerTransform(primaryId, { scale: v });
-          }}
-          onRotationChange={(v) => {
-            if (primaryId) applyClampedLayerTransform(primaryId, { rotation: v });
-          }}
-          onReset={handleReset}
-          onDeletePrimary={handleDeletePrimary}
-          onTextChange={(patch) => {
-            if (primaryId && primaryLayer?.type === "text") {
-              updateLayer(primaryId, patch);
-            }
-          }}
           onShowGridChange={setShowGrid}
           onGridSnapChange={setGridSnapEnabled}
           onElementSnapDistanceChange={setElementSnapDistance}
@@ -1224,6 +1252,7 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
         <DesignCanvas
           gender={gender}
           shirtColor={shirtColor}
+          size={size}
           side={side}
           layers={layers}
           layersByTemplate={layersByTemplate}
@@ -1232,8 +1261,6 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
           gridSnapEnabled={gridSnapEnabled}
           elementSnapDistance={elementSnapDistance}
           isBusy={isBusy}
-          selectedText={selectedText}
-          primaryLocked={primaryLocked}
           focusTextEditor={focusTextEditor}
           warnings={warnings}
           onSelectLayer={handleSelectLayer}
@@ -1245,7 +1272,12 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
             if (layers.find((l) => l.id === id)?.locked) return;
             applyClampedLayerTransform(id, { rotation });
           }}
+          onLayerResize={(id, next) => {
+            if (layers.find((l) => l.id === id)?.locked) return;
+            applyLayerResize(id, next);
+          }}
           onClearSelection={() => setSelectedIds([])}
+          onFocusTextEditorConsumed={() => setFocusTextEditor(false)}
           onSideChange={setSide}
           onDuplicateLayer={(id) => void handleDuplicate(id)}
           onDeleteLayer={deleteLayerById}
@@ -1325,12 +1357,13 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
         onClose={() => setUploadAlertDetail(null)}
       />
 
-      {isContestMode && contestSubmitted && contestSubmissionInfo && (
-        <ContestSubmitSuccess
-          submissionNo={contestSubmissionInfo.submissionNo}
-          authorName={contestSubmissionInfo.authorName}
+      {submissionSuccess && (
+        <SubmissionSuccessModal
+          submissionNo={submissionSuccess.submissionNo}
+          applicantName={submissionSuccess.applicantName}
         />
       )}
     </div>
+    </LiveDesignStateProvider>
   );
 }

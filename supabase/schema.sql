@@ -28,7 +28,8 @@ create table if not exists public.design_submissions (
       or review_status in ('pending', 'reviewing', 'approved', 'rejected')
     ),
 
-  submission_no text
+  submission_no text,
+  shirt_color text
 );
 
 comment on table public.design_submissions is '設計草稿、自由設計申請與徵選投稿紀錄';
@@ -36,6 +37,7 @@ comment on column public.design_submissions.storage_path is 'Storage 資料夾�
 comment on column public.design_submissions.expires_at is '草稿到期時間；submitted 為 null';
 comment on column public.design_submissions.submission_type is 'normal：自由設計；contest：徵選投稿';
 comment on column public.design_submissions.review_status is '徵選投稿審核狀態；normal 應為 null';
+comment on column public.design_submissions.shirt_color is '衣服顏色代碼，如 white、black、navy';
 
 create index if not exists design_submissions_status_expires_idx
   on public.design_submissions (status, expires_at)

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Gender, Side } from "@/lib/constants";
 import { ModelTemplatePlaceholder } from "./ModelTemplatePlaceholder";
 
@@ -20,6 +20,10 @@ export function TemplateImage({
   showPlaceholderGuide?: boolean;
 }) {
   const [missing, setMissing] = useState(false);
+
+  useEffect(() => {
+    setMissing(false);
+  }, [src]);
 
   if (missing) {
     return (

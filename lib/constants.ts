@@ -1,44 +1,63 @@
 export type Gender = "male" | "female" | "child-male" | "child-female";
 export type Side = "front" | "back";
-export type Product = "basic-tshirt" | "sweatshirt";
-export type Size = "XS" | "S" | "M" | "L" | "XL" | "XXL";
+export const PRODUCT_ID = "basic-tshirt" as const;
+export type Product = typeof PRODUCT_ID;
+
+export const PRODUCT = {
+  id: PRODUCT_ID,
+  name: "ZIIIGO 經典純棉短袖 T-Shirt",
+  description: "經典純棉圓領短袖",
+} as const;
+export type Size = "XS" | "S" | "M" | "L" | "XL" | "2XL";
+
+export const SIZE_CONTACT_MESSAGE = "請聯繫客服確認尺寸" as const;
+
+export type SizeSuggestion = Size | typeof SIZE_CONTACT_MESSAGE;
 export type Fit = "standard";
-export type Material = "cotton-200" | "cotton-240" | "blend-180";
+export type Material = "combed-cotton-180";
+
+export const DEFAULT_MATERIAL: Material = "combed-cotton-180";
 export type ShirtColor =
   | "white"
   | "black"
-  | "light-gray"
-  | "dark-gray"
-  | "pink"
-  | "lavender"
-  | "light-blue"
+  | "heather-grey"
   | "navy"
-  | "beige"
-  | "green";
+  | "royal-blue"
+  | "sky-blue"
+  | "pink"
+  | "hot-pink"
+  | "light-yellow"
+  | "mustard-green";
 
 export const SHIRT_COLORS = [
   { id: "white", name: "白色", hex: "#FFFFFF" },
   { id: "black", name: "黑色", hex: "#111111" },
-  { id: "light-gray", name: "淺灰", hex: "#D1D5DB" },
-  { id: "dark-gray", name: "深灰", hex: "#4B5563" },
-  { id: "beige", name: "米色", hex: "#D6C6A8" },
-  { id: "green", name: "綠色", hex: "#4ADE80" },
-  { id: "pink", name: "粉紅", hex: "#F9A8D4" },
-  { id: "lavender", name: "粉紫", hex: "#C4B5FD" },
-  { id: "light-blue", name: "粉藍", hex: "#93C5FD" },
-  { id: "navy", name: "深藍", hex: "#1E3A8A" },
-] as const;
+  { id: "heather-grey", name: "麻灰色", hex: "#B8B8B8" },
+  { id: "navy", name: "丈青色", hex: "#1E3A5F" },
+  { id: "royal-blue", name: "翠藍色", hex: "#2563EB" },
+  { id: "sky-blue", name: "水藍色", hex: "#7DD3FC" },
+  { id: "pink", name: "粉紅色", hex: "#F9A8D4" },
+  { id: "hot-pink", name: "桃紅色", hex: "#EC4899" },
+  { id: "light-yellow", name: "淺黃色", hex: "#FDE68A" },
+  { id: "mustard-green", name: "芥末綠色", hex: "#8FA84A" },
+] as const satisfies ReadonlyArray<{ id: ShirtColor; name: string; hex: string }>;
+
+export const DEFAULT_SHIRT_COLOR: ShirtColor = "white";
+
+export function isShirtColor(value: unknown): value is ShirtColor {
+  return (
+    typeof value === "string" &&
+    SHIRT_COLORS.some((color) => color.id === value)
+  );
+}
 
 export function getShirtColorHex(color: ShirtColor): string {
   return SHIRT_COLORS.find((c) => c.id === color)?.hex ?? "#FFFFFF";
 }
 
-export const PRODUCTS: Record<Product, { name: string; description: string }> = {
-  "basic-tshirt": { name: "短袖 T 恤", description: "基本款圓領短袖" },
-  sweatshirt: { name: "大學 T", description: "厚磅圓領長袖" },
-};
-
-export const PRODUCT_LIST: Product[] = ["basic-tshirt", "sweatshirt"];
+export function getProductName(): string {
+  return PRODUCT.name;
+}
 
 export const FIT_LABEL = "標準";
 
@@ -57,60 +76,56 @@ export const DEFAULT_MODEL_ID: Record<Gender, string> = {
 };
 
 export const MATERIAL_OPTIONS: { id: Material; label: string }[] = [
-  { id: "cotton-200", label: "100% 純棉 200g (5.9oz)" },
-  { id: "cotton-240", label: "100% 純棉 240g (7.1oz)" },
-  { id: "blend-180", label: "棉混紡 180g (5.3oz)" },
+  { id: "combed-cotton-180", label: "100% 精梳純棉 180g（5.3oz）" },
 ];
 
-export const SIZES: Size[] = ["XS", "S", "M", "L", "XL", "XXL"];
+export function normalizeMaterial(value: unknown): Material {
+  return value === "combed-cotton-180" ? value : DEFAULT_MATERIAL;
+}
 
-export const CANVAS_WIDTH = 1024;
-export const CANVAS_HEIGHT = 1536;
+export const SIZES: Size[] = ["XS", "S", "M", "L", "XL", "2XL"];
 
 export const EXPORT_DPI = 300;
 export const DESIGN_SAFE_MARGIN = 0.05;
 export const DESIGN_WIDTH_TARGET_RATIO = 0.875;
 
-export {
-  PRINT_AREA_CONFIG,
-  cmToExportPx,
-  getCanvasPrintAreaStyle,
-  getExportDimensionsForGender,
-  getExportMetaForGender,
-  getExportScaleForGender,
-  getFlatShirtPrintAreaStyle,
-  getPrintAreaForGender,
-  getSafePrintAreaForGender,
-  type PrintAreaBounds,
-  type PrintAreaConfigEntry,
-  type PrintAreaRect,
-} from "./print-area";
-
 import {
-  getExportDimensionsForGender,
-  getPrintAreaForGender,
-  getSafePrintAreaForGender,
+  ADULT_UNISEX_PRINT_BOUNDS,
+  ADULT_UNISEX_PRINT_SPEC,
+  DESIGN_AREA_HEIGHT,
+  DESIGN_AREA_WIDTH,
+  cmToDesignUnits,
+  cmToExportPx,
+  getExportDimensions,
+  getExportMeta,
+  getExportScale,
+  getPrintAreaBounds,
+  type PrintAreaBounds,
 } from "./print-area";
 
-/** 成人男款輸出尺寸（推薦上傳規格基準） */
-export const DESIGN_AREA_WIDTH = getExportDimensionsForGender("male").width;
-export const DESIGN_AREA_HEIGHT = getExportDimensionsForGender("male").height;
-
-/** @deprecated 請使用 getPrintAreaForGender(gender) */
-export const PRINT_AREA = getPrintAreaForGender("male");
-
-/** @deprecated 請使用 getSafePrintAreaForGender(gender) */
-export const SAFE_PRINT_AREA = getSafePrintAreaForGender("male");
-
-/**
- * 平面衣服素材（正面／背面）。
- * 將 PNG 放入 public/templates/ 後，把路徑填入即可取代 SVG 佔位圖。
- */
-export const FLAT_SHIRT_TEMPLATES: Record<Side, string | null> = {
-  front: null,
-  back: null,
+export {
+  ADULT_UNISEX_PRINT_BOUNDS,
+  ADULT_UNISEX_PRINT_SPEC,
+  DESIGN_AREA_HEIGHT,
+  DESIGN_AREA_WIDTH,
+  cmToDesignUnits,
+  cmToExportPx,
+  getExportDimensions,
+  getExportMeta,
+  getExportScale,
+  getPrintAreaBounds,
+  type PrintAreaBounds,
 };
 
+export {
+  extractShirtColorFromDesignJson,
+  getAdultTshirtTemplateSrc,
+  getShirtColorName,
+  isLightShirtColor,
+  normalizeShirtColor,
+} from "./shirt-template";
+
+/** 模特預覽用模板（依性別／版型，含穿著效果） */
 export const TEMPLATES: Record<Gender, Record<Side, string>> = {
   male: {
     front: "/templates/adult-male-front.png",
@@ -237,11 +252,24 @@ export const UPLOAD_SPEC_LINES = [
   "上傳後自動等比例置中（寬 85%~90%）",
 ] as const;
 
-export const EXPORT_SPEC_LINE = `輸出：PNG ${DESIGN_AREA_WIDTH}×${DESIGN_AREA_HEIGHT} 透明背景 ${EXPORT_DPI} DPI`;
-export const SNAP_THRESHOLD = 12;
-export const GRID_SIZE = 30;
-export const GRID_SNAP_THRESHOLD = 10;
-export const ELEMENT_SNAP_THRESHOLD = 10;
+/** 管理員／送出申請後匯出規格說明（使用者端不提供下載） */
+export const EXPORT_SPEC_LINE = `匯出：PNG · ${DESIGN_AREA_WIDTH}×${DESIGN_AREA_HEIGHT}px · 透明背景 · ${EXPORT_DPI} DPI · 僅可印刷區`;
+/** 吸附／格線間距（cm）→ 設計座標由 cmToDesignUnits 換算 */
+export const SNAP_THRESHOLD_CM = 1;
+export const GRID_SIZE_CM = 2.5;
+export const GRID_SNAP_THRESHOLD_CM = 0.8;
+export const ELEMENT_SNAP_THRESHOLD_CM = 0.8;
+
+/** @deprecated 設計幾何請用 cm（design-cm.ts） */
+export const SNAP_THRESHOLD = cmToDesignUnits(SNAP_THRESHOLD_CM);
+/** @deprecated 設計幾何請用 GRID_SIZE_CM */
+export const GRID_SIZE = cmToDesignUnits(GRID_SIZE_CM);
+/** @deprecated 設計幾何請用 GRID_SNAP_THRESHOLD_CM */
+export const GRID_SNAP_THRESHOLD = cmToDesignUnits(GRID_SNAP_THRESHOLD_CM);
+/** @deprecated 設計幾何請用 ELEMENT_SNAP_THRESHOLD_CM */
+export const ELEMENT_SNAP_THRESHOLD = cmToDesignUnits(
+  ELEMENT_SNAP_THRESHOLD_CM,
+);
 export const ELEMENT_SNAP_MIN = 4;
 export const ELEMENT_SNAP_MAX = 24;
 export const DRAFT_TTL_MS = 48 * 60 * 60 * 1000;
@@ -249,12 +277,69 @@ export const DRAFT_STORAGE_KEY = "tshirt-designer-draft";
 export const DRAFT_DB_NAME = "tshirt-designer-db";
 export const DRAFT_STORE_NAME = "draft-images";
 
-/** 依身高體重估算建議尺寸 */
-export function suggestSize(heightCm: number, weightKg: number): Size {
-  const bmi = weightKg / (heightCm / 100) ** 2;
-  if (heightCm < 160) return bmi < 20 ? "XS" : "S";
-  if (heightCm < 170) return bmi < 22 ? "S" : "M";
-  if (heightCm < 180) return bmi < 24 ? "M" : "L";
-  if (heightCm < 190) return bmi < 26 ? "L" : "XL";
-  return bmi < 28 ? "XL" : "XXL";
+/** 工廠試穿尺寸區間（身高 cm、體重 kg） */
+const FACTORY_TRYON_SIZE_RANGES = [
+  { size: "XS", heightMin: 130, heightMax: 155, weightMin: 45, weightMax: 50 },
+  { size: "S", heightMin: 140, heightMax: 160, weightMin: 50, weightMax: 60 },
+  { size: "M", heightMin: 150, heightMax: 175, weightMin: 55, weightMax: 75 },
+  { size: "L", heightMin: 155, heightMax: 180, weightMin: 70, weightMax: 90 },
+  { size: "XL", heightMin: 155, heightMax: 185, weightMin: 85, weightMax: 105 },
+  { size: "2XL", heightMin: 160, heightMax: 190, weightMin: 100, weightMax: 115 },
+] as const satisfies ReadonlyArray<{
+  size: Size;
+  heightMin: number;
+  heightMax: number;
+  weightMin: number;
+  weightMax: number;
+}>;
+
+function inTryonRange(value: number, min: number, max: number): boolean {
+  return value >= min && value <= max;
+}
+
+function tryonFitScore(
+  heightCm: number,
+  weightKg: number,
+  range: (typeof FACTORY_TRYON_SIZE_RANGES)[number],
+): number {
+  const heightCenter = (range.heightMin + range.heightMax) / 2;
+  const weightCenter = (range.weightMin + range.weightMax) / 2;
+  const heightSpan = Math.max(range.heightMax - range.heightMin, 1);
+  const weightSpan = Math.max(range.weightMax - range.weightMin, 1);
+  const heightDelta = (heightCm - heightCenter) / heightSpan;
+  const weightDelta = (weightKg - weightCenter) / weightSpan;
+  return heightDelta * heightDelta + weightDelta * weightDelta;
+}
+
+/** 依工廠試穿表建議尺寸（身高、體重皆須落在區間內） */
+export function suggestSize(heightCm: number, weightKg: number): SizeSuggestion {
+  if (
+    !Number.isFinite(heightCm) ||
+    !Number.isFinite(weightKg) ||
+    heightCm <= 0 ||
+    weightKg <= 0
+  ) {
+    return SIZE_CONTACT_MESSAGE;
+  }
+
+  const matches = FACTORY_TRYON_SIZE_RANGES.filter(
+    (range) =>
+      inTryonRange(heightCm, range.heightMin, range.heightMax) &&
+      inTryonRange(weightKg, range.weightMin, range.weightMax),
+  );
+
+  if (matches.length === 0) {
+    return SIZE_CONTACT_MESSAGE;
+  }
+
+  if (matches.length === 1) {
+    return matches[0].size;
+  }
+
+  return matches.reduce((best, current) =>
+    tryonFitScore(heightCm, weightKg, current) <
+    tryonFitScore(heightCm, weightKg, best)
+      ? current
+      : best,
+  ).size;
 }

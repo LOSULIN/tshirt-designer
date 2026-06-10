@@ -67,14 +67,16 @@ export function TextLayerEditor({
           </select>
           <input
             type="range"
-            min={12}
-            max={120}
-            step={1}
-            value={layer.fontSize}
+            min={1.2}
+            max={12}
+            step={0.1}
+            value={layer.fontSize_cm}
             disabled={disabled}
-            onChange={(e) => onChange({ fontSize: Number(e.target.value) })}
+            onChange={(e) =>
+              onChange({ fontSize_cm: Number(e.target.value) })
+            }
             className="w-full"
-            title={`字體大小 ${layer.fontSize}px`}
+            title={`字體大小 ${layer.fontSize_cm.toFixed(1)} cm`}
           />
           <input
             type="color"
@@ -137,16 +139,18 @@ export function TextLayerEditor({
       </div>
       <div>
         <label className="mb-1 block text-xs font-medium text-zinc-900">
-          字體大小 ({layer.fontSize}px)
+          字體大小 ({layer.fontSize_cm.toFixed(1)} cm)
         </label>
         <input
           type="range"
-          min={12}
-          max={120}
-          step={1}
-          value={layer.fontSize}
+          min={1.2}
+          max={12}
+          step={0.1}
+          value={layer.fontSize_cm}
           disabled={disabled}
-          onChange={(e) => onChange({ fontSize: Number(e.target.value) })}
+          onChange={(e) =>
+            onChange({ fontSize_cm: Number(e.target.value) })
+          }
           className="w-full"
         />
       </div>
@@ -159,12 +163,12 @@ export function TextLayerEditor({
           value={layer.color}
           disabled={disabled}
           onChange={(e) => onChange({ color: e.target.value })}
-          className="h-10 w-full cursor-pointer rounded border border-zinc-300"
+          className="h-10 w-full cursor-pointer rounded-lg border border-zinc-300"
         />
       </div>
       <div>
         <label className="mb-1 block text-xs font-medium text-zinc-900">
-          字體粗細
+          字重
         </label>
         <select
           value={layer.fontWeight}

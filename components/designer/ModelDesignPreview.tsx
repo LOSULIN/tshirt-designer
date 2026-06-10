@@ -1,37 +1,36 @@
 "use client";
 
-import { CANVAS_HEIGHT, CANVAS_WIDTH, TEMPLATES } from "@/lib/constants";
+import { getAdultTshirtTemplateSrc, type ShirtColor } from "@/lib/constants";
 import {
-  getCanvasPrintAreaStyle,
-  getPrintAreaForGender,
-} from "@/lib/print-area";
-import type { Gender, Side } from "@/lib/constants";
-import { getScaledSize } from "@/lib/geometry";
+  getLayerEffectiveCmRect,
+  getPrintAreaCmBounds,
+} from "@/lib/design-cm";
+import { getPrintAreaContainerStyle } from "@/lib/printArea";
+import type { Gender, Side, Size } from "@/lib/constants";
 import { sortLayersByZIndex } from "@/lib/layers";
 import { resolveFontFamily } from "@/lib/text-layer";
 import type { DesignLayer } from "@/lib/types";
+import { ShirtContainerFrame } from "./ShirtContainerFrame";
+import { ShirtVisualScale } from "./ShirtVisualScale";
 import { TemplateImage } from "./TemplateImage";
-
-const CANVAS_ASPECT = CANVAS_WIDTH / CANVAS_HEIGHT;
 
 function StaticDesignLayer({
   layer,
   printArea,
 }: {
   layer: DesignLayer;
-  printArea: ReturnType<typeof getPrintAreaForGender>;
+  printArea: ReturnType<typeof getPrintAreaCmBounds>;
 }) {
-  const scale = layer.type === "image" ? layer.scale : layer.scale;
-  const scaled = getScaledSize(layer.width, layer.height, scale);
+  const rect = getLayerEffectiveCmRect(layer);
 
   return (
     <div
       className="pointer-events-none absolute"
       style={{
-        left: `${(layer.x / printArea.width) * 100}%`,
-        top: `${(layer.y / printArea.height) * 100}%`,
-        width: `${(scaled.width / printArea.width) * 100}%`,
-        height: `${(scaled.height / printArea.height) * 100}%`,
+        left: `${(rect.x_cm / printArea.width) * 100}%`,
+        top: `${(rect.y_cm / printArea.height) * 100}%`,
+        width: `${(rect.width_cm / printArea.width) * 100}%`,
+        height: `${(rect.height_cm / printArea.height) * 100}%`,
       }}
     >
       <div
@@ -54,7 +53,7 @@ function StaticDesignLayer({
             className="whitespace-pre px-1 text-center leading-none select-none"
             style={{
               fontFamily: resolveFontFamily(layer.fontFamily),
-              fontSize: `${layer.fontSize * layer.scale}px`,
+              fontSize: `calc(${(layer.fontSize_cm * layer.scale) / printArea.height} * 100cqh)`,
               fontWeight: layer.fontWeight,
               color: layer.color,
               opacity: layer.opacity,
@@ -72,47 +71,49 @@ function StaticDesignLayer({
 export function ModelDesignPreview({
   gender,
   side,
+  shirtColor,
+  size = "M",
   layers,
   zoom = 1,
   fitRatio,
 }: {
   gender: Gender;
   side: Side;
+  shirtColor: ShirtColor;
+  size?: Size;
   layers: DesignLayer[];
   zoom?: number;
   fitRatio?: number;
 }) {
-  const templateSrc = TEMPLATES[gender][side];
+  const templateSrc = getAdultTshirtTemplateSrc(shirtColor, side);
   const visibleLayers = sortLayersByZIndex(layers).filter((l) => l.visible);
-  const printArea = getPrintAreaForGender(gender);
-  const printAreaStyle = getCanvasPrintAreaStyle(gender);
-
-  const sizeStyle =
-    fitRatio != null
-      ? {
-          width: `min(calc(100cqw * ${fitRatio}), calc(100cqh * ${CANVAS_ASPECT} * ${fitRatio}))`,
-          transform: `scale(${zoom})`,
-          transformOrigin: "center center",
-        }
-      : { width: "100%" };
+  const printArea = getPrintAreaCmBounds();
+  const printAreaStyle = getPrintAreaContainerStyle(side);
 
   return (
-    <div
-      className={`relative ${fitRatio != null ? "shrink-0 transition-transform duration-200" : "w-full"}`}
-      style={{
-        aspectRatio: `${CANVAS_WIDTH} / ${CANVAS_HEIGHT}`,
-        ...sizeStyle,
-      }}
+    <ShirtContainerFrame
+      className={
+        fitRatio != null ? "transition-transform duration-200" : "w-full"
+      }
+      fitRatio={fitRatio}
+      width={fitRatio == null ? "100%" : undefined}
+      zoom={zoom}
     >
-      <TemplateImage
-        gender={gender}
-        side={side}
-        src={templateSrc}
-        alt={side === "front" ? "正面模特呈現" : "背面模特呈現"}
-        className="absolute inset-0 h-full w-full object-contain"
-        showPlaceholderGuide={false}
-      />
-      <div className="absolute overflow-hidden" style={printAreaStyle}>
+      <ShirtVisualScale size={size}>
+        <TemplateImage
+          gender={gender}
+          side={side}
+          src={templateSrc}
+          alt={side === "front" ? "正面模特呈現" : "背面模特呈現"}
+          className="absolute inset-0 z-0 h-full w-full object-contain"
+          showPlaceholderGuide={false}
+        />
+      </ShirtVisualScale>
+      <div
+        data-print-area
+        className="absolute overflow-hidden [container-type:size]"
+        style={printAreaStyle}
+      >
         {visibleLayers.map((layer) => (
           <StaticDesignLayer
             key={layer.id}
@@ -121,6 +122,6 @@ export function ModelDesignPreview({
           />
         ))}
       </div>
-    </div>
+    </ShirtContainerFrame>
   );
 }

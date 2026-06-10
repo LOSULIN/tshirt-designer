@@ -5,12 +5,12 @@ import {
   getFitLabel,
   getProductLabel,
   getProofFileInfo,
-  type ProUploadProductSelection,
+  type ProUploadFitSelection,
 } from "@/lib/pro-upload-proof";
 import type { ProUploadInspection } from "@/lib/pro-upload-inspect";
 
 type ProUploadProofStepProps = {
-  productSelection: ProUploadProductSelection;
+  fitSelection: ProUploadFitSelection;
   inspection: ProUploadInspection;
   onBack: () => void;
   onNext: () => void;
@@ -40,7 +40,7 @@ function InfoRow({ label, value }: InfoRowProps) {
 }
 
 export function ProUploadProofStep({
-  productSelection,
+  fitSelection,
   inspection,
   onBack,
   onNext,
@@ -60,8 +60,8 @@ export function ProUploadProofStep({
 
       <SectionCard title="商品資訊">
         <dl>
-          <InfoRow label="商品" value={getProductLabel(productSelection.product)} />
-          <InfoRow label="版型" value={getFitLabel(productSelection.fit)} />
+          <InfoRow label="商品" value={getProductLabel()} />
+          <InfoRow label="版型" value={getFitLabel(fitSelection.fit)} />
         </dl>
       </SectionCard>
 

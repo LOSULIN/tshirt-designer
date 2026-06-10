@@ -1,16 +1,16 @@
 import Link from "next/link";
 import { formatSubmissionDisplayLabel } from "@/lib/submission-no";
 
-type ContestSubmitSuccessProps = {
+type SubmissionSuccessModalProps = {
   submissionNo: string;
-  authorName: string;
+  applicantName: string;
 };
 
-export function ContestSubmitSuccess({
+export function SubmissionSuccessModal({
   submissionNo,
-  authorName,
-}: ContestSubmitSuccessProps) {
-  const displayLabel = formatSubmissionDisplayLabel(submissionNo, authorName);
+  applicantName,
+}: SubmissionSuccessModalProps) {
+  const displayLabel = formatSubmissionDisplayLabel(submissionNo, applicantName);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#f7f8fa] p-5">

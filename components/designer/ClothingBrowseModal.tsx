@@ -5,8 +5,9 @@ import {
   EXPORT_DPI,
   type Gender,
   type ShirtColor,
+  type Size,
 } from "@/lib/constants";
-import { getExportDimensionsForGender } from "@/lib/print-area";
+import { getExportDimensions } from "@/lib/print-area";
 import { getLayersForSlot } from "@/lib/design-state";
 import type { DesignLayersByTemplate } from "@/lib/types";
 import { FlatShirtDesignView } from "./FlatShirtDesignView";
@@ -17,18 +18,20 @@ export function ClothingBrowseModal({
   open,
   gender,
   shirtColor,
+  size,
   layersByTemplate,
   onClose,
 }: {
   open: boolean;
   gender: Gender;
   shirtColor: ShirtColor;
+  size: Size;
   layersByTemplate: DesignLayersByTemplate;
   onClose: () => void;
 }) {
   const frontLayers = getLayersForSlot(layersByTemplate, gender, "front");
   const backLayers = getLayersForSlot(layersByTemplate, gender, "back");
-  const exportDims = getExportDimensionsForGender(gender);
+  const exportDims = getExportDimensions();
   const [zoomIndex, setZoomIndex] = useState(1);
   const zoom = ZOOM_STEPS[zoomIndex];
 
@@ -89,6 +92,7 @@ export function ClothingBrowseModal({
                   gender={gender}
                   side="front"
                   shirtColor={shirtColor}
+                  size={size}
                   layers={frontLayers}
                 />
               </div>
@@ -102,6 +106,7 @@ export function ClothingBrowseModal({
                   gender={gender}
                   side="back"
                   shirtColor={shirtColor}
+                  size={size}
                   layers={backLayers}
                 />
               </div>

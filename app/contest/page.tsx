@@ -1,5 +1,7 @@
+import { ContestMaintenanceView } from "@/components/contest/ContestMaintenanceView";
 import { ContestPageClient } from "@/components/contest/ContestPageClient";
 import { LandingNav } from "@/components/landing/LandingNav";
+import { CONTEST_ENABLED } from "@/lib/feature-flags";
 
 export const metadata = {
   title: "徵選投稿專區 | TIIIGO",
@@ -7,6 +9,10 @@ export const metadata = {
 };
 
 export default function ContestPage() {
+  if (!CONTEST_ENABLED) {
+    return <ContestMaintenanceView />;
+  }
+
   return (
     <div className="flex h-screen flex-col">
       <LandingNav />

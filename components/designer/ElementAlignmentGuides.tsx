@@ -1,4 +1,4 @@
-import type { PrintAreaBounds } from "@/lib/print-area";
+import type { PrintAreaCmBounds } from "@/lib/design-cm";
 
 export function ElementAlignmentGuides({
   vertical,
@@ -7,7 +7,7 @@ export function ElementAlignmentGuides({
 }: {
   vertical: number[];
   horizontal: number[];
-  printArea: PrintAreaBounds;
+  printArea: PrintAreaCmBounds;
 }) {
   if (vertical.length === 0 && horizontal.length === 0) return null;
 

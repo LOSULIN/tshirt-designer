@@ -4,16 +4,20 @@ import { join } from "node:path";
 const ROOT = join(import.meta.dirname, "..");
 const TEMPLATES_DIR = join(ROOT, "public", "templates");
 
-const REQUIRED = [
-  "adult-male-front.png",
-  "adult-male-back.png",
-  "adult-female-front.png",
-  "adult-female-back.png",
-  "child-male-front.png",
-  "child-male-back.png",
-  "child-female-front.png",
-  "child-female-back.png",
+const COLORS = [
+  "white",
+  "black",
+  "heather-grey",
+  "navy",
+  "royal-blue",
+  "sky-blue",
+  "pink",
+  "hot-pink",
+  "light-yellow",
+  "mustard-green",
 ];
+
+const SIDES = ["front", "back"];
 
 const EXPECTED_WIDTH = 1024;
 const EXPECTED_HEIGHT = 1536;
@@ -56,9 +60,13 @@ function readImageInfo(buffer) {
 let failed = false;
 let warned = false;
 
-console.log("檢查模特模板：public/templates/\n");
+const required = SIDES.flatMap((side) =>
+  COLORS.map((color) => `adult-tshirt-${color}-${side}.png`),
+);
 
-for (const file of REQUIRED) {
+console.log("檢查成人 T 恤顏色模板：public/templates/\n");
+
+for (const file of required) {
   const path = join(TEMPLATES_DIR, file);
 
   if (!existsSync(path)) {
@@ -92,7 +100,7 @@ for (const file of REQUIRED) {
 
   if (!formatOk) {
     console.log(
-      `⚠ 格式為 ${format} 但副檔名為 .png：${file}（${width}×${height}，${kb} KB）— 建議轉存為 PNG`,
+      `⚠ 格式為 ${format} 但副檔名為 .png：${file}（${width}×${height}，${kb} KB）`,
     );
     warned = true;
     continue;
@@ -103,31 +111,32 @@ for (const file of REQUIRED) {
 
 const extras = readdirSync(TEMPLATES_DIR).filter(
   (name) =>
-    !REQUIRED.includes(name) &&
+    !required.includes(name) &&
     !name.startsWith(".") &&
     name !== "README.md",
 );
 
 if (extras.length > 0) {
-  console.log("\n多餘檔案（可刪除或重新命名）：");
+  console.log("\n其他檔案（模特／舊模板）：");
   for (const name of extras) {
     console.log(`  - ${name}`);
   }
-  warned = true;
 }
 
 console.log("");
 
 if (failed) {
-  console.log("請依 public/templates/README.md 補齊缺少的檔案。");
+  console.log(
+    "請將 adult-tshirt-{color}-{front|back}.png 放入 public/templates/。",
+  );
   process.exit(1);
 }
 
 if (warned) {
   console.log(
-    "模板已可預覽，但尺寸或格式尚未符合上架規格；印刷區對位可能偏移，建議調整為 1024×1536 PNG。",
+    "模板已可預覽，但部分尺寸或格式尚未符合規格；建議調整為 1024×1536 PNG。",
   );
   process.exit(0);
 }
 
-console.log("全部模特模板檢查通過。");
+console.log("全部顏色模板檢查通過。");

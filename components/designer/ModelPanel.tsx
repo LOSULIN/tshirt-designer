@@ -1,7 +1,9 @@
 "use client";
 
-import type { Gender, ModelType, Side, Size } from "@/lib/constants";
+import { useState } from "react";
+import type { Gender, ModelType, Side, SizeSuggestion } from "@/lib/constants";
 import { TemplateImage } from "./TemplateImage";
+import { TshirtSizeGuideModal } from "./TshirtSizeGuideModal";
 import {
   ADULT_MODEL_OPTIONS,
   CHILD_MODEL_OPTIONS,
@@ -65,7 +67,7 @@ export function ModelPanel({
   gender: Gender;
   heightCm: number;
   weightKg: number;
-  suggestedSize: Size;
+  suggestedSize: SizeSuggestion;
   isBusy: boolean;
   hasDesign: boolean;
   onGenderChange: (gender: Gender) => void;
@@ -75,6 +77,7 @@ export function ModelPanel({
   onSave: () => void;
   onSubmit: () => void;
 }) {
+  const [showSizeGuide, setShowSizeGuide] = useState(false);
   const modelType = getModelType(gender);
   const activeChildGender =
     gender === "child-female" ? "child-female" : "child-male";
@@ -182,11 +185,17 @@ export function ModelPanel({
           <button
             type="button"
             className="mt-2 text-xs text-blue-600 hover:underline"
+            onClick={() => setShowSizeGuide(true)}
           >
             查看尺寸表
           </button>
         </div>
       </div>
+
+      <TshirtSizeGuideModal
+        open={showSizeGuide}
+        onClose={() => setShowSizeGuide(false)}
+      />
 
       <div className="mt-auto shrink-0 space-y-2 border-t border-zinc-200 p-4">
         <button

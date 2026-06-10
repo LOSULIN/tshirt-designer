@@ -112,7 +112,7 @@ export async function POST(request: Request) {
     const emailResult = await sendProUploadSubmittedEmail({
       submissionNo,
       createdAt,
-      productLabel: `${getProductLabel(product)} · ${getFitLabel(fit)}`,
+      productLabel: `${getProductLabel()} · ${getFitLabel(fit)}`,
       marketplaceApply: caseForm.marketplaceApply,
       applicant: {
         name: caseForm.name.trim(),

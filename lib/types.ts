@@ -3,10 +3,10 @@ import type { Fit, Gender, Material, Side } from "./constants";
 export interface DesignConfig {
   templateType: Gender;
   side: Side;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
+  x_cm: number;
+  y_cm: number;
+  width_cm: number;
+  height_cm: number;
   scale: number;
   rotation: number;
 }
@@ -30,17 +30,17 @@ export interface TextLayer {
   id: string;
   type: "text";
   text: string;
-  fontSize: number;
+  fontSize_cm: number;
   fontFamily: TextFontFamily;
   color: string;
   opacity: number;
   fontWeight: number;
   rotation: number;
   scale: number;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
+  x_cm: number;
+  y_cm: number;
+  width_cm: number;
+  height_cm: number;
 }
 
 export interface LayerMeta {
@@ -54,10 +54,10 @@ export interface LayerMeta {
 
 export interface ImageDesignLayer extends LayerMeta {
   type: "image";
-  x: number;
-  y: number;
-  width: number;
-  height: number;
+  x_cm: number;
+  y_cm: number;
+  width_cm: number;
+  height_cm: number;
   scale: number;
   rotation: number;
   image: UploadedDesignImage;
@@ -65,14 +65,14 @@ export interface ImageDesignLayer extends LayerMeta {
 
 export interface TextDesignLayer extends LayerMeta {
   type: "text";
-  x: number;
-  y: number;
-  width: number;
-  height: number;
+  x_cm: number;
+  y_cm: number;
+  width_cm: number;
+  height_cm: number;
   scale: number;
   rotation: number;
   text: string;
-  fontSize: number;
+  fontSize_cm: number;
   fontFamily: TextFontFamily;
   color: string;
   opacity: number;
@@ -91,6 +91,7 @@ export interface DesignDraft {
   submitted: boolean;
   config: DesignConfig;
   hasImage: boolean;
+  shirtColor?: string;
   activeGender?: Gender;
   activeSide?: Side;
   /** 各模板 × 正反面獨立圖層（v2） */

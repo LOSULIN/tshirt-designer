@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useCallback, useRef, useState } from "react";
-import type { Product } from "@/lib/constants";
 import {
   createEmptyCaseForm,
   type ProUploadCaseFormData,
@@ -11,7 +10,7 @@ import {
   inspectProUploadFile,
   type ProUploadInspection,
 } from "@/lib/pro-upload-inspect";
-import type { ProUploadProductSelection } from "@/lib/pro-upload-proof";
+import type { ProUploadFitSelection } from "@/lib/pro-upload-proof";
 import {
   isAllowedProUploadFile,
   isRasterImageFile,
@@ -25,6 +24,7 @@ import { ProUploadFileInfo } from "./ProUploadFileInfo";
 import { ProUploadProductStep } from "./ProUploadProductStep";
 import { ProUploadProofStep } from "./ProUploadProofStep";
 import { ProUploadStepIndicator } from "./ProUploadStepIndicator";
+import { SubmissionSuccessModal } from "@/components/SubmissionSuccessModal";
 import { ProUploadSubmitStep } from "./ProUploadSubmitStep";
 
 type FlowStep = "product" | "upload" | "check" | "proof" | "case" | "submit";
@@ -61,13 +61,13 @@ function ProUploadHeader() {
 export function ProUploadPanel() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [flowStep, setFlowStep] = useState<FlowStep>("product");
-  const [productSelection, setProductSelection] = useState<ProUploadProductSelection>({
-    product: "basic-tshirt",
+  const [fitSelection, setFitSelection] = useState<ProUploadFitSelection>({
     fit: "male",
   });
   const [caseForm, setCaseForm] = useState<ProUploadCaseFormData>(createEmptyCaseForm);
   const [submitted, setSubmitted] = useState(false);
   const [submissionNo, setSubmissionNo] = useState<string | null>(null);
+  const [submittedApplicantName, setSubmittedApplicantName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -132,8 +132,7 @@ export function ProUploadPanel() {
       formData.append(
         "submissionJson",
         JSON.stringify({
-          product: productSelection.product,
-          fit: productSelection.fit,
+          fit: fitSelection.fit,
           inspection,
           caseForm,
         }),
@@ -158,6 +157,7 @@ export function ProUploadPanel() {
       }
 
       setSubmissionNo(data.submissionNo);
+      setSubmittedApplicantName(caseForm.name.trim());
       setSubmitted(true);
     } catch {
       setSubmitError("送出失敗，請稍後再試。");
@@ -168,12 +168,20 @@ export function ProUploadPanel() {
     caseForm,
     inspection,
     isSubmitting,
-    productSelection.fit,
-    productSelection.product,
+    fitSelection.fit,
     selectedFile,
   ]);
 
   const stepIndex = getStepIndex(flowStep);
+
+  if (submitted && submissionNo) {
+    return (
+      <SubmissionSuccessModal
+        submissionNo={submissionNo}
+        applicantName={submittedApplicantName}
+      />
+    );
+  }
 
   if (flowStep === "product") {
     return (
@@ -181,14 +189,8 @@ export function ProUploadPanel() {
         <ProUploadHeader />
         <ProUploadStepIndicator current={stepIndex} />
         <ProUploadProductStep
-          product={productSelection.product}
-          fit={productSelection.fit}
-          onProductChange={(product: Product) =>
-            setProductSelection((prev) => ({ ...prev, product }))
-          }
-          onFitChange={(fit) =>
-            setProductSelection((prev) => ({ ...prev, fit }))
-          }
+          fit={fitSelection.fit}
+          onFitChange={(fit) => setFitSelection({ fit })}
           onNext={() => setFlowStep("upload")}
         />
       </div>
@@ -226,7 +228,7 @@ export function ProUploadPanel() {
       <div className="w-full max-w-2xl">
         <ProUploadStepIndicator current={stepIndex} />
         <ProUploadProofStep
-          productSelection={productSelection}
+          fitSelection={fitSelection}
           inspection={inspection}
           onBack={() => setFlowStep("check")}
           onNext={() => setFlowStep("case")}
@@ -252,17 +254,15 @@ export function ProUploadPanel() {
   if (flowStep === "submit" && inspection) {
     return (
       <div className="w-full max-w-2xl">
-        {!submitted && <ProUploadStepIndicator current={stepIndex} />}
+        <ProUploadStepIndicator current={stepIndex} />
         <ProUploadSubmitStep
-          productSelection={productSelection}
+          fitSelection={fitSelection}
           inspection={inspection}
           caseForm={caseForm}
-          submitted={submitted}
-          submissionNo={submissionNo}
           isSubmitting={isSubmitting}
           submitError={submitError}
           onBack={() => {
-            if (!submitted && !isSubmitting) setFlowStep("case");
+            if (!isSubmitting) setFlowStep("case");
           }}
           onSubmit={() => {
             void handleSubmit();

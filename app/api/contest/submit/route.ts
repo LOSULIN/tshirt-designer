@@ -5,7 +5,14 @@ import {
   parseContestFormJson,
   parseDesignJsonField,
 } from "@/lib/contest-submission";
-import { GENDER_OPTIONS, PRODUCTS, type Gender, type Product } from "@/lib/constants";
+import {
+  extractShirtColorFromDesignJson,
+  GENDER_OPTIONS,
+  getProductName,
+  normalizeShirtColor,
+  PRODUCT_ID,
+  type Gender,
+} from "@/lib/constants";
 import { sendContestSubmittedEmails } from "@/lib/email";
 import {
   allocateSubmissionNo,
@@ -14,8 +21,8 @@ import {
 import { createAdminClient, DESIGNS_BUCKET } from "@/lib/supabase/admin";
 
 function formatContestProductLabel(productType: string | null): string {
-  if (!productType) return "-";
-  return PRODUCTS[productType as Product]?.name ?? productType;
+  if (!productType || productType === PRODUCT_ID) return getProductName();
+  return productType;
 }
 
 function formatContestTemplateLabel(templateType: string): string {
@@ -194,6 +201,15 @@ export async function POST(request: Request) {
       uploadedPaths.push(path);
     }
 
+    const shirtColor = normalizeShirtColor(
+      extractShirtColorFromDesignJson(
+        typeof frontDesignJson === "string" ? frontDesignJson : "",
+      ) ??
+        extractShirtColorFromDesignJson(
+          typeof backDesignJson === "string" ? backDesignJson : "",
+        ),
+    );
+
     // ======================================================
     // 5. DB insert（帶 submissionNo + storagePath）
     // ======================================================
@@ -211,6 +227,7 @@ export async function POST(request: Request) {
         preview_front_url: previewFrontUrl,
         preview_back_url: previewBackUrl,
         submission_no: submissionNo,
+        shirt_color: shirtColor,
         ...dbFields,
       });
 

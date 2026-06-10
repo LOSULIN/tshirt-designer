@@ -1,3 +1,4 @@
+import { CONTEST_ENABLED } from "@/lib/feature-flags";
 import { DesignToolIllustration } from "./DesignToolIllustration";
 import { LandingNav } from "./LandingNav";
 import { OptionCard } from "./OptionCard";
@@ -36,7 +37,34 @@ export function LandingPage() {
       <LandingNav />
 
       <main className="flex flex-1 items-center justify-center px-5 pt-2 pb-10 lg:pt-3">
-        <div className="grid w-full max-w-6xl grid-cols-1 items-stretch gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">
+        <div
+          className={`grid w-full grid-cols-1 items-stretch gap-4 sm:grid-cols-2 sm:gap-5 ${
+            CONTEST_ENABLED
+              ? "max-w-6xl lg:grid-cols-3"
+              : "mx-auto max-w-4xl lg:grid-cols-2"
+          }`}
+        >
+          {CONTEST_ENABLED && (
+            <OptionCard
+              theme="purple"
+              title="徵選投稿專區"
+              subtitle="適合參加 TIIGO 官方設計徵選活動的創作者。"
+              features={[...CONTEST_FEATURES]}
+              illustration={<DesignToolIllustration />}
+              ctaLabel="開始投稿"
+              ctaHref="/contest"
+              icon={
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M16.5 18.75h-9m9 0a3 3 0 0 1 3 3h-15a3 3 0 0 1 3-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 0 1-.982-3.172M9.497 14.25a7.454 7.454 0 0 0 .981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 0 0 7.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M18.75 4.236c.982.143 1.954.317 2.916.52M18.75 4.236V4.5c0 2.108-.966 3.99-2.48 5.228m0 0a6.003 6.003 0 0 1-5.394 3.09M15.75 9.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"
+                  />
+                </svg>
+              }
+            />
+          )}
+
           <OptionCard
             theme="green"
             title="自由設計"
@@ -70,25 +98,6 @@ export function LandingPage() {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m6.75 12H9.75m3 0v-1.5m0 1.5h3.75m-9.75 0h3.75m0 0v-1.5m0 1.5H6.75"
-                />
-              </svg>
-            }
-          />
-
-          <OptionCard
-            theme="purple"
-            title="徵選投稿專區"
-            subtitle="適合參加 TIIGO 官方設計徵選活動的創作者。"
-            features={[...CONTEST_FEATURES]}
-            illustration={<DesignToolIllustration />}
-            ctaLabel="開始投稿"
-            ctaHref="/contest"
-            icon={
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M16.5 18.75h-9m9 0a3 3 0 0 1 3 3h-15a3 3 0 0 1 3-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 0 1-.982-3.172M9.497 14.25a7.454 7.454 0 0 0 .981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 0 0 7.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M18.75 4.236c.982.143 1.954.317 2.916.52M18.75 4.236V4.5c0 2.108-.966 3.99-2.48 5.228m0 0a6.003 6.003 0 0 1-5.394 3.09M15.75 9.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"
                 />
               </svg>
             }

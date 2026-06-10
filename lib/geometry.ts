@@ -1,10 +1,10 @@
 import {
-  ELEMENT_SNAP_THRESHOLD,
-  GRID_SIZE,
-  GRID_SNAP_THRESHOLD,
-  SNAP_THRESHOLD,
+  ELEMENT_SNAP_THRESHOLD_CM,
+  GRID_SIZE_CM,
+  GRID_SNAP_THRESHOLD_CM,
+  SNAP_THRESHOLD_CM,
 } from "./constants";
-import type { PrintAreaBounds } from "./print-area";
+import type { PrintAreaCmBounds } from "./design-cm";
 import {
   applyElementAlignmentSnap,
   type ElementAlignmentGuides,
@@ -55,6 +55,42 @@ export function getRotatedAabb(
   };
 }
 
+export const LAYER_MIN_SCALE = 0.2;
+export const LAYER_MAX_SCALE = 3;
+
+/** 旋轉後外接矩形在當前 scale 下可放入印刷區的最大倍率 */
+export function getMaxLayerScale(
+  width: number,
+  height: number,
+  rotation: number,
+  printArea: PrintAreaCmBounds,
+  cap = LAYER_MAX_SCALE,
+): number {
+  if (width <= 0 || height <= 0) return cap;
+
+  const aabb = getRotatedAabb(width, height, rotation);
+  if (aabb.width <= 0 || aabb.height <= 0) return cap;
+
+  return Math.min(
+    cap,
+    printArea.width / aabb.width,
+    printArea.height / aabb.height,
+  );
+}
+
+export function clampLayerScale(
+  width: number,
+  height: number,
+  scale: number,
+  rotation: number,
+  printArea: PrintAreaCmBounds,
+  min = LAYER_MIN_SCALE,
+  max = LAYER_MAX_SCALE,
+): number {
+  const maxFit = getMaxLayerScale(width, height, rotation, printArea, max);
+  return Math.min(Math.max(scale, min), maxFit);
+}
+
 export function clampPositionToPrintArea(
   x: number,
   y: number,
@@ -62,7 +98,7 @@ export function clampPositionToPrintArea(
   height: number,
   scale: number,
   rotation: number,
-  printArea: PrintAreaBounds,
+  printArea: PrintAreaCmBounds,
 ): { x: number; y: number } {
   const scaled = getScaledSize(width, height, scale);
   const aabb = getRotatedAabb(scaled.width, scaled.height, rotation);
@@ -72,10 +108,60 @@ export function clampPositionToPrintArea(
   const minY = (scaled.height - aabb.height) / 2;
   const maxY = printArea.height - aabb.height - minY;
 
+  if (maxX < minX) {
+    return {
+      x: (printArea.width - aabb.width) / 2,
+      y:
+        maxY < minY
+          ? (printArea.height - aabb.height) / 2
+          : Math.min(Math.max(y, minY), maxY),
+    };
+  }
+
+  if (maxY < minY) {
+    return {
+      x: Math.min(Math.max(x, minX), maxX),
+      y: (printArea.height - aabb.height) / 2,
+    };
+  }
+
   return {
-    x: Math.min(Math.max(x, minX), Math.max(minX, maxX)),
-    y: Math.min(Math.max(y, minY), Math.max(minY, maxY)),
+    x: Math.min(Math.max(x, minX), maxX),
+    y: Math.min(Math.max(y, minY), maxY),
   };
+}
+
+/** 將圖層縮放與位置限制在可印刷區內（含旋轉後外接矩形） */
+export function fitLayerTransform(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  scale: number,
+  rotation: number,
+  printArea: PrintAreaCmBounds,
+  options?: { minScale?: number; maxScale?: number },
+): { x: number; y: number; scale: number } {
+  const clampedScale = clampLayerScale(
+    width,
+    height,
+    scale,
+    rotation,
+    printArea,
+    options?.minScale ?? LAYER_MIN_SCALE,
+    options?.maxScale ?? LAYER_MAX_SCALE,
+  );
+  const clamped = clampPositionToPrintArea(
+    x,
+    y,
+    width,
+    height,
+    clampedScale,
+    rotation,
+    printArea,
+  );
+
+  return { x: clamped.x, y: clamped.y, scale: clampedScale };
 }
 
 function snapAxisToGrid(
@@ -97,14 +183,14 @@ export function applyDragSnap(
   width: number,
   height: number,
   scale: number,
-  printArea: PrintAreaBounds,
+  printArea: PrintAreaCmBounds,
   options: DragSnapOptions = { gridSnap: false },
 ): DragSnapResult {
   const scaled = getScaledSize(width, height, scale);
-  const gridSize = options.gridSize ?? GRID_SIZE;
-  const gridThreshold = options.gridThreshold ?? GRID_SNAP_THRESHOLD;
+  const gridSize = options.gridSize ?? GRID_SIZE_CM;
+  const gridThreshold = options.gridThreshold ?? GRID_SNAP_THRESHOLD_CM;
   const elementThreshold =
-    options.elementSnapThreshold ?? ELEMENT_SNAP_THRESHOLD;
+    options.elementSnapThreshold ?? ELEMENT_SNAP_THRESHOLD_CM;
 
   let nextX = x;
   let nextY = y;
@@ -152,14 +238,14 @@ export function applyDragSnap(
   const areaCenterX = printArea.width / 2;
   const areaCenterY = printArea.height / 2;
 
-  if (Math.abs(centerX - areaCenterX) <= SNAP_THRESHOLD) {
+  if (Math.abs(centerX - areaCenterX) <= SNAP_THRESHOLD_CM) {
     nextX = areaCenterX - scaled.width / 2;
     snappedX = true;
     printCenterSnapX = true;
     elementGuides = { ...elementGuides, vertical: [] };
   }
 
-  if (Math.abs(centerY - areaCenterY) <= SNAP_THRESHOLD) {
+  if (Math.abs(centerY - areaCenterY) <= SNAP_THRESHOLD_CM) {
     nextY = areaCenterY - scaled.height / 2;
     snappedY = true;
     printCenterSnapY = true;
@@ -184,7 +270,7 @@ export function applySnapGuides(
   width: number,
   height: number,
   scale: number,
-  printArea: PrintAreaBounds,
+  printArea: PrintAreaCmBounds,
 ): SnapResult {
   return applyDragSnap(x, y, width, height, scale, printArea, {
     gridSnap: false,

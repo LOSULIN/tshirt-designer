@@ -1,52 +1,32 @@
 import {
   PRO_UPLOAD_FIT_OPTIONS,
-  PRO_UPLOAD_PRODUCT_OPTIONS,
+  getProductLabel,
   type ProUploadFit,
 } from "@/lib/pro-upload-proof";
-import type { Product } from "@/lib/constants";
 
 type ProUploadProductStepProps = {
-  product: Product;
   fit: ProUploadFit;
-  onProductChange: (product: Product) => void;
   onFitChange: (fit: ProUploadFit) => void;
   onNext: () => void;
 };
 
 export function ProUploadProductStep({
-  product,
   fit,
-  onProductChange,
   onFitChange,
   onNext,
 }: ProUploadProductStepProps) {
   return (
     <div className="w-full max-w-xl">
       <section className="rounded-2xl bg-white p-6 shadow-[0_8px_30px_rgba(0,0,0,0.04)] ring-1 ring-gray-100">
-        <h2 className="text-sm font-semibold text-gray-900">Step 1 商品選擇</h2>
+        <h2 className="text-sm font-semibold text-gray-900">Step 1 商品與版型</h2>
         <div className="mt-1 space-y-0.5 text-xs leading-relaxed text-gray-500">
-          <p>支援商品：短袖 T-Shirt / 大學T</p>
-          <p>請選擇商品進行設計申請</p>
+          <p>商品：{getProductLabel()}</p>
+          <p>請選擇版型進行設計申請</p>
         </div>
 
-        <div className="mt-5 space-y-2">
+        <div className="mt-5 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
           <p className="text-xs font-medium text-gray-500">商品</p>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {PRO_UPLOAD_PRODUCT_OPTIONS.map((option) => (
-              <button
-                key={option.id}
-                type="button"
-                onClick={() => onProductChange(option.id)}
-                className={`rounded-xl border px-4 py-3 text-left text-sm transition-colors ${
-                  product === option.id
-                    ? "border-blue-500 bg-blue-50 text-blue-900"
-                    : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
-                }`}
-              >
-                <span className="font-medium">{option.label}</span>
-              </button>
-            ))}
-          </div>
+          <p className="mt-1 text-sm font-semibold text-gray-900">{getProductLabel()}</p>
         </div>
 
         <div className="mt-6 space-y-2">

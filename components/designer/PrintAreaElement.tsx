@@ -1,11 +1,18 @@
 "use client";
 
 import { useCallback, useRef } from "react";
-import type { PrintAreaBounds } from "@/lib/print-area";
+import type { PrintAreaCmBounds } from "@/lib/design-cm";
+import {
+  clientPointToPrintCm,
+  computeHandleResizeCm,
+  getResizeHandleCursor,
+  type ResizeEdge,
+  type ResizeHandle,
+} from "@/lib/direct-manipulation";
 import { guidesEqual, type SnapTarget } from "@/lib/element-snap";
 import {
   applyDragSnap,
-  clampPositionToPrintArea,
+  fitLayerTransform,
   getScaledSize,
 } from "@/lib/geometry";
 
@@ -25,11 +32,50 @@ const EMPTY_GUIDES: SnapGuidesState = {
   elementHorizontal: [],
 };
 
-function normalizeRotation(degrees: number) {
-  let next = degrees;
-  while (next > 180) next -= 360;
-  while (next < -180) next += 360;
-  return next;
+const HANDLE_POSITIONS: Record<ResizeHandle, string> = {
+  nw: "left-0 top-0 -translate-x-1/2 -translate-y-1/2",
+  ne: "right-0 top-0 translate-x-1/2 -translate-y-1/2",
+  sw: "bottom-0 left-0 -translate-x-1/2 translate-y-1/2",
+  se: "bottom-0 right-0 translate-x-1/2 translate-y-1/2",
+  n: "left-1/2 top-0 -translate-x-1/2 -translate-y-1/2",
+  e: "right-0 top-1/2 translate-x-1/2 -translate-y-1/2",
+  s: "bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2",
+  w: "left-0 top-1/2 -translate-x-1/2 -translate-y-1/2",
+};
+
+const CORNER_HANDLES: ResizeHandle[] = ["nw", "ne", "se", "sw"];
+const ALL_HANDLES: ResizeHandle[] = [
+  "nw",
+  "n",
+  "ne",
+  "e",
+  "se",
+  "s",
+  "sw",
+  "w",
+];
+
+/** 小於此尺寸僅顯示四角把手，避免把手重疊 */
+const COMPACT_SIZE_CM = 9;
+
+function isResizeEdge(handle: ResizeHandle): handle is ResizeEdge {
+  return handle === "n" || handle === "e" || handle === "s" || handle === "w";
+}
+
+function ResizeHandleGrip({ handle }: { handle: ResizeHandle }) {
+  if (isResizeEdge(handle)) {
+    const vertical = handle === "n" || handle === "s";
+    return (
+      <span
+        className={`block rounded-full border-2 border-blue-500 bg-white shadow-sm ${
+          vertical ? "h-1.5 w-7" : "h-7 w-1.5"
+        }`}
+      />
+    );
+  }
+  return (
+    <span className="block h-4 w-4 rounded-sm border-2 border-blue-500 bg-white shadow-sm" />
+  );
 }
 
 export function PrintAreaElement({
@@ -42,15 +88,15 @@ export function PrintAreaElement({
   isActive,
   showControls,
   locked,
+  isEditing,
   gridSnapEnabled,
   elementSnapEnabled,
   elementSnapDistance,
   otherElements,
   onSelect,
   onTransformChange,
-  onRotationChange,
-  onDuplicate,
-  onDelete,
+  onResizeChange,
+  onDoubleClick,
   onSnapGuidesChange,
   printArea,
   children,
@@ -65,17 +111,26 @@ export function PrintAreaElement({
   isActive: boolean;
   showControls: boolean;
   locked: boolean;
+  isEditing?: boolean;
   gridSnapEnabled: boolean;
   elementSnapEnabled: boolean;
   elementSnapDistance: number;
   otherElements: SnapTarget[];
   onSelect: (shiftKey: boolean) => void;
-  onTransformChange: (next: { x: number; y: number }) => void;
-  onRotationChange?: (rotation: number) => void;
-  onDuplicate?: () => void;
-  onDelete?: () => void;
+  onTransformChange: (next: {
+    x: number;
+    y: number;
+    scale?: number;
+  }) => void;
+  onResizeChange?: (next: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  }) => void;
+  onDoubleClick?: () => void;
   onSnapGuidesChange: (guides: SnapGuidesState) => void;
-  printArea: PrintAreaBounds;
+  printArea: PrintAreaCmBounds;
   children: React.ReactNode;
   className?: string;
 }) {
@@ -85,11 +140,12 @@ export function PrintAreaElement({
     originX: number;
     originY: number;
   } | null>(null);
-  const rotateRef = useRef<{
-    originRotation: number;
-    startAngle: number;
-    centerX: number;
-    centerY: number;
+  const resizeRef = useRef<{
+    handle: ResizeHandle;
+    originX: number;
+    originY: number;
+    originWidth: number;
+    originHeight: number;
   } | null>(null);
   const lastGuidesRef = useRef<SnapGuidesState>(EMPTY_GUIDES);
   const gridSnapRef = useRef(gridSnapEnabled);
@@ -102,6 +158,9 @@ export function PrintAreaElement({
   otherElementsRef.current = otherElements;
 
   const scaled = getScaledSize(width, height, scale);
+  const isCompact =
+    scaled.width < COMPACT_SIZE_CM || scaled.height < COMPACT_SIZE_CM;
+  const activeHandles = isCompact ? CORNER_HANDLES : ALL_HANDLES;
 
   const emitGuides = useCallback(
     (guides: SnapGuidesState) => {
@@ -142,7 +201,7 @@ export function PrintAreaElement({
         });
       }
 
-      const clamped = clampPositionToPrintArea(
+      const fitted = fitLayerTransform(
         px,
         py,
         width,
@@ -153,10 +212,11 @@ export function PrintAreaElement({
       );
 
       if (
-        Math.abs(clamped.x - x) > POSITION_EPSILON ||
-        Math.abs(clamped.y - y) > POSITION_EPSILON
+        Math.abs(fitted.x - x) > POSITION_EPSILON ||
+        Math.abs(fitted.y - y) > POSITION_EPSILON ||
+        Math.abs(fitted.scale - scale) > POSITION_EPSILON
       ) {
-        onTransformChange(clamped);
+        onTransformChange(fitted);
       }
     },
     [
@@ -172,10 +232,16 @@ export function PrintAreaElement({
     ],
   );
 
+  const getPrintAreaRect = (target: EventTarget | null) => {
+    const el = (target as HTMLElement | null)?.closest("[data-print-area]");
+    return el?.getBoundingClientRect() ?? null;
+  };
+
   const onPointerDown = (event: React.PointerEvent) => {
-    if (locked) return;
+    if (locked || isEditing) return;
     event.stopPropagation();
     onSelect(event.shiftKey);
+    if (showControls) return;
     event.currentTarget.setPointerCapture(event.pointerId);
     dragRef.current = {
       startX: event.clientX,
@@ -187,11 +253,11 @@ export function PrintAreaElement({
   };
 
   const onPointerMove = (event: React.PointerEvent) => {
+    if (resizeRef.current) return;
     if (!dragRef.current) return;
-    const printAreaEl = event.currentTarget.closest("[data-print-area]");
-    if (!printAreaEl) return;
+    const printRect = getPrintAreaRect(event.currentTarget);
+    if (!printRect) return;
 
-    const printRect = printAreaEl.getBoundingClientRect();
     const scaleX = printArea.width / printRect.width;
     const scaleY = printArea.height / printRect.height;
 
@@ -205,55 +271,70 @@ export function PrintAreaElement({
     );
   };
 
-  const onPointerUp = () => {
+  const onPointerUp = (event: React.PointerEvent) => {
     dragRef.current = null;
+    resizeRef.current = null;
     emitGuides(EMPTY_GUIDES);
-  };
-
-  const onRotatePointerDown = (event: React.PointerEvent) => {
-    if (!onRotationChange) return;
-    event.stopPropagation();
-    const root = event.currentTarget.closest("[data-layer-root]");
-    if (!root) return;
-    const rect = root.getBoundingClientRect();
-    const centerX = rect.left + rect.width / 2;
-    const centerY = rect.top + rect.height / 2;
-    rotateRef.current = {
-      originRotation: rotation,
-      startAngle:
-        (Math.atan2(event.clientY - centerY, event.clientX - centerX) * 180) /
-        Math.PI,
-      centerX,
-      centerY,
-    };
-    event.currentTarget.setPointerCapture(event.pointerId);
-  };
-
-  const onRotatePointerMove = (event: React.PointerEvent) => {
-    if (!rotateRef.current || !onRotationChange) return;
-    const { originRotation, startAngle, centerX, centerY } = rotateRef.current;
-    const currentAngle =
-      (Math.atan2(event.clientY - centerY, event.clientX - centerX) * 180) /
-      Math.PI;
-    onRotationChange(normalizeRotation(originRotation + currentAngle - startAngle));
-  };
-
-  const onRotatePointerUp = (event: React.PointerEvent) => {
-    rotateRef.current = null;
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
   };
 
-  const stopControlEvent = (event: React.PointerEvent | React.MouseEvent) => {
-    event.stopPropagation();
+  const onResizePointerDown =
+    (handle: ResizeHandle) => (event: React.PointerEvent) => {
+      if (!onResizeChange || locked) return;
+      event.stopPropagation();
+      onSelect(event.shiftKey);
+      resizeRef.current = {
+        handle,
+        originX: x,
+        originY: y,
+        originWidth: scaled.width,
+        originHeight: scaled.height,
+      };
+      event.currentTarget.setPointerCapture(event.pointerId);
+    };
+
+  const onResizePointerMove = (event: React.PointerEvent) => {
+    if (!resizeRef.current || !onResizeChange) return;
+    const printRect = getPrintAreaRect(event.currentTarget);
+    if (!printRect) return;
+
+    const pointer = clientPointToPrintCm(
+      event.clientX,
+      event.clientY,
+      printRect,
+      printArea.width,
+      printArea.height,
+    );
+
+    const next = computeHandleResizeCm({
+      handle: resizeRef.current.handle,
+      pointerX: pointer.x,
+      pointerY: pointer.y,
+      originX: resizeRef.current.originX,
+      originY: resizeRef.current.originY,
+      originWidth: resizeRef.current.originWidth,
+      originHeight: resizeRef.current.originHeight,
+      rotation,
+      lockAspect: !isResizeEdge(resizeRef.current.handle),
+    });
+
+    onResizeChange(next);
+  };
+
+  const onResizePointerUp = (event: React.PointerEvent) => {
+    resizeRef.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
   };
 
   return (
     <div
       data-layer-root
-      className={`absolute ${locked ? "cursor-default" : "touch-none cursor-move"} ${className} ${
-        isActive && !showControls ? "ring-2 ring-blue-400 ring-offset-1" : ""
+      className={`absolute ${locked ? "cursor-default" : isEditing ? "cursor-text" : "touch-none cursor-move"} ${className} ${
+        isActive ? "ring-2 ring-blue-400 ring-offset-1" : ""
       } ${locked ? "opacity-90" : ""}`}
       style={{
         left: `${(x / printArea.width) * 100}%`,
@@ -265,6 +346,10 @@ export function PrintAreaElement({
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
+      onDoubleClick={(e) => {
+        e.stopPropagation();
+        onDoubleClick?.();
+      }}
     >
       <div
         className="relative flex h-full w-full items-center justify-center"
@@ -273,81 +358,33 @@ export function PrintAreaElement({
           transformOrigin: "center center",
         }}
       >
-        {showControls && (
-          <div className="pointer-events-none absolute inset-0 z-10">
+        {isActive && (
+          <div
+            className={`absolute inset-0 z-10 ${showControls ? "" : "pointer-events-none"}`}
+          >
             <div className="absolute inset-0 border-2 border-dashed border-blue-500" />
-            {(
-              [
-                "left-0 top-0 -translate-x-1/2 -translate-y-1/2",
-                "right-0 top-0 translate-x-1/2 -translate-y-1/2",
-                "bottom-0 left-0 -translate-x-1/2 translate-y-1/2",
-                "bottom-0 right-0 translate-x-1/2 translate-y-1/2",
-              ] as const
-            ).map((position) => (
-              <span
-                key={position}
-                className={`absolute h-2.5 w-2.5 rounded-sm border-2 border-blue-500 bg-white ${position}`}
-              />
-            ))}
+            {showControls &&
+              activeHandles.map((handle) => (
+                <button
+                  key={handle}
+                  type="button"
+                  title="拖曳縮放"
+                  aria-label="拖曳縮放"
+                  className={`absolute z-20 flex h-9 w-9 touch-none items-center justify-center ${HANDLE_POSITIONS[handle]}`}
+                  style={{ cursor: getResizeHandleCursor(handle) }}
+                  onPointerDown={onResizePointerDown(handle)}
+                  onPointerMove={onResizePointerMove}
+                  onPointerUp={onResizePointerUp}
+                  onPointerCancel={onResizePointerUp}
+                >
+                  <ResizeHandleGrip handle={handle} />
+                </button>
+              ))}
           </div>
         )}
 
         {children}
-
-        {showControls && onRotationChange && (
-          <div className="pointer-events-none absolute left-1/2 top-0 z-20 flex -translate-x-1/2 -translate-y-full flex-col items-center">
-            <button
-              type="button"
-              title="拖曳旋轉"
-              aria-label="拖曳旋轉"
-              className="pointer-events-auto flex h-5 w-5 cursor-grab touch-none items-center justify-center rounded-full border-2 border-blue-500 bg-white text-[10px] text-blue-600 shadow-sm active:cursor-grabbing"
-              onPointerDown={onRotatePointerDown}
-              onPointerMove={onRotatePointerMove}
-              onPointerUp={onRotatePointerUp}
-              onPointerCancel={onRotatePointerUp}
-            >
-              ↻
-            </button>
-            <span className="h-4 w-px bg-blue-500" />
-          </div>
-        )}
       </div>
-
-      {showControls && (onDuplicate || onDelete) && (
-        <div
-          className="absolute top-0 left-full z-30 ml-2 flex items-center gap-0.5 rounded-lg border border-zinc-200 bg-white p-1 shadow-lg"
-          onPointerDown={stopControlEvent}
-        >
-          {onDuplicate && (
-            <button
-              type="button"
-              title="複製"
-              aria-label="複製圖層"
-              className="flex h-7 w-7 items-center justify-center rounded-md text-sm text-zinc-700 hover:bg-zinc-100"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDuplicate();
-              }}
-            >
-              ⧉
-            </button>
-          )}
-          {onDelete && (
-            <button
-              type="button"
-              title="刪除"
-              aria-label="刪除圖層"
-              className="flex h-7 w-7 items-center justify-center rounded-md text-sm text-zinc-700 hover:bg-red-50 hover:text-red-600"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete();
-              }}
-            >
-              🗑
-            </button>
-          )}
-        </div>
-      )}
     </div>
   );
 }

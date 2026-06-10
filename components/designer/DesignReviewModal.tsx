@@ -3,26 +3,32 @@
 import {
   EXPORT_DPI,
   type Gender,
+  type ShirtColor,
+  type Size,
 } from "@/lib/constants";
 import { getLayersForSlot } from "@/lib/design-state";
-import { getExportDimensionsForGender } from "@/lib/print-area";
+import { getExportDimensions } from "@/lib/print-area";
 import type { DesignLayersByTemplate } from "@/lib/types";
 import { ModelDesignPreview } from "./ModelDesignPreview";
 
 export function DesignReviewModal({
   open,
   gender,
+  shirtColor,
+  size,
   layersByTemplate,
   onClose,
 }: {
   open: boolean;
   gender: Gender;
+  shirtColor: ShirtColor;
+  size: Size;
   layersByTemplate: DesignLayersByTemplate;
   onClose: () => void;
 }) {
   const frontLayers = getLayersForSlot(layersByTemplate, gender, "front");
   const backLayers = getLayersForSlot(layersByTemplate, gender, "back");
-  const exportDims = getExportDimensionsForGender(gender);
+  const exportDims = getExportDimensions();
 
   if (!open) return null;
 
@@ -74,6 +80,8 @@ export function DesignReviewModal({
                 <ModelDesignPreview
                   gender={gender}
                   side="front"
+                  shirtColor={shirtColor}
+                  size={size}
                   layers={frontLayers}
                 />
               </div>
@@ -86,6 +94,8 @@ export function DesignReviewModal({
                 <ModelDesignPreview
                   gender={gender}
                   side="back"
+                  shirtColor={shirtColor}
+                  size={size}
                   layers={backLayers}
                 />
               </div>

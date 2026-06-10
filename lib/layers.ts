@@ -1,3 +1,4 @@
+import { offsetLayerCmRect, readLayerCmRect } from "./design-cm";
 import { MAX_IMAGES_PER_SIDE, MAX_TEXT_LAYERS } from "./constants";
 import type {
   DesignConfig,
@@ -93,13 +94,14 @@ export function duplicateTextLayer(
   );
   if (!source) return null;
 
+  const rect = offsetLayerCmRect(readLayerCmRect(source), 1.2, 1.2);
+
   return {
     ...source,
     id: nanoid(),
     name: `${source.name} 複本`,
     zIndex: getNextZIndex(layers),
-    x: source.x + 12,
-    y: source.y + 12,
+    ...rect,
   };
 }
 
@@ -118,13 +120,14 @@ export async function duplicateImageLayerAsync(
     previewUrl: URL.createObjectURL(previewBlob),
   };
 
+  const rect = offsetLayerCmRect(readLayerCmRect(source), 1.2, 1.2);
+
   return {
     ...source,
     id,
     name: `${source.name} 複本`,
     zIndex: getNextZIndex(layers),
-    x: source.x + 12,
-    y: source.y + 12,
+    ...rect,
     image,
   };
 }
@@ -132,7 +135,7 @@ export async function duplicateImageLayerAsync(
 export function createImageLayer(
   layers: DesignLayer[],
   image: UploadedDesignImage,
-  placement: { x: number; y: number; width: number; height: number },
+  placement: { x_cm: number; y_cm: number; width_cm: number; height_cm: number },
 ): ImageDesignLayer {
   return {
     id: nanoid(),
@@ -141,10 +144,10 @@ export function createImageLayer(
     visible: true,
     locked: false,
     zIndex: getNextZIndex(layers),
-    x: placement.x,
-    y: placement.y,
-    width: placement.width,
-    height: placement.height,
+    x_cm: placement.x_cm,
+    y_cm: placement.y_cm,
+    width_cm: placement.width_cm,
+    height_cm: placement.height_cm,
     scale: 1,
     rotation: 0,
     image,
@@ -162,14 +165,14 @@ export function textLayerToDesignLayer(
     visible: meta?.visible ?? true,
     locked: meta?.locked ?? false,
     zIndex: meta?.zIndex ?? 0,
-    x: layer.x,
-    y: layer.y,
-    width: layer.width,
-    height: layer.height,
+    x_cm: layer.x_cm,
+    y_cm: layer.y_cm,
+    width_cm: layer.width_cm,
+    height_cm: layer.height_cm,
     scale: layer.scale,
     rotation: layer.rotation,
     text: layer.text,
-    fontSize: layer.fontSize,
+    fontSize_cm: layer.fontSize_cm,
     fontFamily: layer.fontFamily,
     color: layer.color,
     opacity: layer.opacity,
@@ -193,10 +196,10 @@ export function migrateLegacyToLayers(
       visible: true,
       locked: false,
       zIndex: z++,
-      x: config.x,
-      y: config.y,
-      width: config.width,
-      height: config.height,
+      x_cm: config.x_cm,
+      y_cm: config.y_cm,
+      width_cm: config.width_cm,
+      height_cm: config.height_cm,
       scale: config.scale,
       rotation: config.rotation,
       image,

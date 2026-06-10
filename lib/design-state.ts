@@ -224,10 +224,10 @@ export function legacyConfigFromSlot(
   return {
     templateType: gender,
     side,
-    x: firstImage?.x ?? 0,
-    y: firstImage?.y ?? 0,
-    width: firstImage?.width ?? 0,
-    height: firstImage?.height ?? 0,
+    x_cm: firstImage?.x_cm ?? 0,
+    y_cm: firstImage?.y_cm ?? 0,
+    width_cm: firstImage?.width_cm ?? 0,
+    height_cm: firstImage?.height_cm ?? 0,
     scale: firstImage?.scale ?? 1,
     rotation: firstImage?.rotation ?? 0,
   };

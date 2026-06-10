@@ -38,7 +38,7 @@
 npm run check:templates
 ```
 
-確認 8 張模板皆為 **1024×1536 px** 且檔名正確。
+確認 `adult-tshirt-front.png`、`adult-tshirt-back.png` 皆為 **1024×1536 px** 且檔名正確。
 
 ## 快速開始
 

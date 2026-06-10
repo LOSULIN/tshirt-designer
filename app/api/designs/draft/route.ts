@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { nanoid } from "nanoid";
-import { DRAFT_TTL_MS } from "@/lib/constants";
+import {
+  DRAFT_TTL_MS,
+  extractShirtColorFromDesignJson,
+  normalizeShirtColor,
+} from "@/lib/constants";
 import { createAdminClient, DESIGNS_BUCKET } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
@@ -76,6 +80,10 @@ export async function POST(request: Request) {
       activeSide?: string;
     };
 
+    const shirtColor = normalizeShirtColor(
+      extractShirtColorFromDesignJson(designJson),
+    );
+
     await supabase.from("design_submissions").upsert(
       {
         id: draftId,
@@ -87,6 +95,7 @@ export async function POST(request: Request) {
         expires_at: expiresAt.toISOString(),
         submission_type: "normal",
         review_status: null,
+        shirt_color: shirtColor,
       },
       { onConflict: "id" },
     );

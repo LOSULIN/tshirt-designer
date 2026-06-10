@@ -1,3 +1,4 @@
+import { getShirtColorName, type ShirtColor } from "@/lib/constants";
 import { Resend } from "resend";
 import { formatSubmissionDisplayLabel } from "@/lib/submission-no";
 
@@ -26,6 +27,7 @@ export async function sendDesignSubmittedEmail(params: {
   createdAt: string;
   templateType: string;
   side: string;
+  shirtColor?: string;
   applicant?: {
     applicantName?: string;
     applicantEmail?: string;
@@ -87,6 +89,11 @@ export async function sendDesignSubmittedEmail(params: {
     <p><strong>建立時間：</strong>${params.createdAt}</p>
     <p><strong>模板類型：</strong>${params.templateType}</p>
     <p><strong>面向：</strong>${params.side}</p>
+    ${
+      params.shirtColor
+        ? `<p><strong>衣服顏色：</strong>${getShirtColorName(params.shirtColor as ShirtColor)}（${params.shirtColor}）</p>`
+        : ""
+    }
     ${applicantBlock}
     <h3>雲端檔案連結（7 天有效）</h3>
     <ul>

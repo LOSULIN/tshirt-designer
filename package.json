@@ -10,12 +10,22 @@
     "check:templates": "node scripts/check-templates.mjs",
     "check:supabase": "node scripts/check-supabase.mjs",
     "check:email": "node scripts/check-email.mjs",
-    "check:print-area": "node scripts/check-print-area.mjs"
+    "check:print-area": "node scripts/check-print-area.mjs",
+    "check:design-cm": "node scripts/check-design-cm.mjs",
+    "check:design-inspector": "node scripts/check-design-inspector.mjs",
+    "check:live-design-state": "node scripts/check-live-design-state.mjs",
+    "check:direct-manipulation": "node scripts/check-direct-manipulation.mjs",
+    "check:layer-system": "node scripts/check-layer-system.mjs",
+    "check:design-export": "node scripts/check-design-export.mjs",
+    "check:proof-engine": "node scripts/check-proof-engine.mjs",
+    "check:factory-proof-pdf": "node scripts/check-factory-proof-pdf.mjs",
+    "check:print-export": "node scripts/check-print-export.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.107.0",
     "nanoid": "^5.1.11",
     "next": "16.2.7",
+    "pdf-lib": "^1.17.1",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "resend": "^6.12.4"

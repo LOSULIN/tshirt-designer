@@ -1,21 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
-  FLAT_SHIRT_TEMPLATES,
+  getAdultTshirtTemplateSrc,
   getShirtColorHex,
+  isLightShirtColor,
   type Gender,
   type ShirtColor,
   type Side,
+  type Size,
 } from "@/lib/constants";
 import {
-  getFlatShirtPrintAreaStyle,
-  getPrintAreaForGender,
-} from "@/lib/print-area";
-import { getScaledSize } from "@/lib/geometry";
+  getLayerEffectiveCmRect,
+  getPrintAreaCmBounds,
+  type PrintAreaCmBounds,
+} from "@/lib/design-cm";
+import { getPrintAreaContainerStyle } from "@/lib/printArea";
 import { sortLayersByZIndex } from "@/lib/layers";
 import { resolveFontFamily } from "@/lib/text-layer";
 import type { DesignLayer } from "@/lib/types";
+import { ShirtContainerFrame } from "./ShirtContainerFrame";
+import { ShirtVisualScale } from "./ShirtVisualScale";
 
 const VIEW_WIDTH = 400;
 const VIEW_HEIGHT = 460;
@@ -75,7 +80,13 @@ function FlatShirtSvg({
             Z
           "
         />
-        <ellipse cx="200" cy="74" rx="40" ry="20" fill={rib} />
+        <path
+          d="M 158 64 Q 200 82 242 64"
+          stroke={rib}
+          strokeWidth="3"
+          fill="none"
+          strokeLinecap="round"
+        />
       </svg>
     );
   }
@@ -92,23 +103,23 @@ function FlatShirtSvg({
         strokeWidth="1.5"
         strokeLinejoin="round"
         d="
-          M 74 112
-          C 74 90 98 74 132 66
-          L 168 58
-          C 186 54 214 54 232 58
+          M 74 118
+          C 74 94 98 76 132 66
+          L 168 56
+          C 186 50 214 50 232 56
           L 268 66
-          C 302 74 326 90 326 112
-          L 354 125
-          L 382 141
-          L 382 166
-          L 354 179
+          C 302 76 326 94 326 118
+          L 354 131
+          L 382 147
+          L 382 172
+          L 354 185
           L 354 398
           C 354 416 278 426 200 426
           C 122 426 46 416 46 398
-          L 46 179
-          L 18 166
-          L 18 141
-          L 46 125
+          L 46 185
+          L 18 172
+          L 18 147
+          L 46 131
           Z
         "
       />
@@ -126,23 +137,20 @@ function FlatShirtSvg({
 function StaticDesignLayer({
   layer,
   printArea,
-  textScale = 1,
 }: {
   layer: DesignLayer;
-  printArea: ReturnType<typeof getPrintAreaForGender>;
-  textScale?: number;
+  printArea: PrintAreaCmBounds;
 }) {
-  const scale = layer.type === "image" ? layer.scale : layer.scale;
-  const scaled = getScaledSize(layer.width, layer.height, scale);
+  const rect = getLayerEffectiveCmRect(layer);
 
   return (
     <div
       className="pointer-events-none absolute"
       style={{
-        left: `${(layer.x / printArea.width) * 100}%`,
-        top: `${(layer.y / printArea.height) * 100}%`,
-        width: `${(scaled.width / printArea.width) * 100}%`,
-        height: `${(scaled.height / printArea.height) * 100}%`,
+        left: `${(rect.x_cm / printArea.width) * 100}%`,
+        top: `${(rect.y_cm / printArea.height) * 100}%`,
+        width: `${(rect.width_cm / printArea.width) * 100}%`,
+        height: `${(rect.height_cm / printArea.height) * 100}%`,
       }}
     >
       <div
@@ -165,7 +173,7 @@ function StaticDesignLayer({
             className="whitespace-pre px-1 text-center leading-none select-none"
             style={{
               fontFamily: resolveFontFamily(layer.fontFamily),
-              fontSize: `${layer.fontSize * layer.scale * textScale}px`,
+              fontSize: `calc(${(layer.fontSize_cm * layer.scale) / printArea.height} * 100cqh)`,
               fontWeight: layer.fontWeight,
               color: layer.color,
               opacity: layer.opacity,
@@ -181,76 +189,79 @@ function StaticDesignLayer({
 
 /** 平面衣服設計預覽（無模特；可替換為素材 PNG） */
 export function FlatShirtDesignView({
-  gender,
+  gender: _gender,
   side,
   shirtColor,
+  size = "M",
   layers,
   className = "",
-  textScale = 1,
+  compact = false,
 }: {
   gender: Gender;
   side: Side;
   shirtColor: ShirtColor;
+  size?: Size;
   layers: DesignLayer[];
   className?: string;
-  textScale?: number;
+  /** 右側預覽欄：限制在可用高度內 */
+  compact?: boolean;
 }) {
-  const assetSrc = FLAT_SHIRT_TEMPLATES[side];
+  const assetSrc = getAdultTshirtTemplateSrc(shirtColor, side);
   const [assetFailed, setAssetFailed] = useState(false);
-  const useAsset = assetSrc != null && !assetFailed;
+  const useAsset = !assetFailed;
+
+  useEffect(() => {
+    setAssetFailed(false);
+  }, [assetSrc]);
 
   const fill = getShirtColorHex(shirtColor);
-  const isLight =
-    shirtColor === "white" ||
-    shirtColor === "light-gray" ||
-    shirtColor === "beige" ||
-    shirtColor === "pink" ||
-    shirtColor === "lavender" ||
-    shirtColor === "light-blue" ||
-    shirtColor === "green";
+  const isLight = isLightShirtColor(shirtColor);
   const stroke = isLight ? "#d4d4d8" : shadeHex(fill, -30);
   const rib = isLight ? "#e4e4e7" : shadeHex(fill, -18);
 
   const visibleLayers = sortLayersByZIndex(layers).filter((l) => l.visible);
-  const printArea = getPrintAreaForGender(gender);
-  const printBox = getFlatShirtPrintAreaStyle(gender, side);
+  const printArea = getPrintAreaCmBounds();
+  const printAreaStyle = getPrintAreaContainerStyle(side);
 
   return (
     <div
-      className={`relative w-full overflow-hidden bg-zinc-100 ${className}`}
-      style={{ aspectRatio: `${VIEW_WIDTH} / ${VIEW_HEIGHT}` }}
+      className={`relative overflow-hidden bg-zinc-100 ${
+        compact
+          ? "@container flex h-full w-full items-center justify-center"
+          : "w-full"
+      } ${className}`}
     >
-      <div className="absolute inset-0 p-3">
-        {useAsset ? (
-          /* eslint-disable-next-line @next/next/no-img-element */
-          <img
-            src={assetSrc}
-            alt={side === "front" ? "平面衣服正面" : "平面衣服背面"}
-            className="h-full w-full object-contain"
-            onError={() => setAssetFailed(true)}
-          />
-        ) : (
-          <FlatShirtSvg side={side} fill={fill} stroke={stroke} rib={rib} />
-        )}
-      </div>
-      <div
-        className="absolute overflow-hidden"
-        style={{
-          left: printBox.left,
-          top: printBox.top,
-          width: printBox.width,
-          aspectRatio: `${printArea.width} / ${printArea.height}`,
-        }}
+      <ShirtContainerFrame
+        width={compact ? undefined : "100%"}
+        fitRatio={compact ? 0.95 : undefined}
       >
-        {visibleLayers.map((layer) => (
-          <StaticDesignLayer
-            key={layer.id}
-            layer={layer}
-            printArea={printArea}
-            textScale={textScale}
-          />
-        ))}
-      </div>
+        <ShirtVisualScale size={size}>
+          {useAsset ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={assetSrc}
+              alt={side === "front" ? "T 恤正面" : "T 恤背面"}
+              className="absolute inset-0 z-0 h-full w-full object-contain"
+              onError={() => setAssetFailed(true)}
+            />
+          ) : (
+            <FlatShirtSvg side={side} fill={fill} stroke={stroke} rib={rib} />
+          )}
+        </ShirtVisualScale>
+        <div
+          data-print-area
+          className="absolute z-10 overflow-hidden [container-type:size]"
+          style={printAreaStyle}
+        >
+          {visibleLayers.map((layer) => (
+            <StaticDesignLayer
+              key={layer.id}
+              layer={layer}
+              printArea={printArea}
+            />
+          ))}
+        </div>
+      </ShirtContainerFrame>
     </div>
   );
 }

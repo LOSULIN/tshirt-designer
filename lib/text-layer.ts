@@ -1,7 +1,13 @@
-import { getPrintAreaForGender } from "./print-area";
-import type { PrintAreaBounds } from "./print-area";
+import {
+  cmToUiPx,
+  getPrintAreaCmBounds,
+  uiPxToCm,
+  type PrintAreaCmBounds,
+} from "./design-cm";
 import type { TextFontFamily, TextLayer } from "./types";
 import { nanoid } from "nanoid";
+
+export const DEFAULT_NEW_TEXT = "TEST";
 
 export const TEXT_FONT_OPTIONS: { label: TextFontFamily; value: TextFontFamily }[] =
   [
@@ -25,41 +31,45 @@ export function resolveFontFamily(fontFamily: TextFontFamily): string {
   }
 }
 
-export function measureTextBounds(
+export function measureTextBoundsCm(
   text: string,
-  fontSize: number,
+  fontSize_cm: number,
   fontFamily: TextFontFamily,
   fontWeight: number,
-): { width: number; height: number } {
+): { width_cm: number; height_cm: number } {
+  const fontSizePx = cmToUiPx(fontSize_cm);
+
   if (typeof document === "undefined") {
     return {
-      width: Math.max(text.length * fontSize * 0.55, fontSize),
-      height: fontSize * 1.3,
+      width_cm: Math.max(uiPxToCm(text.length * fontSizePx * 0.55), fontSize_cm),
+      height_cm: uiPxToCm(fontSizePx * 1.3),
     };
   }
 
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d");
   if (!ctx) {
-    return { width: fontSize * 4, height: fontSize * 1.3 };
+    return { width_cm: fontSize_cm * 4, height_cm: fontSize_cm * 1.3 };
   }
 
-  ctx.font = `${fontWeight} ${fontSize}px ${resolveFontFamily(fontFamily)}`;
+  ctx.font = `${fontWeight} ${fontSizePx}px ${resolveFontFamily(fontFamily)}`;
   const metrics = ctx.measureText(text || " ");
   return {
-    width: Math.ceil(metrics.width) + 12,
-    height: Math.ceil(fontSize * 1.3),
+    width_cm: uiPxToCm(Math.ceil(metrics.width) + 12),
+    height_cm: uiPxToCm(Math.ceil(fontSizePx * 1.3)),
   };
 }
 
-export function createDefaultTextLayer(printArea?: PrintAreaBounds): TextLayer {
-  const area = printArea ?? getPrintAreaForGender("male");
-  const fontSize = 48;
+export function createDefaultTextLayer(
+  printArea?: PrintAreaCmBounds,
+): TextLayer {
+  const area = printArea ?? getPrintAreaCmBounds();
+  const fontSize_cm = 4.8;
   const fontFamily: TextFontFamily = "Inter";
   const fontWeight = 400;
-  const { width, height } = measureTextBounds(
-    " ",
-    fontSize,
+  const { width_cm, height_cm } = measureTextBoundsCm(
+    DEFAULT_NEW_TEXT,
+    fontSize_cm,
     fontFamily,
     fontWeight,
   );
@@ -67,18 +77,18 @@ export function createDefaultTextLayer(printArea?: PrintAreaBounds): TextLayer {
   return {
     id: nanoid(),
     type: "text",
-    text: "",
-    fontSize,
+    text: DEFAULT_NEW_TEXT,
+    fontSize_cm,
     fontFamily,
     color: "#000000",
     opacity: 1,
     fontWeight,
     rotation: 0,
     scale: 1,
-    x: (area.width - width) / 2,
-    y: (area.height - height) / 2,
-    width,
-    height,
+    x_cm: (area.width - width_cm) / 2,
+    y_cm: (area.height - height_cm) / 2,
+    width_cm,
+    height_cm,
   };
 }
 
@@ -87,17 +97,17 @@ export function serializeTextLayer(layer: TextLayer) {
     id: layer.id,
     type: "text" as const,
     text: layer.text,
-    fontSize: layer.fontSize,
+    fontSize_cm: layer.fontSize_cm,
     fontFamily: layer.fontFamily,
     color: layer.color,
     opacity: layer.opacity,
     fontWeight: layer.fontWeight,
     rotation: layer.rotation,
     scale: layer.scale,
-    x: layer.x,
-    y: layer.y,
-    width: layer.width,
-    height: layer.height,
+    x_cm: layer.x_cm,
+    y_cm: layer.y_cm,
+    width_cm: layer.width_cm,
+    height_cm: layer.height_cm,
   };
 }
 
@@ -107,7 +117,7 @@ export async function ensureTextFontsLoaded(layers: TextLayer[]) {
   await Promise.all(
     layers.map((layer) =>
       document.fonts.load(
-        `${layer.fontWeight} ${layer.fontSize * layer.scale}px ${resolveFontFamily(layer.fontFamily)}`,
+        `${layer.fontWeight} ${cmToUiPx(layer.fontSize_cm * layer.scale)}px ${resolveFontFamily(layer.fontFamily)}`,
       ),
     ),
   );

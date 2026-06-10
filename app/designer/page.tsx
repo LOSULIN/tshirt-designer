@@ -1,4 +1,4 @@
-import { DesignerApp } from "@/components/designer/DesignerApp";
+import { DesignerPageClient } from "@/components/designer/DesignerPageClient";
 import { LandingNav } from "@/components/landing/LandingNav";
 
 export const metadata = {
@@ -10,9 +10,7 @@ export default function DesignerPage() {
   return (
     <div className="flex h-screen flex-col">
       <LandingNav />
-      <div className="min-h-0 flex-1">
-        <DesignerApp mode="normal" />
-      </div>
+      <DesignerPageClient />
     </div>
   );
 }

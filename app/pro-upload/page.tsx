@@ -1,4 +1,4 @@
-import { ProUploadPanel } from "@/components/pro-upload/ProUploadPanel";
+import { ProUploadPageClient } from "@/components/pro-upload/ProUploadPageClient";
 import { LandingNav } from "@/components/landing/LandingNav";
 
 export const metadata = {
@@ -12,9 +12,7 @@ export default function ProUploadPage() {
     <div className="flex min-h-screen flex-col bg-[#f7f8fa]">
       <LandingNav />
 
-      <main className="flex flex-1 items-center justify-center px-5 py-12 lg:py-16">
-        <ProUploadPanel />
-      </main>
+      <ProUploadPageClient />
     </div>
   );
 }

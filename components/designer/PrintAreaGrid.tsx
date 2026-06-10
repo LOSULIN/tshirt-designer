@@ -1,17 +1,17 @@
-import { DESIGN_SAFE_MARGIN, GRID_SIZE } from "@/lib/constants";
-import type { PrintAreaBounds } from "@/lib/print-area";
+import { DESIGN_SAFE_MARGIN, GRID_SIZE_CM } from "@/lib/constants";
+import type { PrintAreaCmBounds } from "@/lib/design-cm";
 
 export function PrintAreaGrid({
   visible,
   printArea,
 }: {
   visible: boolean;
-  printArea: PrintAreaBounds;
+  printArea: PrintAreaCmBounds;
 }) {
   if (!visible) return null;
 
-  const cellW = (GRID_SIZE / printArea.width) * 100;
-  const cellH = (GRID_SIZE / printArea.height) * 100;
+  const cellW = (GRID_SIZE_CM / printArea.width) * 100;
+  const cellH = (GRID_SIZE_CM / printArea.height) * 100;
 
   return (
     <div
