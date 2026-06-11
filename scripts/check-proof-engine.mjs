@@ -24,6 +24,14 @@ const engineSrc = readFileSync(
 );
 assert(engineSrc.includes("generateProof"), "generateProof 已實作");
 assert(
+  engineSrc.includes("uploadSubmissionFiles"),
+  "同步階段上傳申請檔案",
+);
+assert(
+  engineSrc.includes("generateProofDocuments"),
+  "背景階段產生 PDF / ZIP / Email",
+);
+assert(
   engineSrc.includes("buildDesignPackageZip"),
   "產生完整設計包 ZIP",
 );
@@ -50,6 +58,33 @@ assert(
   "ZIP 含 mockup 圖檔",
 );
 assert(zipSrc.includes("-proof.pdf"), "ZIP 含 Proof PDF");
+assert(
+  zipSrc.includes("validation-report.json") ||
+    zipSrc.includes("validationReport"),
+  "ZIP 含 validation-report.json",
+);
+const validationReportSrc = readFileSync(
+  join(root, "lib/proof-engine/validation-report.ts"),
+  "utf8",
+);
+assert(
+  validationReportSrc.includes("buildValidationReport"),
+  "validation-report.json 內容已建立",
+);
+const orderJsonSrc = readFileSync(
+  join(root, "lib/proof-engine/order-json.ts"),
+  "utf8",
+);
+assert(orderJsonSrc.includes("buildOrderJson"), "order.json 內容已建立");
+assert(
+  orderJsonSrc.includes("printMethod") &&
+    orderJsonSrc.includes("validationStatus"),
+  "order.json 含生產與驗證欄位",
+);
+assert(
+  zipSrc.includes("orderJson") || zipSrc.includes("order.json"),
+  "ZIP 含 order.json",
+);
 
 const typesSrc = readFileSync(join(root, "lib/proof-engine/types.ts"), "utf8");
 assert(typesSrc.includes("ProofPackage"), "ProofPackage schema 已定義");
@@ -124,8 +159,20 @@ const submitSrc = readFileSync(
   "utf8",
 );
 assert(
-  submitSrc.includes("generateProof"),
-  "submit 只觸發 Proof Engine",
+  submitSrc.includes("uploadSubmissionFiles"),
+  "submit 同步上傳申請檔案",
+);
+assert(
+  submitSrc.includes("generateProofDocuments"),
+  "submit 背景產生 Proof 文件",
+);
+assert(
+  submitSrc.includes("after("),
+  "submit 使用 after() 非阻塞背景任務",
+);
+assert(
+  submitSrc.includes("proofProcessing"),
+  "submit 立即回傳處理中狀態",
 );
 
 const appSrc = readFileSync(

@@ -103,17 +103,18 @@ export function clampPositionToPrintArea(
   const scaled = getScaledSize(width, height, scale);
   const aabb = getRotatedAabb(scaled.width, scaled.height, rotation);
 
-  const minX = (scaled.width - aabb.width) / 2;
-  const maxX = printArea.width - aabb.width - minX;
-  const minY = (scaled.height - aabb.height) / 2;
-  const maxY = printArea.height - aabb.height - minY;
+  // 視覺 AABB：left = x + w/2 - aabbW/2，bottom = y + h/2 + aabbH/2
+  const minX = (aabb.width - scaled.width) / 2;
+  const maxX = printArea.width - aabb.width / 2 - scaled.width / 2;
+  const minY = (aabb.height - scaled.height) / 2;
+  const maxY = printArea.height - aabb.height / 2 - scaled.height / 2;
 
   if (maxX < minX) {
     return {
-      x: (printArea.width - aabb.width) / 2,
+      x: printArea.width / 2 - scaled.width / 2,
       y:
         maxY < minY
-          ? (printArea.height - aabb.height) / 2
+          ? printArea.height / 2 - scaled.height / 2
           : Math.min(Math.max(y, minY), maxY),
     };
   }
@@ -121,7 +122,7 @@ export function clampPositionToPrintArea(
   if (maxY < minY) {
     return {
       x: Math.min(Math.max(x, minX), maxX),
-      y: (printArea.height - aabb.height) / 2,
+      y: printArea.height / 2 - scaled.height / 2,
     };
   }
 

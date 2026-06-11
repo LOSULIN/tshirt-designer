@@ -5,7 +5,9 @@ import { DesignCanvas } from "./DesignCanvas";
 import { DesignPanel } from "./DesignPanel";
 import { LiveDesignStateProvider } from "./LiveDesignStateContext";
 import { IconNav } from "./IconNav";
+import { GarmentInfoPanel } from "./GarmentInfoPanel";
 import { ModelPanel } from "./ModelPanel";
+import { UI_VISIBILITY } from "./ui-visibility";
 import { ProductPanel } from "./ProductPanel";
 import {
   contestFormToApplicantPayload,
@@ -77,23 +79,42 @@ import {
   getExportDimensions,
   migrateLayersFromLegacyCanvasUnits,
 } from "@/lib/print-area";
-import { applyDragSnap, getInitialPlacement } from "@/lib/geometry";
+import { DEFAULT_PRINT_MODE } from "@/lib/printArea";
+import { getInitialPlacement } from "@/lib/geometry";
 import { getStaggeredPlacement } from "@/lib/layer-placement";
+import { getLayerEffectiveCmRect } from "@/lib/design-cm";
 import {
+  applyClampedLayerPatch,
   fitDesignLayers,
   fitImageLayer,
+  fitShapeLayer,
   fitTextLayer,
 } from "@/lib/layer-constraints";
 import {
-  createDefaultTextLayer,
-  measureTextBoundsCm,
-} from "@/lib/text-layer";
+  rotateClockwise90,
+  rotateCounterClockwise90,
+} from "@/lib/layer-rotation";
+import {
+  clampRasterPrintDimensions,
+  getImageFitOptions,
+} from "@/lib/image-print-quality";
+import {
+  applyLayerPlacementPreset,
+  getPlacementPresetById,
+  type PlacementPresetId,
+} from "@/lib/placement-presets";
+import { normalizeDesignLayers } from "@/lib/layer-normalize";
+import { createDefaultShapeLayer } from "@/lib/shape-layer";
+import { createDefaultTextLayer } from "@/lib/text-layer";
+import { DEFAULT_RICH_TEXT_FIELDS } from "@/lib/text-style";
 import {
   canAddImageLayer,
+  canAddShapeLayer,
   canAddTextLayer,
   createImageLayer,
   defaultLayerName,
   duplicateImageLayerAsync,
+  duplicateShapeLayer,
   duplicateTextLayer,
   getNextZIndex,
   imageLayerLimitMessage,
@@ -101,6 +122,7 @@ import {
   moveLayerZIndex,
   reorderLayersByDrag,
   revokeLayerAssets,
+  shapeLayerLimitMessage,
   textLayerLimitMessage,
 } from "@/lib/layers";
 import { buildSnapTargetsFromLayers } from "@/lib/snap-targets";
@@ -115,9 +137,18 @@ import type {
   DesignLayer,
   ImageDesignLayer,
   PanelTab,
+  ShapeDesignLayer,
+  ShapeKind,
   TextDesignLayer,
   UploadedDesignImage,
 } from "@/lib/types";
+import { cloneDesignLayers } from "@/lib/design-history";
+import {
+  alignDesignLayers,
+  countAlignableLayers,
+  type LayerAlignmentAxis,
+} from "@/lib/layer-alignment";
+import { useDesignHistory } from "@/hooks/useDesignHistory";
 import { nanoid } from "nanoid";
 
 function createDefaultTextDesignLayer(
@@ -151,6 +182,7 @@ function createDefaultTextDesignLayer(
       color: base.color,
       opacity: base.opacity,
       fontWeight: base.fontWeight,
+      ...DEFAULT_RICH_TEXT_FIELDS,
     },
     printArea,
   );
@@ -242,8 +274,10 @@ async function hydrateDesignLayersByTemplate(
         templateGender,
         templateSide,
         fitDesignLayers(
-          migrateDesignLayersToCm(
-            migrateLayersFromLegacyCanvasUnits(hydrated),
+          normalizeDesignLayers(
+            migrateDesignLayersToCm(
+              migrateLayersFromLegacyCanvasUnits(hydrated),
+            ),
           ),
           getPrintAreaCmBounds(),
         ),
@@ -265,9 +299,17 @@ const EMPTY_CONTEST_FORM = createEmptyContestSubmissionForm();
 
 type DesignerAppProps = {
   mode?: DesignerMode;
+  /** URL ?debugPrintArea=1 或面板開關 */
+  initialDebugPrintArea?: boolean;
+  /** URL ?printPositionMode=garment */
+  initialPreviewPrintPositionMode?: import("@/lib/coordinates/preview-position-mode").PreviewPrintPositionMode;
 };
 
-export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) {
+export function DesignerApp({
+  mode = DESIGNER_MODE_DEFAULT,
+  initialDebugPrintArea = false,
+  initialPreviewPrintPositionMode,
+}: DesignerAppProps) {
   const isContestMode = mode === "contest";
   const draftStorage = useMemo(() => createDraftStorage(mode), [mode]);
   const [activeTab, setActiveTab] = useState<PanelTab>("product");
@@ -293,7 +335,17 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
   const [draftId, setDraftId] = useState(() => nanoid(12));
   const [jpgHintShown, setJpgHintShown] = useState(false);
   const [showGrid, setShowGrid] = useState(true);
+  const [debugPrintArea, setDebugPrintArea] = useState(initialDebugPrintArea);
+  const [previewPrintPositionMode, setPreviewPrintPositionMode] = useState(
+    initialPreviewPrintPositionMode ?? DEFAULT_PRINT_MODE,
+  );
+  useEffect(() => {
+    if (activeTab === "model" || activeTab === "layers") {
+      setActiveTab("product");
+    }
+  }, [activeTab]);
   const [gridSnapEnabled, setGridSnapEnabled] = useState(true);
+  const [largePrintModeEnabled, setLargePrintModeEnabled] = useState(false);
   const [elementSnapDistance, setElementSnapDistance] = useState(10);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [showContestSubmitModal, setShowContestSubmitModal] = useState(false);
@@ -404,8 +456,56 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
     return true;
   }, [isDesignLocked, isBusy]);
 
+  const restoreLayersFromHistory = useCallback(
+    (snapshot: DesignLayer[]) => {
+      setLayersByTemplate((prev) =>
+        updateLayersForSlot(prev, gender, side, () =>
+          cloneDesignLayers(snapshot),
+        ),
+      );
+      setSelectedIds((prev) =>
+        prev.filter((id) => snapshot.some((layer) => layer.id === id)),
+      );
+    },
+    [gender, side],
+  );
+
+  const {
+    prepareDiscreteMutation,
+    markGestureMutation,
+    prepareTextMutation,
+    clearHistory,
+    revokeDeletedLayerAssets,
+  } = useDesignHistory({
+    layers,
+    gender,
+    side,
+    enabled: !isDesignLocked && !isBusy,
+    onRestore: restoreLayersFromHistory,
+  });
+
+  /** 新增圖層時不重新 fit 既有圖層，避免版位被連帶重算 */
+  const appendLayers = useCallback(
+    (newLayers: DesignLayer | DesignLayer[]) => {
+      prepareDiscreteMutation();
+      const toAdd = Array.isArray(newLayers) ? newLayers : [newLayers];
+      setLayersByTemplate((prev) =>
+        updateLayersForSlot(prev, gender, side, (current) => [
+          ...current,
+          ...toAdd,
+        ]),
+      );
+    },
+    [gender, side, prepareDiscreteMutation],
+  );
+
   const updateLayer = useCallback(
     (id: string, patch: Partial<DesignLayer>) => {
+      if ("text" in patch && patch.text !== undefined) {
+        prepareTextMutation();
+      } else {
+        prepareDiscreteMutation();
+      }
       setLayers((prev) =>
         prev.map((layer) => {
           if (layer.id !== id) return layer;
@@ -414,13 +514,26 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
             return fitTextLayer(merged, printArea);
           }
           if (merged.type === "image") {
-            return fitImageLayer(merged, printArea);
+            return fitImageLayer(
+              merged,
+              printArea,
+              getImageFitOptions(largePrintModeEnabled),
+            );
+          }
+          if (merged.type === "shape") {
+            return fitShapeLayer(merged, printArea);
           }
           return merged;
         }),
       );
     },
-    [setLayers, printArea],
+    [
+      setLayers,
+      printArea,
+      largePrintModeEnabled,
+      prepareDiscreteMutation,
+      prepareTextMutation,
+    ],
   );
 
   const applyClampedLayerTransform = useCallback(
@@ -433,102 +546,85 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
         rotation: number;
       }>,
     ) => {
+      markGestureMutation();
       setLayers((prev) =>
         prev.map((layer) => {
           if (layer.id !== id) return layer;
-
-          const nextRotation = patch.rotation ?? layer.rotation;
-          const positionChanged =
-            patch.x_cm !== undefined || patch.y_cm !== undefined;
-
-          if (layer.type === "text") {
-            const nextScale = patch.scale ?? layer.scale;
-            const { width_cm, height_cm } = measureTextBoundsCm(
-              layer.text,
-              layer.fontSize_cm * nextScale,
-              layer.fontFamily,
-              layer.fontWeight,
-            );
-
-            let nextX = patch.x_cm ?? layer.x_cm;
-            let nextY = patch.y_cm ?? layer.y_cm;
-
-            if (positionChanged) {
-              const snap = applyDragSnap(
-                nextX,
-                nextY,
-                width_cm,
-                height_cm,
-                1,
-                printArea,
-                {
-                  gridSnap: gridSnapEnabled,
-                  elementSnap: true,
-                  elementSnapThreshold: elementSnapDistance,
-                  otherElements: buildSnapTargetsFromLayers(
-                    id,
-                    prev.filter((l) => l.visible && !l.locked),
-                  ),
-                },
-              );
-              nextX = snap.x;
-              nextY = snap.y;
-            }
-
-            return fitTextLayer(
-              {
-                ...layer,
-                x_cm: nextX,
-                y_cm: nextY,
-                scale: nextScale,
-                rotation: nextRotation,
-                width_cm,
-                height_cm,
-              },
-              printArea,
-            );
-          }
-
-          const nextScale = patch.scale ?? layer.scale;
-          let nextX = patch.x_cm ?? layer.x_cm;
-          let nextY = patch.y_cm ?? layer.y_cm;
-
-          if (positionChanged) {
-            const snap = applyDragSnap(
-              nextX,
-              nextY,
-              layer.width_cm,
-              layer.height_cm,
-              nextScale,
-              printArea,
-              {
-                gridSnap: gridSnapEnabled,
-                elementSnap: true,
-                elementSnapThreshold: elementSnapDistance,
-                otherElements: buildSnapTargetsFromLayers(
-                  id,
-                  prev.filter((l) => l.visible && !l.locked),
-                ),
-              },
-            );
-            nextX = snap.x;
-            nextY = snap.y;
-          }
-
-          return fitImageLayer(
-            {
-              ...layer,
-              x_cm: nextX,
-              y_cm: nextY,
-              scale: nextScale,
-              rotation: nextRotation,
-            },
-            printArea,
-          );
+          return applyClampedLayerPatch(layer, patch, printArea, {
+            gridSnap: gridSnapEnabled,
+            elementSnapThreshold: elementSnapDistance,
+            otherElements: buildSnapTargetsFromLayers(
+              id,
+              prev.filter((l) => l.visible && !l.locked),
+            ),
+            rasterFit:
+              layer.type === "image"
+                ? getImageFitOptions(largePrintModeEnabled)
+                : undefined,
+          });
         }),
       );
     },
-    [setLayers, printArea, gridSnapEnabled, elementSnapDistance],
+    [
+      setLayers,
+      printArea,
+      gridSnapEnabled,
+      elementSnapDistance,
+      largePrintModeEnabled,
+      markGestureMutation,
+    ],
+  );
+
+  const rotateLayersQuick90 = useCallback(
+    (ids: string[], clockwise: boolean, discreteHistory = false) => {
+      if (!guardEditable()) return;
+      if (discreteHistory) prepareDiscreteMutation();
+      else markGestureMutation();
+
+      setLayers((prev) => {
+        const idSet = new Set(
+          ids.filter((id) => {
+            const layer = prev.find((entry) => entry.id === id);
+            return layer && !layer.locked;
+          }),
+        );
+        if (idSet.size === 0) return prev;
+
+        return prev.map((layer) => {
+          if (!idSet.has(layer.id)) return layer;
+          const nextRotation = clockwise
+            ? rotateClockwise90(layer.rotation)
+            : rotateCounterClockwise90(layer.rotation);
+          return applyClampedLayerPatch(
+            layer,
+            { rotation: nextRotation },
+            printArea,
+            {
+              gridSnap: gridSnapEnabled,
+              elementSnapThreshold: elementSnapDistance,
+              otherElements: buildSnapTargetsFromLayers(
+                layer.id,
+                prev.filter((entry) => entry.visible && !entry.locked),
+              ),
+              rasterFit:
+                layer.type === "image"
+                  ? getImageFitOptions(largePrintModeEnabled)
+                  : undefined,
+            },
+          );
+        });
+      });
+    },
+    [
+      guardEditable,
+      prepareDiscreteMutation,
+      markGestureMutation,
+      setLayers,
+      printArea,
+      gridSnapEnabled,
+      elementSnapDistance,
+      largePrintModeEnabled,
+    ],
   );
 
   const applyLayerResize = useCallback(
@@ -536,45 +632,90 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
       id: string,
       next: { x_cm: number; y_cm: number; width_cm: number; height_cm: number },
     ) => {
+      markGestureMutation();
       setLayers((prev) =>
         prev.map((layer) => {
           if (layer.id !== id) return layer;
 
-          if (layer.type === "image") {
-            const nextScale = next.width_cm / layer.width_cm;
-            return fitImageLayer(
+          const current = getLayerEffectiveCmRect(layer);
+          const anchorCenterX = current.x_cm + current.width_cm / 2;
+          const anchorCenterY = current.y_cm + current.height_cm / 2;
+
+          if (layer.type === "text") {
+            const factor =
+              current.height_cm > 0 ? next.height_cm / current.height_cm : 1;
+            if (Math.abs(factor - 1) < 1e-6) return layer;
+
+            return fitTextLayer(
               {
                 ...layer,
-                x_cm: next.x_cm,
-                y_cm: next.y_cm,
-                scale: nextScale,
+                scale: layer.scale * factor,
+              },
+              printArea,
+              {
+                anchorCenter: {
+                  x_cm: anchorCenterX,
+                  y_cm: anchorCenterY,
+                },
+              },
+            );
+          }
+
+          const scaleW =
+            current.width_cm > 0 ? next.width_cm / current.width_cm : 1;
+          const scaleH =
+            current.height_cm > 0 ? next.height_cm / current.height_cm : 1;
+          const factor =
+            Math.abs(scaleW - 1) >= Math.abs(scaleH - 1) ? scaleW : scaleH;
+
+          if (layer.type === "shape") {
+            return fitShapeLayer(
+              {
+                ...layer,
+                width_cm: next.width_cm,
+                height_cm: next.height_cm,
+                scale: 1,
+                x_cm: anchorCenterX - next.width_cm / 2,
+                y_cm: anchorCenterY - next.height_cm / 2,
               },
               printArea,
             );
           }
 
-          const unit = measureTextBoundsCm(
-            layer.text,
-            layer.fontSize_cm,
-            layer.fontFamily,
-            layer.fontWeight,
-          );
-          const nextScale =
-            unit.height_cm > 0 ? next.height_cm / unit.height_cm : layer.scale;
+          if (layer.type === "image") {
+            const rasterFit = getImageFitOptions(largePrintModeEnabled);
+            const clamped = clampRasterPrintDimensions(
+              next.width_cm,
+              next.height_cm,
+              rasterFit.maxPrintWidth_cm,
+              rasterFit.maxPrintHeight_cm,
+            );
+            const clampedScaleW =
+              current.width_cm > 0 ? clamped.width_cm / current.width_cm : 1;
+            const clampedScaleH =
+              current.height_cm > 0 ? clamped.height_cm / current.height_cm : 1;
+            const clampedFactor =
+              Math.abs(clampedScaleW - 1) >= Math.abs(clampedScaleH - 1)
+                ? clampedScaleW
+                : clampedScaleH;
 
-          return fitTextLayer(
-            {
-              ...layer,
-              x_cm: next.x_cm,
-              y_cm: next.y_cm,
-              scale: nextScale,
-            },
-            printArea,
-          );
+            return fitImageLayer(
+              {
+                ...layer,
+                x_cm: next.x_cm,
+                y_cm: next.y_cm,
+                scale: layer.scale * clampedFactor,
+              },
+              printArea,
+              rasterFit,
+            );
+          }
+
+          return layer;
         }),
       );
     },
-    [setLayers, printArea],
+    [setLayers, printArea, largePrintModeEnabled, markGestureMutation],
   );
 
   const handleTextInspectorPatch = useCallback(
@@ -655,17 +796,15 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
   const deleteLayerById = useCallback(
     (id: string) => {
       if (!guardEditable()) return;
+      prepareDiscreteMutation();
       setLayersByTemplate((prev) => {
-        const target = getLayersForSlot(prev, gender, side).find(
-          (l) => l.id === id,
-        );
-        if (target) {
-          revokeLayerAssets(target);
-          void draftStorage.clearLayerImages(id);
+        const current = getLayersForSlot(prev, gender, side);
+        const layerToDelete = current.find((layer) => layer.id === id);
+        const nextLayers = current.filter((layer) => layer.id !== id);
+        if (layerToDelete) {
+          revokeDeletedLayerAssets(layerToDelete, nextLayers);
         }
-        const next = updateLayersForSlot(prev, gender, side, (current) =>
-          current.filter((l) => l.id !== id),
-        );
+        const next = updateLayersForSlot(prev, gender, side, () => nextLayers);
         if (!hasAnyDesign(next)) {
           setWarnings([]);
           setJpgHintShown(false);
@@ -676,7 +815,14 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
       setSelectedIds((prev) => prev.filter((x) => x !== id));
       setStatusMessage("已刪除圖層");
     },
-    [draftStorage, gender, side, guardEditable],
+    [
+      draftStorage,
+      gender,
+      side,
+      guardEditable,
+      prepareDiscreteMutation,
+      revokeDeletedLayerAssets,
+    ],
   );
 
   const restoreDraft = useCallback(async () => {
@@ -736,9 +882,10 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
 
     if (hasAnyDesign(hydrated)) {
       setLayersByTemplate(hydrated);
+      clearHistory();
       setStatusMessage("已恢復未送出的暫存設計");
     }
-  }, [draftStorage]);
+  }, [draftStorage, clearHistory]);
 
   useEffect(() => {
     void restoreDraft();
@@ -897,6 +1044,8 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
         previewHeight: preview.previewHeight,
         naturalWidth: preview.naturalWidth,
         naturalHeight: preview.naturalHeight,
+        imagePixelWidth: preview.naturalWidth,
+        imagePixelHeight: preview.naturalHeight,
         mimeType: file.type,
         fileName: file.name,
       };
@@ -904,8 +1053,9 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
       const newLayer = fitImageLayer(
         createImageLayer(layers, uploaded, staggeredPlacement),
         printArea,
+        getImageFitOptions(largePrintModeEnabled),
       );
-      setLayers((prev) => [...prev, newLayer]);
+      appendLayers(newLayer);
       setSelectedIds([newLayer.id]);
       const msgs: string[] = [];
       if (full.belowRecommended) {
@@ -929,6 +1079,7 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
   };
 
   const handleClearCurrentSlotDesign = useCallback(() => {
+    clearHistory();
     setLayersByTemplate((prev) => {
       for (const layer of getLayersForSlot(prev, gender, side)) {
         revokeLayerAssets(layer);
@@ -948,9 +1099,10 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
     setPendingTextEditLayerId(null);
     setIsDesignLocked(false);
     setStatusMessage("已清除目前面向設計");
-  }, [draftStorage, gender, side]);
+  }, [draftStorage, gender, side, clearHistory]);
 
   const handleClearAllDesign = useCallback(() => {
+    clearHistory();
     for (const templateGender of DESIGN_GENDERS) {
       for (const templateSide of DESIGN_SIDES) {
         for (const layer of getLayersForSlot(
@@ -973,7 +1125,7 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
     void draftStorage.clearAllDrafts();
     setDraftId(nanoid(12));
     setStatusMessage("已清除全部設計，可重新開始");
-  }, [draftStorage, layersByTemplate]);
+  }, [draftStorage, layersByTemplate, clearHistory]);
 
   const handleAddText = () => {
     if (!guardEditable()) return;
@@ -983,11 +1135,131 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
     }
 
     const layer = createDefaultTextDesignLayer(layers, printArea);
-    setLayers((prev) => [...prev, layer]);
+    appendLayers(layer);
     setSelectedIds([layer.id]);
     setPendingTextEditLayerId(layer.id);
     setStatusMessage("已新增文字 TEST，輸入後按 Enter 或點擊空白確認");
   };
+
+  const handleAddShape = (kind: ShapeKind) => {
+    if (!guardEditable()) return;
+    if (!canAddShapeLayer(layers)) {
+      setWarnings([shapeLayerLimitMessage()]);
+      return;
+    }
+
+    const layer = fitShapeLayer(
+      createDefaultShapeLayer(kind, layers, printArea),
+      printArea,
+    );
+    appendLayers(layer);
+    setSelectedIds([layer.id]);
+    setStatusMessage(`已新增${layer.name}`);
+  };
+
+  const handleTextStylePatch = useCallback(
+    (id: string, patch: Partial<TextDesignLayer>) => {
+      if (!guardEditable()) return;
+      updateLayer(id, patch);
+    },
+    [guardEditable, updateLayer],
+  );
+
+  const handleImageStylePatch = useCallback(
+    (id: string, patch: Partial<ImageDesignLayer>) => {
+      if (!guardEditable()) return;
+      if (patch.rotation !== undefined) {
+        applyClampedLayerTransform(id, { rotation: patch.rotation });
+        return;
+      }
+      updateLayer(id, patch);
+    },
+    [guardEditable, updateLayer, applyClampedLayerTransform],
+  );
+
+  const handleShapeStylePatch = useCallback(
+    (id: string, patch: Partial<ShapeDesignLayer>) => {
+      if (!guardEditable()) return;
+      if (patch.rotation !== undefined) {
+        applyClampedLayerTransform(id, { rotation: patch.rotation });
+        return;
+      }
+      updateLayer(id, patch);
+    },
+    [guardEditable, updateLayer, applyClampedLayerTransform],
+  );
+
+  const handleAlignLayers = useCallback(
+    (axis: LayerAlignmentAxis) => {
+      if (!guardEditable()) return;
+      if (countAlignableLayers(layers, selectedIds) === 0) return;
+      prepareDiscreteMutation();
+      setLayers((prev) =>
+        alignDesignLayers(prev, selectedIds, axis, printArea),
+      );
+    },
+    [
+      guardEditable,
+      layers,
+      selectedIds,
+      prepareDiscreteMutation,
+      setLayers,
+      printArea,
+    ],
+  );
+
+  const handleApplyPlacementPreset = useCallback(
+    (presetId: PlacementPresetId) => {
+      if (!guardEditable()) return;
+      const preset = getPlacementPresetById(presetId);
+      if (!preset || !preset.sides.includes(side)) return;
+
+      const targetIds = selectedIds.filter((id) => {
+        const layer = layers.find((entry) => entry.id === id);
+        return layer && !layer.locked;
+      });
+      if (targetIds.length === 0) return;
+
+      prepareDiscreteMutation();
+      const idSet = new Set(targetIds);
+      setLayers((prev) =>
+        prev.map((layer) => {
+          if (!idSet.has(layer.id)) return layer;
+          return applyLayerPlacementPreset(layer, preset, printArea, {
+            largePrintMode: largePrintModeEnabled,
+          });
+        }),
+      );
+    },
+    [
+      guardEditable,
+      side,
+      selectedIds,
+      layers,
+      prepareDiscreteMutation,
+      setLayers,
+      printArea,
+      largePrintModeEnabled,
+    ],
+  );
+
+  const handleLargePrintModeChange = useCallback(
+    (enabled: boolean) => {
+      if (!guardEditable()) return;
+      prepareDiscreteMutation();
+      setLargePrintModeEnabled(enabled);
+      if (enabled) return;
+
+      const rasterFit = getImageFitOptions(false);
+      setLayers((prev) =>
+        prev.map((layer) => {
+          if (layer.type !== "image") return layer;
+          return fitImageLayer(layer, printArea, rasterFit);
+        }),
+      );
+    },
+    [guardEditable, prepareDiscreteMutation, setLayers, printArea],
+  );
 
   const handleDuplicate = async (id: string) => {
     const source = layers.find((l) => l.id === id);
@@ -997,14 +1269,21 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
       const dup = await duplicateImageLayerAsync(layers, id);
       if (dup && dup.type === "image") {
         const fitted = fitImageLayer(dup, printArea);
-        setLayers((prev) => [...prev, fitted]);
+        appendLayers(fitted);
+        setSelectedIds([fitted.id]);
+      }
+    } else if (source.type === "shape") {
+      const dup = duplicateShapeLayer(layers, id);
+      if (dup) {
+        const fitted = fitShapeLayer(dup, printArea);
+        appendLayers(fitted);
         setSelectedIds([fitted.id]);
       }
     } else {
       const dup = duplicateTextLayer(layers, id);
       if (dup) {
         const fitted = fitTextLayer(dup, printArea);
-        setLayers((prev) => [...prev, fitted]);
+        appendLayers(fitted);
         setSelectedIds([fitted.id]);
       }
     }
@@ -1141,8 +1420,10 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
         designMeta: submissionMeta,
       });
 
-      setStatusMessage("Proof Engine 產生校稿檔案中…");
+      setStatusMessage("正在產生設計預覽檔…");
       const proofArtifacts = await prepareProofSubmission(proofOrder);
+
+      setStatusMessage("正在上傳申請…");
 
       const formData = new FormData();
       appendProofArtifactsToFormData(formData, proofArtifacts);
@@ -1286,10 +1567,16 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
           selectedIds={selectedIds}
           isBusy={isBusy}
           showGrid={showGrid}
+          debugPrintArea={debugPrintArea}
           gridSnapEnabled={gridSnapEnabled}
+          largePrintModeEnabled={largePrintModeEnabled}
           elementSnapDistance={elementSnapDistance}
           onShowGridChange={setShowGrid}
+          onDebugPrintAreaChange={setDebugPrintArea}
+          previewPrintPositionMode={previewPrintPositionMode}
+          onPreviewPrintPositionModeChange={setPreviewPrintPositionMode}
           onGridSnapChange={setGridSnapEnabled}
+          onLargePrintModeChange={handleLargePrintModeChange}
           onElementSnapDistanceChange={setElementSnapDistance}
           onSelectLayer={handleSelectLayer}
           onRenameLayer={(id, name) => updateLayer(id, { name })}
@@ -1302,11 +1589,13 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
             if (layer) updateLayer(id, { locked: !layer.locked });
           }}
           onMoveLayer={(id, action) => {
+            prepareDiscreteMutation();
             setLayers((prev) => moveLayerZIndex(prev, id, action));
           }}
           onDuplicateLayer={(id) => void handleDuplicate(id)}
           onDeleteLayer={deleteLayerById}
           onReorderDrag={(dragId, targetId) => {
+            prepareDiscreteMutation();
             setLayers((prev) => reorderLayersByDrag(prev, dragId, targetId));
           }}
         />
@@ -1319,8 +1608,11 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
           layers={layers}
           layersByTemplate={layersByTemplate}
           selectedIds={selectedIds}
-          showGrid={showGrid}
+          showGrid={showGrid || debugPrintArea}
+          debugPrintArea={debugPrintArea}
+          previewPrintPositionMode={previewPrintPositionMode}
           gridSnapEnabled={gridSnapEnabled}
+          largePrintModeEnabled={largePrintModeEnabled}
           elementSnapDistance={elementSnapDistance}
           isBusy={isBusy}
           readOnly={isDesignLocked}
@@ -1341,6 +1633,10 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
             }
             applyClampedLayerTransform(id, { rotation });
           }}
+          onQuickRotate90={(clockwise) => {
+            if (isDesignLocked || selectedIds.length === 0) return;
+            rotateLayersQuick90(selectedIds, clockwise, true);
+          }}
           onLayerResize={(id, next) => {
             if (isDesignLocked || layers.find((l) => l.id === id)?.locked) {
               return;
@@ -1354,10 +1650,15 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
           onDeleteLayer={deleteLayerById}
           onMoveLayer={(id, action) => {
             if (isDesignLocked) return;
+            prepareDiscreteMutation();
             setLayers((prev) => moveLayerZIndex(prev, id, action));
           }}
           onUpload={handleUpload}
           onAddText={handleAddText}
+          onAddShape={handleAddShape}
+          onTextStylePatch={handleTextStylePatch}
+          onImageStylePatch={handleImageStylePatch}
+          onShapeStylePatch={handleShapeStylePatch}
           onTextChange={(patch) => {
             if (primaryId && primaryLayer?.type === "text") {
               setFocusTextEditor(false);
@@ -1368,25 +1669,45 @@ export function DesignerApp({ mode = DESIGNER_MODE_DEFAULT }: DesignerAppProps) 
           onImageTransform={handleInspectorImageTransform}
           onImageResize={handleInspectorImageResize}
           onRotationChange={handleInspectorRotation}
+          onAlignLayers={handleAlignLayers}
+          onApplyPlacementPreset={handleApplyPlacementPreset}
           onClearCurrentSlotDesign={handleClearCurrentSlotDesign}
           onClearAllDesign={handleClearAllDesign}
         />
 
-        <ModelPanel
-          gender={gender}
-          heightCm={heightCm}
-          weightKg={weightKg}
-          suggestedSize={suggestedSize}
-          isBusy={isBusy}
-          hasDesign={hasDesign}
-          onGenderChange={handleGenderChange}
-          onHeightChange={setHeightCm}
-          onWeightChange={setWeightKg}
-          onUpdateBody={handleUpdateBody}
-          designLocked={isDesignLocked}
-          submitLabel={isContestMode ? "確認投稿" : "確認發送申請"}
-          onSubmit={handleSubmitRequest}
-        />
+        {UI_VISIBILITY.showModelPanel ? (
+          <ModelPanel
+            gender={gender}
+            heightCm={heightCm}
+            weightKg={weightKg}
+            suggestedSize={suggestedSize}
+            isBusy={isBusy}
+            hasDesign={hasDesign}
+            onGenderChange={handleGenderChange}
+            onHeightChange={setHeightCm}
+            onWeightChange={setWeightKg}
+            onUpdateBody={handleUpdateBody}
+            designLocked={isDesignLocked}
+            submitLabel={isContestMode ? "確認投稿" : "確認發送申請"}
+            onSubmit={handleSubmitRequest}
+          />
+        ) : (
+          <GarmentInfoPanel
+            size={size}
+            onSizeChange={setSize}
+            heightCm={heightCm}
+            weightKg={weightKg}
+            suggestedSize={suggestedSize}
+            isBusy={isBusy}
+            hasDesign={hasDesign}
+            onHeightChange={setHeightCm}
+            onWeightChange={setWeightKg}
+            onUpdateBody={handleUpdateBody}
+            designLocked={isDesignLocked}
+            submitLabel={isContestMode ? "確認投稿" : "確認發送申請"}
+            onSubmit={handleSubmitRequest}
+          />
+        )}
       </div>
 
       {cloudSyncWarning && (

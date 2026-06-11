@@ -9,7 +9,7 @@ import type { DesignLayer } from "./types";
 export interface MvpLayerListItem {
   id: string;
   name: string;
-  type: "text" | "image";
+  type: "text" | "image" | "shape";
   zIndex: number;
   isSelected: boolean;
 }
@@ -46,6 +46,8 @@ export function canMoveLayerZIndex(
   return index > 0;
 }
 
-export function getLayerTypeLabel(type: "text" | "image"): string {
-  return type === "text" ? "Text" : "Image";
+export function getLayerTypeLabel(type: "text" | "image" | "shape"): string {
+  if (type === "text") return "Text";
+  if (type === "shape") return "Shape";
+  return "Image";
 }

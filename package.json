@@ -9,9 +9,12 @@
     "start": "next start",
     "lint": "eslint",
     "check:templates": "node scripts/check-templates.mjs",
+    "check:template-alignment": "node scripts/check-template-alignment.mjs",
+    "check:coordinate-systems": "node scripts/check-coordinate-systems.mjs",
     "check:supabase": "node scripts/check-supabase.mjs",
     "check:email": "node scripts/check-email.mjs",
     "check:print-area": "node scripts/check-print-area.mjs",
+    "check:print-safe-area": "node scripts/check-print-safe-area.mjs",
     "check:design-cm": "node scripts/check-design-cm.mjs",
     "check:design-inspector": "node scripts/check-design-inspector.mjs",
     "check:inspector-sync": "node scripts/check-inspector-sync.mjs",
@@ -22,7 +25,11 @@
     "check:proof-engine": "node scripts/check-proof-engine.mjs",
     "check:factory-proof-pdf": "node scripts/check-factory-proof-pdf.mjs",
     "check:pdf-cjk": "node scripts/check-pdf-cjk.mjs",
-    "check:print-export": "node scripts/check-print-export.mjs"
+    "check:print-export": "node scripts/check-print-export.mjs",
+    "check:mockup-calibration": "node scripts/check-mockup-calibration.mjs",
+    "check:ui-print-offset": "node scripts/check-ui-print-offset.mjs",
+    "check:garment-print-position": "node scripts/check-garment-print-position.mjs",
+    "generate:mockup-calibration": "node scripts/generate-mockup-calibration-comparison.mjs"
   },
   "dependencies": {
     "@fontsource/noto-sans-tc": "^5.2.9",

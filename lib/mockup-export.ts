@@ -3,44 +3,39 @@
  */
 
 import type { ShirtColor, Side } from "./constants";
-import { getLayerInspectorCmRect } from "./design-inspector";
-import { getPrintAreaCmBounds } from "./design-cm";
 import { getLayersForCanvasRender } from "./layer-system";
 import {
-  getFixedPrintAreaContainerPct,
-  PRINT_REFERENCE,
-  SHIRT_CONTAINER_HEIGHT,
-  SHIRT_CONTAINER_WIDTH,
-} from "./printArea";
+  getFlatMockupPrintAreaRectPx,
+  MOCKUP_EXPORT_SCALE,
+  MOCKUP_FLAT_CONTAINER,
+  productionRectToMockupCanvasPx,
+} from "./coordinates/mockup";
+import { readLayerProductionRectMm } from "./design-cm";
+import {
+  getProductionPrintAreaCm,
+  getProductionPrintAreaMm,
+  legacyCmFieldToMm,
+} from "./coordinates/production";
+import { getLayerInspectorCmRect } from "./design-inspector";
 import { getAdultTshirtTemplateSrc } from "./shirt-template";
-import { buildCanvasFont, ensureTextFontsLoaded } from "./text-layer";
-import type { DesignLayer, TextDesignLayer } from "./types";
+import { drawRichTextOnCanvas } from "./text-style";
+import { drawShapeOnCanvas } from "./shape-layer";
+import { ensureTextFontsLoaded } from "./text-layer";
+import type { DesignLayer, ShapeDesignLayer, TextDesignLayer } from "./types";
 
-export const MOCKUP_EXPORT_SCALE = 2;
+export { MOCKUP_EXPORT_SCALE };
 
-export interface MockupContainerRect {
-  left: number;
-  top: number;
-  width: number;
-  height: number;
-}
+export type MockupContainerRect = ReturnType<
+  typeof getFlatMockupPrintAreaRectPx
+>;
 
+/** @deprecated 請用 getFlatMockupPrintAreaRectPx */
 export function getPrintAreaRectInContainerPx(
   containerWidth: number,
   containerHeight: number,
+  side: Side = "front",
 ): MockupContainerRect {
-  const { widthPct, heightPct } = getFixedPrintAreaContainerPct();
-  const width = widthPct * containerWidth;
-  const height = heightPct * containerHeight;
-  const centerX = PRINT_REFERENCE.x * containerWidth;
-  const centerY = PRINT_REFERENCE.y * containerHeight;
-
-  return {
-    left: centerX - width / 2,
-    top: centerY - height / 2,
-    width,
-    height,
-  };
+  return getFlatMockupPrintAreaRectPx(containerWidth, containerHeight, side);
 }
 
 function loadImage(src: string): Promise<HTMLImageElement> {
@@ -58,15 +53,10 @@ function drawImageLayerOnMockup(
   layer: Extract<DesignLayer, { type: "image" }>,
   img: HTMLImageElement,
   printRect: MockupContainerRect,
-  printAreaCm: { width: number; height: number },
 ) {
-  const rect = getLayerInspectorCmRect(layer);
-  const pxPerCmX = printRect.width / printAreaCm.width;
-  const pxPerCmY = printRect.height / printAreaCm.height;
-  const centerX = printRect.left + (rect.x_cm + rect.width_cm / 2) * pxPerCmX;
-  const centerY = printRect.top + (rect.y_cm + rect.height_cm / 2) * pxPerCmY;
-  const drawW = rect.width_cm * pxPerCmX;
-  const drawH = rect.height_cm * pxPerCmY;
+  const rectMm = readLayerProductionRectMm(layer);
+  const { centerX, centerY, width: drawW, height: drawH } =
+    productionRectToMockupCanvasPx(rectMm, printRect);
 
   ctx.save();
   ctx.translate(centerX, centerY);
@@ -75,29 +65,22 @@ function drawImageLayerOnMockup(
   ctx.restore();
 }
 
-function drawTextLayerOnMockup(
+function drawDesignLayerOnMockup(
   ctx: CanvasRenderingContext2D,
-  layer: TextDesignLayer,
+  layer: DesignLayer,
   printRect: MockupContainerRect,
-  printAreaCm: { width: number; height: number },
 ) {
+  const printCm = getProductionPrintAreaCm();
+  const pxPerCm = printRect.width / printCm.width;
   const rect = getLayerInspectorCmRect(layer);
-  const pxPerCmX = printRect.width / printAreaCm.width;
-  const pxPerCmY = printRect.height / printAreaCm.height;
-  const fontSize_cm = layer.fontSize_cm * layer.scale;
-  const centerX = printRect.left + (rect.x_cm + rect.width_cm / 2) * pxPerCmX;
-  const centerY = printRect.top + (rect.y_cm + rect.height_cm / 2) * pxPerCmY;
-  const fontSizePx = fontSize_cm * pxPerCmY;
 
   ctx.save();
-  ctx.translate(centerX, centerY);
-  ctx.rotate((layer.rotation * Math.PI) / 180);
-  ctx.globalAlpha = layer.opacity;
-  ctx.fillStyle = layer.color;
-  ctx.font = buildCanvasFont(layer.fontWeight, fontSizePx, layer.fontFamily);
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(layer.text, 0, 0);
+  ctx.translate(printRect.left, printRect.top);
+  if (layer.type === "shape") {
+    drawShapeOnCanvas(ctx, layer as ShapeDesignLayer, pxPerCm, rect);
+  } else if (layer.type === "text" && layer.text.trim().length > 0) {
+    drawRichTextOnCanvas(ctx, layer, pxPerCm, rect);
+  }
   ctx.restore();
 }
 
@@ -115,8 +98,8 @@ export async function renderMockupPreviewPng(params: {
   scale?: number;
 }): Promise<Blob> {
   const { shirtColor, side, layers, scale = MOCKUP_EXPORT_SCALE } = params;
-  const canvasWidth = SHIRT_CONTAINER_WIDTH * scale;
-  const canvasHeight = SHIRT_CONTAINER_HEIGHT * scale;
+  const canvasWidth = MOCKUP_FLAT_CONTAINER.width * scale;
+  const canvasHeight = MOCKUP_FLAT_CONTAINER.height * scale;
 
   const canvas = document.createElement("canvas");
   canvas.width = canvasWidth;
@@ -136,8 +119,11 @@ export async function renderMockupPreviewPng(params: {
     ctx.fillRect(canvasWidth * 0.15, canvasHeight * 0.1, canvasWidth * 0.7, canvasHeight * 0.8);
   }
 
-  const printAreaCm = getPrintAreaCmBounds();
-  const printRect = getPrintAreaRectInContainerPx(canvasWidth, canvasHeight);
+  const printRect = getFlatMockupPrintAreaRectPx(
+    canvasWidth,
+    canvasHeight,
+    side,
+  );
   const visibleLayers = getLayersForCanvasRender(layers).filter((l) => l.visible);
 
   const textLayers = visibleLayers.filter(
@@ -157,9 +143,9 @@ export async function renderMockupPreviewPng(params: {
         img = await loadImage(layer.image.previewUrl || layer.image.originalUrl);
         imageCache.set(layer.id, img);
       }
-      drawImageLayerOnMockup(ctx, layer, img, printRect, printAreaCm);
-    } else if (layer.text.trim().length > 0) {
-      drawTextLayerOnMockup(ctx, layer, printRect, printAreaCm);
+      drawImageLayerOnMockup(ctx, layer, img, printRect);
+    } else if (layer.type === "text" || layer.type === "shape") {
+      drawDesignLayerOnMockup(ctx, layer, printRect);
     }
   }
 

@@ -11,9 +11,11 @@ import {
 import {
   getFixedPrintAreaContainerPct,
   getFixedPrintAreaUiSize,
+  DEFAULT_PRINT_MODE,
   getPrintAreaContainerStyle,
   getShirtContainerAspectRatio,
   PRINT_AREA,
+  resolvePreviewPrintPositionMode,
   UI_SCALE,
 } from "@/lib/printArea";
 import { APPAREL_SIZES, type ApparelSize } from "@/lib/sizes";
@@ -32,7 +34,10 @@ export function PrintAreaPreviewPanel() {
   const zoom = ZOOM_STEPS[zoomIndex];
 
   const templateSrc = getAdultTshirtTemplateSrc(shirtColor, side);
-  const printStyle = getPrintAreaContainerStyle(side);
+  const printStyle = getPrintAreaContainerStyle(side, {
+    mode: resolvePreviewPrintPositionMode(DEFAULT_PRINT_MODE),
+    size,
+  });
   const { widthPct, heightPct } = getFixedPrintAreaContainerPct();
   const uiSize = getFixedPrintAreaUiSize();
 

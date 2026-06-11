@@ -22,6 +22,8 @@ export function LayerFloatingControls({
   onScaleDown,
   onScaleUp,
   onRotationChange,
+  onRotateLeft90,
+  onRotateRight90,
   onDelete,
 }: {
   printArea: PrintAreaCmBounds;
@@ -34,6 +36,8 @@ export function LayerFloatingControls({
   onScaleDown?: () => void;
   onScaleUp?: () => void;
   onRotationChange?: (rotation: number) => void;
+  onRotateLeft90?: () => void;
+  onRotateRight90?: () => void;
   onDelete?: () => void;
 }) {
   const moveRef = useRef<{
@@ -180,6 +184,34 @@ export function LayerFloatingControls({
         >
           ⋮⋮
         </button>
+        {onRotateLeft90 && (
+          <button
+            type="button"
+            title="左轉 90°"
+            aria-label="左轉 90 度"
+            className="flex h-7 w-7 items-center justify-center rounded-md text-base leading-none text-zinc-700 hover:bg-zinc-100"
+            onClick={(e) => {
+              e.stopPropagation();
+              onRotateLeft90();
+            }}
+          >
+            ⟲
+          </button>
+        )}
+        {onRotateRight90 && (
+          <button
+            type="button"
+            title="右轉 90°"
+            aria-label="右轉 90 度"
+            className="flex h-7 w-7 items-center justify-center rounded-md text-base leading-none text-zinc-700 hover:bg-zinc-100"
+            onClick={(e) => {
+              e.stopPropagation();
+              onRotateRight90();
+            }}
+          >
+            ⟳
+          </button>
+        )}
         {onRotationChange && (
           <button
             type="button"

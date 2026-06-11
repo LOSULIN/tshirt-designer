@@ -86,7 +86,6 @@ export function normalizeMaterial(value: unknown): Material {
 export const SIZES: Size[] = ["XS", "S", "M", "L", "XL", "2XL"];
 
 export const EXPORT_DPI = 300;
-export const DESIGN_SAFE_MARGIN = 0.05;
 export const DESIGN_WIDTH_TARGET_RATIO = 0.875;
 
 import {
@@ -116,6 +115,13 @@ export {
   getPrintAreaBounds,
   type PrintAreaBounds,
 };
+
+export {
+  DESIGN_SAFE_MARGIN,
+  PRINT_SAFE_AREA_SPEC,
+  getPrintSafeAreaCm,
+  type PrintSafeAreaCm,
+} from "./printArea";
 
 export {
   extractShirtColorFromDesignJson,
@@ -242,6 +248,7 @@ export const MAX_IMAGE_WIDTH = 5000;
 export const MAX_IMAGE_HEIGHT = 5000;
 export const MAX_IMAGES_PER_SIDE = 10;
 export const MAX_TEXT_LAYERS = 20;
+export const MAX_SHAPE_LAYERS = 20;
 export const EXPORT_WIDTH = DESIGN_AREA_WIDTH;
 export const EXPORT_HEIGHT = DESIGN_AREA_HEIGHT;
 export const PREVIEW_MAX_EDGE = 2400;

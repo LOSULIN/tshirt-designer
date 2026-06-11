@@ -41,6 +41,19 @@ assert(
   "Mockup page 含 print area bounding box",
 );
 assert(
+  templateSrc.includes("PRINT METHOD") &&
+    templateSrc.includes("ARTWORK FILE") &&
+    templateSrc.includes("PIXEL SIZE") &&
+    templateSrc.includes("COLOR MODE") &&
+    templateSrc.includes("BACKGROUND"),
+  "Summary 含印刷檔案規格欄位",
+);
+assert(
+  templateSrc.includes("resolvePrintMethod") &&
+    templateSrc.includes("getPrintExportDimensionsPx"),
+  "印刷規格由既有匯出尺寸推導",
+);
+assert(
   templateSrc.includes("FRONT") && templateSrc.includes("BACK"),
   "Front / Back mockup labels",
 );
@@ -53,8 +66,20 @@ assert(
   "Technical sheet 含 neckline 與 element cm 欄位",
 );
 assert(
+  templateSrc.includes("ARTWORK VALIDATION"),
+  "含 Artwork Validation 頁",
+);
+assert(
+  templateSrc.includes("buildArtworkValidationSummary"),
+  "Validation 彙整既有驗證結果",
+);
+assert(
+  templateSrc.includes("✓") && templateSrc.includes("Validation Failed"),
+  "Validation 頁含通過／失敗顯示",
+);
+assert(
   templateSrc.includes("PRODUCTION NOTES"),
-  "PAGE 5: Production Notes",
+  "含 Production Notes 頁",
 );
 assert(
   templateSrc.includes("FACTORY_PROOF_DPI") &&

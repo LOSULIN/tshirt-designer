@@ -1,9 +1,18 @@
 /**
- * Design layer 標準座標（cm）。
- * UI 渲染：px = cm × UI_SCALE（見 printArea.UI_SCALE）
+ * Design layer 座標橋接層。
+ * Production 真相為 mm；圖層 `_cm` 欄位 = mm ÷ 10。
  */
 
-import { PRINT_AREA, UI_SCALE } from "./printArea";
+import {
+  getProductionPrintAreaCm,
+  getProductionPrintAreaMm,
+  legacyCmFieldToMm,
+  mmToLegacyCmField,
+  PRODUCTION_LEGACY_UI_UNITS_PER_CM,
+  type ProductionRectMm,
+} from "./coordinates/production";
+
+const UI_SCALE = PRODUCTION_LEGACY_UI_UNITS_PER_CM;
 import type {
   DesignLayer,
   ImageDesignLayer,
@@ -32,11 +41,32 @@ export function uiPxToCm(px: number): number {
 }
 
 export function getPrintAreaCmBounds(): PrintAreaCmBounds {
+  return getProductionPrintAreaCm();
+}
+
+export function readLayerProductionRectMm(layer: DesignLayer): ProductionRectMm {
+  const rect = getLayerEffectiveCmRect(layer);
   return {
-    width: PRINT_AREA.widthCm,
-    height: PRINT_AREA.heightCm,
+    x_mm: legacyCmFieldToMm(rect.x_cm),
+    y_mm: legacyCmFieldToMm(rect.y_cm),
+    width_mm: legacyCmFieldToMm(rect.width_cm),
+    height_mm: legacyCmFieldToMm(rect.height_cm),
   };
 }
+
+export function patchLayerFromProductionMm<T extends DesignLayer>(
+  layer: T,
+  patch: Partial<ProductionRectMm>,
+): T {
+  const next = { ...layer } as T & Partial<ProductionRectMm>;
+  if (patch.x_mm != null) next.x_cm = mmToLegacyCmField(patch.x_mm);
+  if (patch.y_mm != null) next.y_cm = mmToLegacyCmField(patch.y_mm);
+  if (patch.width_mm != null) next.width_cm = mmToLegacyCmField(patch.width_mm);
+  if (patch.height_mm != null) next.height_cm = mmToLegacyCmField(patch.height_mm);
+  return next as T;
+}
+
+export { getProductionPrintAreaMm };
 
 /** 舊版設計座標（0.1 cm / unit）→ cm */
 export function legacyDesignUnitsToCm(units: number): number {
@@ -86,7 +116,7 @@ export function readFontSizeCm(layer: LegacyLayerShape): number {
 
 export function getLayerEffectiveCmRect(layer: DesignLayer): LayerCmRect {
   const base = readLayerCmRect(layer);
-  if (layer.type === "image") {
+  if (layer.type === "image" || layer.type === "shape") {
     return {
       x_cm: base.x_cm,
       y_cm: base.y_cm,
@@ -167,6 +197,19 @@ export function layerCmToPercentStyle(
     top: `${(rect.y_cm / printArea.height) * 100}%`,
     width: `${(rect.width_cm / printArea.width) * 100}%`,
     height: `${(rect.height_cm / printArea.height) * 100}%`,
+  };
+}
+
+/** Production mm → Preview overlay %（設計器用） */
+export function layerProductionRectToPercentStyle(
+  rect: ProductionRectMm,
+  printArea = getProductionPrintAreaMm(),
+) {
+  return {
+    left: `${(rect.x_mm / printArea.width_mm) * 100}%`,
+    top: `${(rect.y_mm / printArea.height_mm) * 100}%`,
+    width: `${(rect.width_mm / printArea.width_mm) * 100}%`,
+    height: `${(rect.height_mm / printArea.height_mm) * 100}%`,
   };
 }
 

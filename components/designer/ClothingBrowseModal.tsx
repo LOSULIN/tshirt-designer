@@ -8,6 +8,10 @@ import {
   type Size,
 } from "@/lib/constants";
 import { getExportDimensions } from "@/lib/print-area";
+import {
+  DEFAULT_PRINT_MODE,
+  type PreviewPrintPositionMode,
+} from "@/lib/printArea";
 import { getLayersForSlot } from "@/lib/design-state";
 import type { DesignLayersByTemplate } from "@/lib/types";
 import { FlatShirtDesignView } from "./FlatShirtDesignView";
@@ -20,6 +24,7 @@ export function ClothingBrowseModal({
   shirtColor,
   size,
   layersByTemplate,
+  previewPrintPositionMode = DEFAULT_PRINT_MODE,
   onClose,
 }: {
   open: boolean;
@@ -27,6 +32,7 @@ export function ClothingBrowseModal({
   shirtColor: ShirtColor;
   size: Size;
   layersByTemplate: DesignLayersByTemplate;
+  previewPrintPositionMode?: PreviewPrintPositionMode;
   onClose: () => void;
 }) {
   const frontLayers = getLayersForSlot(layersByTemplate, gender, "front");
@@ -94,6 +100,7 @@ export function ClothingBrowseModal({
                   shirtColor={shirtColor}
                   size={size}
                   layers={frontLayers}
+                  previewPrintPositionMode={previewPrintPositionMode}
                 />
               </div>
             </div>
@@ -108,6 +115,7 @@ export function ClothingBrowseModal({
                   shirtColor={shirtColor}
                   size={size}
                   layers={backLayers}
+                  previewPrintPositionMode={previewPrintPositionMode}
                 />
               </div>
             </div>

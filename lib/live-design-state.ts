@@ -26,7 +26,7 @@ export interface DesignStateGarment {
 
 export interface DesignStateElement {
   id: string;
-  type: "text" | "image";
+  type: "text" | "image" | "shape";
   x_cm: number;
   y_cm: number;
   width_cm: number;
@@ -64,6 +64,9 @@ export interface LiveDesignState {
 export function getElementContent(layer: DesignLayer): string {
   if (layer.type === "text") {
     return layer.text;
+  }
+  if (layer.type === "shape") {
+    return layer.shapeKind;
   }
   return layer.image.fileName || layer.name;
 }

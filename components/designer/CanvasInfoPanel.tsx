@@ -1,81 +1,81 @@
 "use client";
 
-import type { Size } from "@/lib/constants";
-import type { DesignLayer } from "@/lib/types";
-import { MvpLayerList } from "./MvpLayerList";
-import { PreviewInfoPanel } from "./PreviewInfoPanel";
+import { useMemo } from "react";
+import type {
+  DesignLayer,
+  ImageDesignLayer,
+  ShapeDesignLayer,
+  TextDesignLayer,
+} from "@/lib/types";
+import { PropertiesPanel } from "./properties/PropertiesPanel";
+import { StackedInspectorPanel } from "./StackedInspectorPanel";
 
-/** 預覽畫布左側空白區 — 整合顯示設計數據與 Layer List */
+/** 預覽畫布左側 — object manager + 選取物件屬性面板 */
 export function CanvasInfoPanel({
-  size,
   layers,
-  selectedLayerId,
+  selectedLayerIds,
   isBusy,
   readOnly = false,
+  largePrintModeEnabled,
   onSelectLayer,
-  onMoveLayer,
+  onDeleteLayer,
+  onLayerResize,
   onTextPatch,
-  onImageTransform,
-  onImageResize,
-  onRotationChange,
+  onImagePatch,
+  onShapePatch,
 }: {
-  size: Size;
   layers: DesignLayer[];
-  selectedLayerId: string | null;
+  selectedLayerIds: string[];
   isBusy: boolean;
   readOnly?: boolean;
+  largePrintModeEnabled: boolean;
   onSelectLayer: (id: string) => void;
-  onMoveLayer: (id: string, direction: "up" | "down") => void;
-  onTextPatch: (
-    id: string,
-    patch: {
-      text?: string;
-      fontSize_cm?: number;
-      x_cm?: number;
-      y_cm?: number;
-      rotation?: number;
-    },
-  ) => void;
-  onImageTransform: (
-    id: string,
-    patch: { x_cm?: number; y_cm?: number; scale?: number; rotation?: number },
-  ) => void;
-  onImageResize: (
+  onDeleteLayer: (id: string) => void;
+  onLayerResize: (
     id: string,
     next: { x_cm: number; y_cm: number; width_cm: number; height_cm: number },
   ) => void;
-  onRotationChange: (id: string, rotation: number) => void;
+  onTextPatch: (id: string, patch: Partial<TextDesignLayer>) => void;
+  onImagePatch: (id: string, patch: Partial<ImageDesignLayer>) => void;
+  onShapePatch: (id: string, patch: Partial<ShapeDesignLayer>) => void;
 }) {
+  const primaryLayer = useMemo(() => {
+    if (selectedLayerIds.length === 0) return null;
+    const id = selectedLayerIds[selectedLayerIds.length - 1];
+    return layers.find((layer) => layer.id === id) ?? null;
+  }, [layers, selectedLayerIds]);
+
+  if (layers.length === 0) {
+    return null;
+  }
+
+  const inspectorDisabled = readOnly || isBusy;
+
   return (
     <aside
-      className="flex h-full min-h-0 w-44 shrink-0 flex-col overflow-hidden border-r border-zinc-200 bg-white sm:w-52"
-      aria-label="設計數據 Info Panel"
+      className="flex h-full w-auto max-w-[15rem] shrink-0 flex-col self-start overflow-y-auto border-r border-zinc-200 bg-white px-1.5 py-1"
+      aria-label="Object manager"
     >
-      <div className="shrink-0 border-b border-zinc-100 px-2.5 py-2">
-        <h3 className="text-xs font-semibold text-zinc-900">Info Panel</h3>
-        <p className="mt-0.5 text-[10px] text-zinc-500">Inspector ↔ Canvas（cm）</p>
-      </div>
-
-      <PreviewInfoPanel
-        size={size}
+      <StackedInspectorPanel
         layers={layers}
-        selectedLayerId={selectedLayerId}
+        selectedLayerIds={selectedLayerIds}
         readOnly={readOnly}
         isBusy={isBusy}
-        onTextPatch={onTextPatch}
-        onImageTransform={onImageTransform}
-        onImageResize={onImageResize}
-        onRotationChange={onRotationChange}
-        className="min-h-0 flex-1 overflow-y-auto"
+        onSelectLayer={onSelectLayer}
+        onDeleteLayer={onDeleteLayer}
+        onLayerResize={onLayerResize}
+        className="min-h-0 shrink-0"
       />
-
-      <MvpLayerList
-        layers={layers}
-        selectedLayerId={selectedLayerId}
-        isBusy={isBusy || readOnly}
-        onSelect={onSelectLayer}
-        onMove={onMoveLayer}
-      />
+      {primaryLayer && (
+        <PropertiesPanel
+          layer={primaryLayer}
+          disabled={inspectorDisabled}
+          largePrintModeEnabled={largePrintModeEnabled}
+          onTextPatch={(patch) => onTextPatch(primaryLayer.id, patch)}
+          onImagePatch={(patch) => onImagePatch(primaryLayer.id, patch)}
+          onShapePatch={(patch) => onShapePatch(primaryLayer.id, patch)}
+        />
+      )}
     </aside>
   );
 }

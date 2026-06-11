@@ -5,6 +5,7 @@ import {
   PRINT_AREA_WIDTH_CM,
   PRINT_COLLAR_OFFSET_CM,
   PRINT_REFERENCE,
+  PRINT_SAFE_AREA_SPEC,
   SHIRT_CONTAINER_HEIGHT,
   SHIRT_CONTAINER_WIDTH,
   UI_SCALE,
@@ -13,6 +14,7 @@ import {
   getFixedPrintAreaUiSize,
   getPrintAreaContainerStyle,
   getPrintAreaVisualAreaRatio,
+  getPrintSafeAreaCm,
   getPrintScale,
   getPrintScaleRankOrder,
   getShirtContainerAspectRatio,
@@ -27,6 +29,7 @@ export {
   PRINT_AREA_HEIGHT_CM,
   PRINT_COLLAR_OFFSET_CM,
   PRINT_REFERENCE,
+  PRINT_SAFE_AREA_SPEC,
   SHIRT_CONTAINER_HEIGHT,
   SHIRT_CONTAINER_WIDTH,
   UI_SCALE,
@@ -36,20 +39,21 @@ export {
   getFixedPrintAreaUiSize,
   getPrintAreaContainerStyle,
   getPrintAreaVisualAreaRatio,
+  getPrintSafeAreaCm,
   getPrintScale,
   getPrintScaleRankOrder,
   getShirtContainerAspectRatio,
   getShirtContainerWidthOverHeight,
   getVisualPrintScale,
   type PrintAreaContainerStyle,
+  type PrintAreaCmSize,
+  type PrintSafeAreaCm,
   type PrintScale,
 } from "./printArea";
 
 export { type ApparelSize } from "./sizes";
 
 const EXPORT_DPI = 300;
-
-export const DESIGN_SAFE_MARGIN = 0.05;
 
 /** 設計座標：1 單位 = 0.1 cm */
 export const DESIGN_UNITS_PER_CM = 10;
@@ -59,11 +63,13 @@ export interface PrintAreaBounds {
   height: number;
 }
 
+const defaultPrintSafeAreaCm = getPrintSafeAreaCm();
+
 export const ADULT_UNISEX_PRINT_SPEC = {
   printWidthCm: PRINT_AREA_WIDTH_CM,
   printHeightCm: PRINT_AREA_HEIGHT_CM,
-  safeWidthCm: 33,
-  safeHeightCm: 48,
+  safeWidthCm: defaultPrintSafeAreaCm.width_cm,
+  safeHeightCm: defaultPrintSafeAreaCm.height_cm,
   frontCollarOffsetCm: PRINT_COLLAR_OFFSET_CM.front,
   backCollarOffsetCm: PRINT_COLLAR_OFFSET_CM.back,
 } as const;
@@ -116,16 +122,17 @@ export function getExportScale() {
 }
 
 export function getSafePrintAreaBounds(): PrintAreaBounds {
-  const print = getPrintAreaBounds();
-  const inset = DESIGN_SAFE_MARGIN;
+  const safe = getPrintSafeAreaCm();
   return {
-    width: print.width * (1 - inset * 2),
-    height: print.height * (1 - inset * 2),
+    width: cmToDesignUnits(safe.width_cm),
+    height: cmToDesignUnits(safe.height_cm),
   };
 }
 
 export function getExportMeta(side: Side = "front") {
   const { width, height } = getExportDimensions();
+  const safeArea = getPrintSafeAreaCm();
+
   return {
     format: "png" as const,
     width,
@@ -139,13 +146,13 @@ export function getExportMeta(side: Side = "front") {
         side === "front"
           ? ADULT_UNISEX_PRINT_SPEC.frontCollarOffsetCm
           : ADULT_UNISEX_PRINT_SPEC.backCollarOffsetCm,
-      safeWidth: ADULT_UNISEX_PRINT_SPEC.safeWidthCm,
-      safeHeight: ADULT_UNISEX_PRINT_SPEC.safeHeightCm,
+      safeWidth: safeArea.width_cm,
+      safeHeight: safeArea.height_cm,
     },
     designArea: {
       width,
       height,
-      safeMargin: DESIGN_SAFE_MARGIN,
+      safeMargin: PRINT_SAFE_AREA_SPEC.marginRatio,
       widthTargetRatio: 0.875,
       designUnitsPerCm: DESIGN_UNITS_PER_CM,
       designBounds: getPrintAreaBounds(),

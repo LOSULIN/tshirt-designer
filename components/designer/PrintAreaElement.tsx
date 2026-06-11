@@ -99,6 +99,8 @@ export function PrintAreaElement({
   onDoubleClick,
   onSnapGuidesChange,
   printArea,
+  maxResizeWidth_cm,
+  maxResizeHeight_cm,
   children,
   className = "",
 }: {
@@ -131,6 +133,10 @@ export function PrintAreaElement({
   onDoubleClick?: () => void;
   onSnapGuidesChange: (guides: SnapGuidesState) => void;
   printArea: PrintAreaCmBounds;
+  /** 點陣圖最大印刷寬（cm）；省略則不限制 */
+  maxResizeWidth_cm?: number;
+  /** 點陣圖最大印刷高（cm）；省略則不限制 */
+  maxResizeHeight_cm?: number;
   children: React.ReactNode;
   className?: string;
 }) {
@@ -318,6 +324,8 @@ export function PrintAreaElement({
       originHeight: resizeRef.current.originHeight,
       rotation,
       lockAspect: !isResizeEdge(resizeRef.current.handle),
+      maxWidth_cm: maxResizeWidth_cm,
+      maxHeight_cm: maxResizeHeight_cm,
     });
 
     onResizeChange(next);

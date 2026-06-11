@@ -1,15 +1,20 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AlignmentToolbar } from "./AlignmentToolbar";
+import { PlacementPresetToolbar } from "./PlacementPresetToolbar";
 import { CanvasInlineTextEditor } from "./CanvasInlineTextEditor";
 import { LayerFloatingControls } from "./LayerFloatingControls";
 import { getAdultTshirtTemplateSrc } from "@/lib/constants";
 import { getLayerEffectiveCmRect } from "@/lib/design-cm";
 import { getPrintAreaCmBounds } from "@/lib/design-cm";
 import {
+  DEFAULT_PRINT_MODE,
   getFixedPrintAreaContainerPct,
   getPrintAreaContainerStyle,
   PRINT_AREA,
+  resolvePreviewPrintPositionMode,
+  type PreviewPrintPositionMode,
 } from "@/lib/printArea";
 import { ShirtContainerFrame } from "./ShirtContainerFrame";
 import { ShirtVisualScale } from "./ShirtVisualScale";
@@ -17,11 +22,25 @@ import type { Gender, ShirtColor, Side, Size } from "@/lib/constants";
 import { DESIGN_SIDES, hasAnyDesign, hasDesignInSlot } from "@/lib/design-state";
 import type { DesignLayersByTemplate } from "@/lib/types";
 import { guidesEqual } from "@/lib/element-snap";
+import {
+  countAlignableLayers,
+  getAlignmentGuidesForSelection,
+  type LayerAlignmentAxis,
+} from "@/lib/layer-alignment";
 import { getLayersForCanvasRender } from "@/lib/layer-system";
+import { isHistoryShortcutTarget } from "@/lib/design-history";
+import { getRasterMaxPrintSizeCm } from "@/lib/image-print-quality";
+import type { PlacementPresetId } from "@/lib/placement-presets";
 import { buildSnapTargetsFromLayers } from "@/lib/snap-targets";
-import { resolveFontFamily } from "@/lib/text-layer";
-import type { DesignLayer, TextDesignLayer } from "@/lib/types";
+import type {
+  DesignLayer,
+  ImageDesignLayer,
+  ShapeDesignLayer,
+  TextDesignLayer,
+} from "@/lib/types";
 import { CanvasInfoPanel } from "./CanvasInfoPanel";
+import { LayerPreviewContent } from "./LayerPreviewContent";
+import { UI_VISIBILITY } from "./ui-visibility";
 import { ClothingBrowseModal } from "./ClothingBrowseModal";
 import { ClothingBrowsePanel } from "./ClothingBrowsePanel";
 import { DesignReviewModal } from "./DesignReviewModal";
@@ -33,6 +52,7 @@ import {
   PrintAreaGrid,
   PrintSafeZoneGuide,
 } from "./PrintAreaGrid";
+import { PrintAreaDebugOverlay } from "./PrintAreaDebugOverlay";
 import {
   PrintAreaElement,
   type SnapGuidesState,
@@ -58,7 +78,10 @@ export function DesignCanvas({
   layersByTemplate,
   selectedIds,
   showGrid,
+  debugPrintArea = false,
+  previewPrintPositionMode = DEFAULT_PRINT_MODE,
   gridSnapEnabled,
+  largePrintModeEnabled,
   elementSnapDistance,
   isBusy,
   readOnly = false,
@@ -69,6 +92,7 @@ export function DesignCanvas({
   onSelectLayer,
   onLayerTransformChange,
   onLayerRotationChange,
+  onQuickRotate90,
   onLayerResize,
   onClearSelection,
   onFocusTextEditorConsumed,
@@ -78,6 +102,10 @@ export function DesignCanvas({
   onMoveLayer,
   onUpload,
   onAddText,
+  onAddShape,
+  onTextStylePatch,
+  onImageStylePatch,
+  onShapeStylePatch,
   onTextChange,
   onClearCurrentSlotDesign,
   onClearAllDesign,
@@ -85,6 +113,8 @@ export function DesignCanvas({
   onImageTransform,
   onImageResize,
   onRotationChange,
+  onAlignLayers,
+  onApplyPlacementPreset,
 }: {
   gender: Gender;
   shirtColor: ShirtColor;
@@ -94,7 +124,10 @@ export function DesignCanvas({
   layersByTemplate: DesignLayersByTemplate;
   selectedIds: string[];
   showGrid: boolean;
+  debugPrintArea?: boolean;
+  previewPrintPositionMode?: PreviewPrintPositionMode;
   gridSnapEnabled: boolean;
+  largePrintModeEnabled: boolean;
   elementSnapDistance: number;
   isBusy: boolean;
   readOnly?: boolean;
@@ -108,6 +141,8 @@ export function DesignCanvas({
     next: { x_cm: number; y_cm: number; scale?: number },
   ) => void;
   onLayerRotationChange: (id: string, rotation: number) => void;
+  /** R / Shift+R：順／逆時針 90° */
+  onQuickRotate90: (clockwise: boolean) => void;
   onLayerResize: (
     id: string,
     next: { x_cm: number; y_cm: number; width_cm: number; height_cm: number },
@@ -120,6 +155,10 @@ export function DesignCanvas({
   onMoveLayer: (id: string, action: "top" | "up" | "down" | "bottom") => void;
   onUpload: (file: File) => void;
   onAddText: () => void;
+  onAddShape: (kind: ShapeDesignLayer["shapeKind"]) => void;
+  onTextStylePatch: (id: string, patch: Partial<TextDesignLayer>) => void;
+  onImageStylePatch: (id: string, patch: Partial<ImageDesignLayer>) => void;
+  onShapeStylePatch: (id: string, patch: Partial<ShapeDesignLayer>) => void;
   onTextChange: (patch: Partial<TextDesignLayer>) => void;
   onClearCurrentSlotDesign: () => void;
   onClearAllDesign: () => void;
@@ -142,8 +181,11 @@ export function DesignCanvas({
     next: { x_cm: number; y_cm: number; width_cm: number; height_cm: number },
   ) => void;
   onRotationChange: (id: string, rotation: number) => void;
+  onAlignLayers: (axis: LayerAlignmentAxis) => void;
+  onApplyPlacementPreset: (presetId: PlacementPresetId) => void;
 }) {
   const [snapGuides, setSnapGuides] = useState<SnapGuidesState>(EMPTY_GUIDES);
+  const alignGuideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
   const [zoomIndex, setZoomIndex] = useState(0); // 預設 75%
   const [showClearConfirm, setShowClearConfirm] = useState(false);
@@ -151,6 +193,10 @@ export function DesignCanvas({
   const [showClothingBrowse, setShowClothingBrowse] = useState(false);
   const hasCurrentSlotDesign = layers.length > 0;
   const hasAnyDesignContent = hasAnyDesign(layersByTemplate);
+  const rasterMaxPrintSize = useMemo(
+    () => getRasterMaxPrintSizeCm(largePrintModeEnabled),
+    [largePrintModeEnabled],
+  );
   const sideLabel = side === "front" ? "正面" : "背面";
   const canReviewGenderDesign = DESIGN_SIDES.some((s) =>
     hasDesignInSlot(layersByTemplate, gender, s),
@@ -158,10 +204,10 @@ export function DesignCanvas({
 
   const templateSrc = getAdultTshirtTemplateSrc(shirtColor, side);
   const printArea = useMemo(() => getPrintAreaCmBounds(), []);
-  const printAreaStyle = useMemo(
-    () => getPrintAreaContainerStyle(side),
-    [side],
-  );
+  const printAreaStyle = useMemo(() => {
+    const mode = resolvePreviewPrintPositionMode(previewPrintPositionMode);
+    return getPrintAreaContainerStyle(side, { mode, size });
+  }, [side, size, previewPrintPositionMode]);
   const { widthPct, heightPct } = getFixedPrintAreaContainerPct();
   const visibleLayers = useMemo(
     () => getLayersForCanvasRender(layers).filter((l) => l.visible),
@@ -210,8 +256,7 @@ export function DesignCanvas({
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (editingTextId) return;
-      const tag = (e.target as HTMLElement | null)?.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if (isHistoryShortcutTarget(e.target)) return;
       if (
         (e.key === "Delete" || e.key === "Backspace") &&
         selectedIds.length > 0 &&
@@ -222,15 +267,84 @@ export function DesignCanvas({
           const layer = layers.find((l) => l.id === id);
           if (layer && !layer.locked) onDeleteLayer(id);
         }
+        return;
+      }
+      if (
+        (e.key === "r" || e.key === "R") &&
+        selectedIds.length > 0 &&
+        !interactionLocked
+      ) {
+        e.preventDefault();
+        onQuickRotate90(!e.shiftKey);
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [editingTextId, selectedIds, layers, interactionLocked, onDeleteLayer]);
+  }, [
+    editingTextId,
+    selectedIds,
+    layers,
+    interactionLocked,
+    onDeleteLayer,
+    onQuickRotate90,
+  ]);
 
   const finishTextEdit = useCallback(() => {
     setEditingTextId(null);
   }, []);
+
+  const alignableCount = useMemo(
+    () => countAlignableLayers(layers, selectedIds),
+    [layers, selectedIds],
+  );
+
+  const handleAlign = useCallback(
+    (axis: LayerAlignmentAxis) => {
+      if (isBusy || readOnly || alignableCount === 0) return;
+
+      const guides = getAlignmentGuidesForSelection(
+        layers,
+        selectedIds,
+        axis,
+        printArea,
+      );
+      onAlignLayers(axis);
+
+      if (guides) {
+        if (alignGuideTimerRef.current) {
+          clearTimeout(alignGuideTimerRef.current);
+        }
+        setSnapGuides({
+          printCenterX: false,
+          printCenterY: false,
+          elementVertical: guides.vertical,
+          elementHorizontal: guides.horizontal,
+        });
+        alignGuideTimerRef.current = setTimeout(() => {
+          setSnapGuides(EMPTY_GUIDES);
+          alignGuideTimerRef.current = null;
+        }, 700);
+      }
+    },
+    [
+      alignableCount,
+      isBusy,
+      layers,
+      onAlignLayers,
+      printArea,
+      readOnly,
+      selectedIds,
+    ],
+  );
+
+  useEffect(
+    () => () => {
+      if (alignGuideTimerRef.current) {
+        clearTimeout(alignGuideTimerRef.current);
+      }
+    },
+    [],
+  );
 
   const handleSnapGuides = useCallback((guides: SnapGuidesState) => {
     setSnapGuides((prev) => {
@@ -255,16 +369,18 @@ export function DesignCanvas({
             <p className="text-[10px] text-zinc-500">{size}</p>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              title="瀏覽完整衣服設計（正面與背面）"
-              disabled={isBusy || !canReviewGenderDesign}
-              onClick={() => setShowDesignReview(true)}
-              className="flex items-center gap-1 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              <span aria-hidden>👁</span>
-              <span>設計瀏覽</span>
-            </button>
+            {UI_VISIBILITY.showDesignBrowseButton && (
+              <button
+                type="button"
+                title="瀏覽完整衣服設計（正面與背面）"
+                disabled={isBusy || !canReviewGenderDesign}
+                onClick={() => setShowDesignReview(true)}
+                className="flex items-center gap-1 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <span aria-hidden>👁</span>
+                <span>設計瀏覽</span>
+              </button>
+            )}
             <button
               type="button"
               title="清除目前模特與面向的設計"
@@ -278,20 +394,33 @@ export function DesignCanvas({
           </div>
         </div>
 
+        <AlignmentToolbar
+          disabled={isBusy || readOnly || alignableCount === 0}
+          onAlign={handleAlign}
+        />
+
+        <PlacementPresetToolbar
+          side={side}
+          disabled={isBusy || readOnly || selectedIds.length === 0}
+          onApplyPreset={onApplyPlacementPreset}
+        />
+
         <div className="flex min-h-0 flex-1 overflow-hidden bg-zinc-100">
-          <CanvasInfoPanel
-            size={size}
-            layers={layers}
-            selectedLayerId={primaryId}
-            isBusy={isBusy}
-            readOnly={readOnly}
-            onSelectLayer={(id) => onSelectLayer(id, false)}
-            onMoveLayer={(id, direction) => onMoveLayer(id, direction)}
-            onTextPatch={onTextPatch}
-            onImageTransform={onImageTransform}
-            onImageResize={onImageResize}
-            onRotationChange={onRotationChange}
-          />
+          {UI_VISIBILITY.showCanvasInfoPanel && (
+            <CanvasInfoPanel
+              layers={layers}
+              selectedLayerIds={selectedIds}
+              isBusy={isBusy}
+              readOnly={readOnly}
+              largePrintModeEnabled={largePrintModeEnabled}
+              onSelectLayer={(id) => onSelectLayer(id, false)}
+              onDeleteLayer={onDeleteLayer}
+              onLayerResize={onImageResize}
+              onTextPatch={onTextStylePatch}
+              onImagePatch={onImageStylePatch}
+              onShapePatch={onShapeStylePatch}
+            />
+          )}
 
           <div className="@container relative flex min-h-0 min-w-0 flex-1 items-center justify-center p-2">
             <ShirtContainerFrame
@@ -310,9 +439,20 @@ export function DesignCanvas({
                   className="absolute inset-0 z-0 h-full w-full object-contain"
                 />
               </ShirtVisualScale>
+              {debugPrintArea && (
+                <PrintAreaDebugOverlay
+                  side={side}
+                  size={size}
+                  selectedLayer={primaryLayer}
+                />
+              )}
               <div
                 data-print-area
-                className="absolute z-10 overflow-hidden border-2 border-dashed border-blue-500 bg-blue-500/5 [container-type:size]"
+                className={`absolute z-10 overflow-hidden border-2 border-dashed [container-type:size] ${
+                  debugPrintArea
+                    ? "border-emerald-500 bg-emerald-500/10"
+                    : "border-blue-500 bg-blue-500/5"
+                }`}
                 style={printAreaStyle}
                 onPointerDown={(e) => {
                   e.stopPropagation();
@@ -339,12 +479,23 @@ export function DesignCanvas({
                   !interactionLocked &&
                   !isEditing;
                 const rect = getLayerEffectiveCmRect(layer);
-                const scale = layer.type === "image" ? layer.scale : 1;
+                const scale =
+                  layer.type === "image" || layer.type === "shape"
+                    ? layer.scale
+                    : 1;
+                const imageMaxResize =
+                  layer.type === "image"
+                    ? {
+                        maxResizeWidth_cm: rasterMaxPrintSize.width_cm,
+                        maxResizeHeight_cm: rasterMaxPrintSize.height_cm,
+                      }
+                    : {};
 
                 return (
                   <PrintAreaElement
                     key={layer.id}
                     printArea={printArea}
+                    {...imageMaxResize}
                     gridSnapEnabled={gridSnapEnabled}
                     elementSnapEnabled
                     elementSnapDistance={elementSnapDistance}
@@ -390,15 +541,7 @@ export function DesignCanvas({
                     }}
                     onSnapGuidesChange={handleSnapGuides}
                   >
-                    {layer.type === "image" ? (
-                      /* eslint-disable-next-line @next/next/no-img-element */
-                      <img
-                        src={layer.image.previewUrl}
-                        alt={layer.name}
-                        draggable={false}
-                        className="h-full w-full select-none object-contain"
-                      />
-                    ) : isEditing ? (
+                    {layer.type === "text" && isEditing ? (
                       <CanvasInlineTextEditor
                         layer={layer}
                         printAreaHeight={printArea.height}
@@ -406,27 +549,15 @@ export function DesignCanvas({
                         onCommit={finishTextEdit}
                         onCancel={finishTextEdit}
                       />
-                    ) : layer.text ? (
-                      <span
-                        className="whitespace-pre px-1 text-center select-none"
-                        style={{
-                          fontFamily: resolveFontFamily(layer.fontFamily),
-                          fontSize: `calc(${(layer.fontSize_cm * layer.scale) / printArea.height} * 100cqh)`,
-                          lineHeight: 1.3,
-                          fontWeight: layer.fontWeight,
-                          color: layer.color,
-                          opacity: layer.opacity,
-                        }}
-                      >
-                        {layer.text}
-                      </span>
-                    ) : (
+                    ) : layer.type === "text" && !layer.text ? (
                       <span
                         className="flex h-full w-full items-center justify-center border border-dashed border-zinc-400/60 px-1 text-center text-[10px] leading-tight text-zinc-400 select-none"
                         aria-hidden
                       >
                         雙擊輸入文字
                       </span>
+                    ) : (
+                      <LayerPreviewContent layer={layer} printArea={printArea} />
                     )}
                   </PrintAreaElement>
                 );
@@ -479,6 +610,8 @@ export function DesignCanvas({
                     onRotationChange={(rotation) =>
                       onLayerRotationChange(primaryLayer.id, rotation)
                     }
+                    onRotateLeft90={() => onQuickRotate90(false)}
+                    onRotateRight90={() => onQuickRotate90(true)}
                     onDelete={() => onDeleteLayer(primaryLayer.id)}
                   />
                 )}
@@ -492,6 +625,7 @@ export function DesignCanvas({
             shirtColor={shirtColor}
             size={size}
             layers={layers}
+            previewPrintPositionMode={previewPrintPositionMode}
             onExpand={() => setShowClothingBrowse(true)}
           />
         </div>
@@ -550,6 +684,7 @@ export function DesignCanvas({
           warnings={warnings}
           onUpload={onUpload}
           onAddText={onAddText}
+          onAddShape={onAddShape}
         />
       </div>
 
@@ -559,6 +694,7 @@ export function DesignCanvas({
         shirtColor={shirtColor}
         size={size}
         layersByTemplate={layersByTemplate}
+        previewPrintPositionMode={previewPrintPositionMode}
         onClose={() => setShowDesignReview(false)}
       />
 
@@ -568,6 +704,7 @@ export function DesignCanvas({
         shirtColor={shirtColor}
         size={size}
         layersByTemplate={layersByTemplate}
+        previewPrintPositionMode={previewPrintPositionMode}
         onClose={() => setShowClothingBrowse(false)}
       />
 

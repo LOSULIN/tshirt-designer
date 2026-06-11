@@ -93,6 +93,16 @@ function serializeLayerForJson(layer: DesignLayer) {
       mimeType: layer.image.mimeType,
     };
   }
+  if (layer.type === "shape") {
+    return {
+      ...base,
+      shapeKind: layer.shapeKind,
+      fill: layer.fill,
+      stroke: layer.stroke,
+      strokeWidth_cm: layer.strokeWidth_cm,
+      opacity: layer.opacity,
+    };
+  }
   return {
     ...base,
     text: layer.text,
@@ -101,6 +111,12 @@ function serializeLayerForJson(layer: DesignLayer) {
     color: layer.color,
     opacity: layer.opacity,
     fontWeight: layer.fontWeight,
+    fontStyle: layer.fontStyle,
+    letterSpacing_cm: layer.letterSpacing_cm,
+    lineHeight: layer.lineHeight,
+    textAlign: layer.textAlign,
+    stroke: layer.stroke,
+    shadow: layer.shadow,
   };
 }
 

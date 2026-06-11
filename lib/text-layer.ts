@@ -1,10 +1,14 @@
 import {
   cmToUiPx,
   getPrintAreaCmBounds,
-  uiPxToCm,
+  type LayerCmRect,
   type PrintAreaCmBounds,
 } from "./design-cm";
-import type { TextFontFamily, TextLayer } from "./types";
+import {
+  DEFAULT_RICH_TEXT_FIELDS,
+  measureRichTextBoundsCm,
+} from "./text-style";
+import type { TextFontFamily, TextLayer, TextDesignLayer } from "./types";
 import { nanoid } from "nanoid";
 
 export const DEFAULT_NEW_TEXT = "TEST";
@@ -78,33 +82,49 @@ export function buildCanvasFont(
   return `${fontWeight} ${fontSizePx}px ${resolveCanvasFontFamily(fontFamily)}`;
 }
 
+/** 文字圖層幾何：以 fontSize×scale 量測 glyph bounds，搭配儲存的 x/y */
+export function getTextLayerCmRect(layer: TextDesignLayer): LayerCmRect {
+  const fontSize_cm = layer.fontSize_cm * layer.scale;
+  const { width_cm, height_cm } = measureTextBoundsCm(
+    layer.text,
+    fontSize_cm,
+    layer.fontFamily,
+    layer.fontWeight,
+    layer,
+  );
+  return {
+    x_cm: layer.x_cm,
+    y_cm: layer.y_cm,
+    width_cm,
+    height_cm,
+  };
+}
+
 export function measureTextBoundsCm(
   text: string,
   fontSize_cm: number,
   fontFamily: TextFontFamily,
   fontWeight: number,
+  style?: Partial<
+    Pick<
+      TextDesignLayer,
+      "fontStyle" | "letterSpacing_cm" | "lineHeight"
+    >
+  >,
 ): { width_cm: number; height_cm: number } {
-  const fontSizePx = cmToUiPx(fontSize_cm);
-
-  if (typeof document === "undefined") {
-    return {
-      width_cm: Math.max(uiPxToCm(text.length * fontSizePx * 0.55), fontSize_cm),
-      height_cm: uiPxToCm(fontSizePx * 1.3),
-    };
-  }
-
-  const canvas = document.createElement("canvas");
-  const ctx = canvas.getContext("2d");
-  if (!ctx) {
-    return { width_cm: fontSize_cm * 4, height_cm: fontSize_cm * 1.3 };
-  }
-
-  ctx.font = buildCanvasFont(fontWeight, fontSizePx, fontFamily);
-  const metrics = ctx.measureText(text || " ");
-  return {
-    width_cm: uiPxToCm(Math.ceil(metrics.width) + 12),
-    height_cm: uiPxToCm(Math.ceil(fontSizePx * 1.3)),
-  };
+  return measureRichTextBoundsCm(
+    {
+      text,
+      fontSize_cm,
+      fontFamily,
+      fontWeight,
+      fontStyle: style?.fontStyle ?? DEFAULT_RICH_TEXT_FIELDS.fontStyle,
+      letterSpacing_cm:
+        style?.letterSpacing_cm ?? DEFAULT_RICH_TEXT_FIELDS.letterSpacing_cm,
+      lineHeight: style?.lineHeight ?? DEFAULT_RICH_TEXT_FIELDS.lineHeight,
+    },
+    fontSize_cm,
+  );
 }
 
 export function createDefaultTextLayer(

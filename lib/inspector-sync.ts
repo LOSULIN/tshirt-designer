@@ -3,7 +3,12 @@
  */
 
 import { getLayerEffectiveCmRect } from "./design-cm";
-import type { DesignLayer, ImageDesignLayer, TextDesignLayer } from "./types";
+import type {
+  DesignLayer,
+  ImageDesignLayer,
+  ShapeDesignLayer,
+  TextDesignLayer,
+} from "./types";
 
 export interface TextInspectorValues {
   content: string;
@@ -33,6 +38,12 @@ export function getTextInspectorValues(layer: TextDesignLayer): TextInspectorVal
 }
 
 export function getImageInspectorValues(layer: ImageDesignLayer): ImageInspectorValues {
+  return getScalableLayerInspectorValues(layer);
+}
+
+export function getScalableLayerInspectorValues(
+  layer: ImageDesignLayer | ShapeDesignLayer,
+): ImageInspectorValues {
   const rect = getLayerEffectiveCmRect(layer);
   return {
     width_cm: rect.width_cm,
@@ -44,7 +55,74 @@ export function getImageInspectorValues(layer: ImageDesignLayer): ImageInspector
   };
 }
 
+export function formatInspectorInputValue(
+  value: number,
+  decimals?: number,
+): string {
+  if (decimals !== undefined) return value.toFixed(decimals);
+  return String(value);
+}
+
+/** 友善尺寸：四捨五入至 0.1 cm（僅 Inspector 顯示層） */
+export function roundInspectorDimensionCm(cm: number): number {
+  return Math.round(cm * 10) / 10;
+}
+
+export function formatInspectorDimensionDisplay(cm: number): string {
+  return roundInspectorDimensionCm(cm).toFixed(1);
+}
+
+/** Tooltip / 校稿明細用的內部精確值 */
+export function formatInspectorDimensionPrecise(cm: number): string {
+  return `${cm} cm`;
+}
+
+/** 使用者 commit 後，內部微調（fitText 等）若小於此差值則維持顯示 */
+export const INSPECTOR_DIMENSION_STICKY_TOLERANCE_CM = 0.5;
+
+export function shouldClearInspectorDimensionAnchor(
+  modelCm: number,
+  committedCm: number,
+): boolean {
+  return (
+    Math.abs(modelCm - committedCm) >= INSPECTOR_DIMENSION_STICKY_TOLERANCE_CM
+  );
+}
+
+export function getInspectorDimensionDisplay(
+  modelCm: number,
+  anchor: { committedCm: number; display: string } | null,
+): string {
+  if (
+    anchor &&
+    !shouldClearInspectorDimensionAnchor(modelCm, anchor.committedCm)
+  ) {
+    return anchor.display;
+  }
+  return formatInspectorDimensionDisplay(modelCm);
+}
+
+/** 允許多位數、小數與輸入中的空字串／負號／小數點 */
+export function isInspectorNumberDraft(value: string): boolean {
+  return (
+    value === "" ||
+    value === "-" ||
+    value === "." ||
+    value === "-." ||
+    /^-?\d*\.?\d*$/.test(value)
+  );
+}
+
 export function parseInspectorNumber(value: string, fallback: number): number {
-  const parsed = Number.parseFloat(value);
+  const trimmed = value.trim();
+  if (
+    !trimmed ||
+    trimmed === "-" ||
+    trimmed === "." ||
+    trimmed === "-."
+  ) {
+    return fallback;
+  }
+  const parsed = Number.parseFloat(trimmed);
   return Number.isFinite(parsed) ? parsed : fallback;
 }

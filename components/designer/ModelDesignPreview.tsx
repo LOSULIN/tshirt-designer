@@ -5,11 +5,16 @@ import {
   getLayerEffectiveCmRect,
   getPrintAreaCmBounds,
 } from "@/lib/design-cm";
-import { getPrintAreaContainerStyle } from "@/lib/printArea";
+import {
+  DEFAULT_PRINT_MODE,
+  getUiPrintAreaContainerStyle,
+  resolvePreviewPrintPositionMode,
+  type PreviewPrintPositionMode,
+} from "@/lib/printArea";
 import type { Gender, Side, Size } from "@/lib/constants";
 import { sortLayersByZIndex } from "@/lib/layers";
-import { resolveFontFamily } from "@/lib/text-layer";
 import type { DesignLayer } from "@/lib/types";
+import { LayerPreviewContent } from "./LayerPreviewContent";
 import { ShirtContainerFrame } from "./ShirtContainerFrame";
 import { ShirtVisualScale } from "./ShirtVisualScale";
 import { TemplateImage } from "./TemplateImage";
@@ -40,28 +45,7 @@ function StaticDesignLayer({
           transformOrigin: "center center",
         }}
       >
-        {layer.type === "image" ? (
-          /* eslint-disable-next-line @next/next/no-img-element */
-          <img
-            src={layer.image.previewUrl}
-            alt={layer.name}
-            draggable={false}
-            className="h-full w-full select-none object-contain"
-          />
-        ) : (
-          <span
-            className="whitespace-pre px-1 text-center leading-none select-none"
-            style={{
-              fontFamily: resolveFontFamily(layer.fontFamily),
-              fontSize: `calc(${(layer.fontSize_cm * layer.scale) / printArea.height} * 100cqh)`,
-              fontWeight: layer.fontWeight,
-              color: layer.color,
-              opacity: layer.opacity,
-            }}
-          >
-            {layer.text || " "}
-          </span>
-        )}
+        <LayerPreviewContent layer={layer} printArea={printArea} />
       </div>
     </div>
   );
@@ -74,6 +58,7 @@ export function ModelDesignPreview({
   shirtColor,
   size = "M",
   layers,
+  previewPrintPositionMode = DEFAULT_PRINT_MODE,
   zoom = 1,
   fitRatio,
 }: {
@@ -82,13 +67,17 @@ export function ModelDesignPreview({
   shirtColor: ShirtColor;
   size?: Size;
   layers: DesignLayer[];
+  previewPrintPositionMode?: PreviewPrintPositionMode;
   zoom?: number;
   fitRatio?: number;
 }) {
   const templateSrc = getModelTemplateSrc(gender, side);
   const visibleLayers = sortLayersByZIndex(layers).filter((l) => l.visible);
   const printArea = getPrintAreaCmBounds();
-  const printAreaStyle = getPrintAreaContainerStyle(side);
+  const printAreaStyle = getUiPrintAreaContainerStyle("model", side, {
+    mode: resolvePreviewPrintPositionMode(previewPrintPositionMode),
+    size,
+  });
 
   return (
     <ShirtContainerFrame

@@ -1,7 +1,10 @@
 "use client";
 
 import { TEMPLATES, type Gender, type Side } from "@/lib/constants";
-import { getPrintAreaContainerStyle } from "@/lib/printArea";
+import {
+  DEFAULT_PRINT_MODE,
+  getUiPrintAreaContainerStyle,
+} from "@/lib/printArea";
 import { ShirtContainerFrame } from "./ShirtContainerFrame";
 import { ShirtVisualScale } from "./ShirtVisualScale";
 
@@ -22,7 +25,10 @@ export function ModelTemplatePlaceholder({
   showGuide?: boolean;
 }) {
   const fileName = templateFileName(gender, side);
-  const printAreaStyle = getPrintAreaContainerStyle(side);
+  const printAreaStyle = getUiPrintAreaContainerStyle("model", side, {
+    mode: DEFAULT_PRINT_MODE,
+    size: "M",
+  });
 
   const label =
     gender === "male"

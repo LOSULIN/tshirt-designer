@@ -19,6 +19,10 @@ export interface UploadedDesignImage {
   previewHeight: number;
   naturalWidth: number;
   naturalHeight: number;
+  /** 上傳時原始像素寬（品質分析；舊草稿可沿用 naturalWidth） */
+  imagePixelWidth?: number;
+  /** 上傳時原始像素高（品質分析；舊草稿可沿用 naturalHeight） */
+  imagePixelHeight?: number;
   mimeType: string;
   fileName: string;
 }
@@ -43,10 +47,28 @@ export interface TextLayer {
   height_cm: number;
 }
 
+export type LayerType = "image" | "text" | "shape";
+
+export type ShapeKind = "rectangle" | "circle" | "line" | "arrow";
+
+export type TextAlign = "left" | "center" | "right";
+
+export interface TextStrokeStyle {
+  color: string;
+  width_cm: number;
+}
+
+export interface TextShadowStyle {
+  color: string;
+  blur_cm: number;
+  offsetX_cm: number;
+  offsetY_cm: number;
+}
+
 export interface LayerMeta {
   id: string;
   name: string;
-  type: "image" | "text";
+  type: LayerType;
   visible: boolean;
   locked: boolean;
   zIndex: number;
@@ -77,9 +99,30 @@ export interface TextDesignLayer extends LayerMeta {
   color: string;
   opacity: number;
   fontWeight: number;
+  fontStyle?: "normal" | "italic";
+  letterSpacing_cm?: number;
+  lineHeight?: number;
+  textAlign?: TextAlign;
+  stroke?: TextStrokeStyle | null;
+  shadow?: TextShadowStyle | null;
 }
 
-export type DesignLayer = ImageDesignLayer | TextDesignLayer;
+export interface ShapeDesignLayer extends LayerMeta {
+  type: "shape";
+  shapeKind: ShapeKind;
+  x_cm: number;
+  y_cm: number;
+  width_cm: number;
+  height_cm: number;
+  scale: number;
+  rotation: number;
+  fill: string;
+  stroke: string;
+  strokeWidth_cm: number;
+  opacity: number;
+}
+
+export type DesignLayer = ImageDesignLayer | TextDesignLayer | ShapeDesignLayer;
 
 /** 各模特模板 × 正反面獨立圖層 */
 export type DesignLayersByTemplate = Record<Gender, Record<Side, DesignLayer[]>>;

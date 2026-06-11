@@ -1,27 +1,33 @@
 /**
  * 印刷輸出系統（Export Pipeline）
- * - 資料：design layer cm
- * - 輸出：35×50 cm @ 300 DPI · PNG / PDF
- * - 轉換：1 cm = (300 / 2.54) px
+ * - 座標：Production Coordinate System（mm）
+ * - 輸出：350×500 mm @ 300 DPI · PNG / PDF
  *
- * 不影響 UI render 或 design editor。
+ * 不經 Preview / Mockup 座標。
  */
 
-import { EXPORT_DPI } from "./constants";
+import {
+  getProductionExportDimensionsPx,
+  getProductionPrintAreaCm,
+  legacyCmFieldToMm,
+  MM_TO_EXPORT_PX,
+  PRODUCTION_DPI,
+} from "./coordinates/production";
 import { getLayerInspectorCmRect } from "./design-inspector";
 import { embedPngDpi } from "./png-dpi";
-import { PRINT_AREA } from "./printArea";
 import { sortLayersByZIndex } from "./layers";
-import { buildCanvasFont, ensureTextFontsLoaded } from "./text-layer";
-import type { DesignLayer, TextDesignLayer } from "./types";
+import { drawRichTextOnCanvas } from "./text-style";
+import { drawShapeOnCanvas } from "./shape-layer";
+import { ensureTextFontsLoaded } from "./text-layer";
+import type { DesignLayer, ShapeDesignLayer, TextDesignLayer } from "./types";
 
-export const PRINT_EXPORT_DPI = EXPORT_DPI;
+export const PRINT_EXPORT_DPI = PRODUCTION_DPI;
 
-/** 1 cm → px @ 300 DPI */
-export const CM_TO_EXPORT_PX = PRINT_EXPORT_DPI / 2.54;
+/** 1 legacy cm 欄位（=10mm）→ px @ 300 DPI */
+export const CM_TO_EXPORT_PX = MM_TO_EXPORT_PX * 10;
 
 export function cmToExportPx(cm: number): number {
-  return Math.round(cm * CM_TO_EXPORT_PX);
+  return Math.round(legacyCmFieldToMm(cm) * MM_TO_EXPORT_PX);
 }
 
 export function exportPxToCm(px: number): number {
@@ -44,17 +50,15 @@ export interface PrintExportSpec {
 }
 
 export function getPrintExportDimensionsPx(): PrintExportDimensionsPx {
-  return {
-    widthPx: cmToExportPx(PRINT_AREA.widthCm),
-    heightPx: cmToExportPx(PRINT_AREA.heightCm),
-  };
+  return getProductionExportDimensionsPx();
 }
 
 export function getPrintExportSpec(): PrintExportSpec {
-  const { widthPx, heightPx } = getPrintExportDimensionsPx();
+  const { widthPx, heightPx } = getProductionExportDimensionsPx();
+  const printCm = getProductionPrintAreaCm();
   return {
-    widthCm: PRINT_AREA.widthCm,
-    heightCm: PRINT_AREA.heightCm,
+    widthCm: printCm.width,
+    heightCm: printCm.height,
     dpi: PRINT_EXPORT_DPI,
     widthPx,
     heightPx,
@@ -89,29 +93,6 @@ function drawImageLayer(
   ctx.translate(centerX, centerY);
   ctx.rotate((layer.rotation * Math.PI) / 180);
   ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
-  ctx.restore();
-}
-
-function drawTextLayer(
-  ctx: CanvasRenderingContext2D,
-  layer: TextDesignLayer,
-  pxPerCm: number,
-) {
-  const rect = getLayerInspectorCmRect(layer);
-  const fontSize_cm = layer.fontSize_cm * layer.scale;
-  const centerX = (rect.x_cm + rect.width_cm / 2) * pxPerCm;
-  const centerY = (rect.y_cm + rect.height_cm / 2) * pxPerCm;
-  const fontSizePx = fontSize_cm * pxPerCm;
-
-  ctx.save();
-  ctx.translate(centerX, centerY);
-  ctx.rotate((layer.rotation * Math.PI) / 180);
-  ctx.globalAlpha = layer.opacity;
-  ctx.fillStyle = layer.color;
-  ctx.font = buildCanvasFont(layer.fontWeight, fontSizePx, layer.fontFamily);
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(layer.text, 0, 0);
   ctx.restore();
 }
 
@@ -158,8 +139,20 @@ export async function renderPrintExportPng(
         imageCache.set(layer.id, img);
       }
       drawImageLayer(ctx, layer, img, pxPerCm);
+    } else if (layer.type === "shape") {
+      drawShapeOnCanvas(
+        ctx,
+        layer as ShapeDesignLayer,
+        pxPerCm,
+        getLayerInspectorCmRect(layer),
+      );
     } else if (layer.text.trim().length > 0) {
-      drawTextLayer(ctx, layer, pxPerCm);
+      drawRichTextOnCanvas(
+        ctx,
+        layer,
+        pxPerCm,
+        getLayerInspectorCmRect(layer),
+      );
     }
   }
 

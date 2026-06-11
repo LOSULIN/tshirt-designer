@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { DesignerPageClient } from "@/components/designer/DesignerPageClient";
 import { LandingNav } from "@/components/landing/LandingNav";
 
@@ -10,7 +11,9 @@ export default function DesignerPage() {
   return (
     <div className="flex h-screen flex-col">
       <LandingNav />
-      <DesignerPageClient />
+      <Suspense fallback={<div className="min-h-0 flex-1 bg-zinc-50" />}>
+        <DesignerPageClient />
+      </Suspense>
     </div>
   );
 }

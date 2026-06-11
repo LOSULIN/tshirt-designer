@@ -38,9 +38,30 @@ assert(
 );
 
 const layerEditor = read("components/designer/LayerInspectorEditor.tsx");
+const numberInput = read("components/designer/InspectorNumberInput.tsx");
 assert(layerEditor.includes("Font size (cm)"), "文字 font size 以 cm 顯示");
 assert(layerEditor.includes("Width (cm)"), "圖片 width 以 cm 顯示");
 assert(layerEditor.includes("Height (cm)"), "圖片 height 以 cm 顯示");
+assert(
+  layerEditor.includes("InspectorNumberInput"),
+  "Inspector 數值欄位使用共用輸入元件",
+);
+assert(
+  !layerEditor.includes('type="number"'),
+  "Inspector 數值欄位不使用受控 number input",
+);
+assert(
+  numberInput.includes("onBlur") && numberInput.includes('e.key === "Enter"'),
+  "數值欄位 blur / Enter 時 commit",
+);
+assert(
+  numberInput.includes("isInspectorNumberDraft"),
+  "數值欄位支援多位數與小數草稿",
+);
+assert(
+  inspectorSync.includes("isInspectorNumberDraft"),
+  "多位數／小數輸入驗證已定義",
+);
 
 const inlineEditor = read("components/designer/CanvasInlineTextEditor.tsx");
 assert(inlineEditor.includes("onBlur={onCommit}"), "文字 blur 時 commit");

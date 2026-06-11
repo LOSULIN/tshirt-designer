@@ -15,10 +15,15 @@ import {
   getPrintAreaCmBounds,
   type PrintAreaCmBounds,
 } from "@/lib/design-cm";
-import { getPrintAreaContainerStyle } from "@/lib/printArea";
+import {
+  DEFAULT_PRINT_MODE,
+  getPrintAreaContainerStyle,
+  resolvePreviewPrintPositionMode,
+  type PreviewPrintPositionMode,
+} from "@/lib/printArea";
 import { sortLayersByZIndex } from "@/lib/layers";
-import { resolveFontFamily } from "@/lib/text-layer";
 import type { DesignLayer } from "@/lib/types";
+import { LayerPreviewContent } from "./LayerPreviewContent";
 import { ShirtContainerFrame } from "./ShirtContainerFrame";
 import { ShirtVisualScale } from "./ShirtVisualScale";
 
@@ -160,28 +165,7 @@ function StaticDesignLayer({
           transformOrigin: "center center",
         }}
       >
-        {layer.type === "image" ? (
-          /* eslint-disable-next-line @next/next/no-img-element */
-          <img
-            src={layer.image.previewUrl}
-            alt={layer.name}
-            draggable={false}
-            className="h-full w-full select-none object-contain"
-          />
-        ) : (
-          <span
-            className="whitespace-pre px-1 text-center leading-none select-none"
-            style={{
-              fontFamily: resolveFontFamily(layer.fontFamily),
-              fontSize: `calc(${(layer.fontSize_cm * layer.scale) / printArea.height} * 100cqh)`,
-              fontWeight: layer.fontWeight,
-              color: layer.color,
-              opacity: layer.opacity,
-            }}
-          >
-            {layer.text || " "}
-          </span>
-        )}
+        <LayerPreviewContent layer={layer} printArea={printArea} />
       </div>
     </div>
   );
@@ -194,6 +178,7 @@ export function FlatShirtDesignView({
   shirtColor,
   size = "M",
   layers,
+  previewPrintPositionMode = DEFAULT_PRINT_MODE,
   className = "",
   compact = false,
 }: {
@@ -202,6 +187,7 @@ export function FlatShirtDesignView({
   shirtColor: ShirtColor;
   size?: Size;
   layers: DesignLayer[];
+  previewPrintPositionMode?: PreviewPrintPositionMode;
   className?: string;
   /** 右側預覽欄：限制在可用高度內 */
   compact?: boolean;
@@ -221,7 +207,10 @@ export function FlatShirtDesignView({
 
   const visibleLayers = sortLayersByZIndex(layers).filter((l) => l.visible);
   const printArea = getPrintAreaCmBounds();
-  const printAreaStyle = getPrintAreaContainerStyle(side);
+  const printAreaStyle = getPrintAreaContainerStyle(side, {
+    mode: resolvePreviewPrintPositionMode(previewPrintPositionMode),
+    size,
+  });
 
   return (
     <div

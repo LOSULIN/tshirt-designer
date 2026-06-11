@@ -43,7 +43,7 @@ function cmToPdfPoints(cm: number): number {
 export function hasExportablePrintableDesign(layers: DesignLayer[]): boolean {
   return sortLayersByZIndex(layers).some((layer) => {
     if (!layer.visible) return false;
-    if (layer.type === "image") return true;
+    if (layer.type === "image" || layer.type === "shape") return true;
     return layer.text.trim().length > 0;
   });
 }

@@ -1,16 +1,18 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { nanoid } from "nanoid";
 import {
   extractShirtColorFromDesignJson,
   normalizeShirtColor,
 } from "@/lib/constants";
 import {
-  generateProof,
+  generateProofDocuments,
   hasProofArtifacts,
   parseProofArtifactsFromFormData,
+  uploadSubmissionFiles,
   type ProofOrder,
 } from "@/lib/proof-engine";
 import { buildOrderStoragePath } from "@/lib/proof-engine/storage-manager";
+import { SubmitTiming } from "@/lib/proof-engine/submit-timing";
 import {
   allocateSubmissionNo,
   isSubmissionNoConflict,
@@ -19,6 +21,7 @@ import { formatDbWriteError } from "@/lib/db-error";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
+export const maxDuration = 300;
 
 const PROOF_VERSION = 1;
 
@@ -35,6 +38,8 @@ function originalFilename(ext: string, submissionNo: string) {
 export async function POST(request: Request) {
   try {
     const formData = await request.formData();
+    const syncTiming = new SubmitTiming("sync", "pending");
+
     const designJson = formData.get("designJson");
     const textJson = formData.get("textJson");
     const applicantJson = formData.get("applicantJson");
@@ -84,6 +89,8 @@ export async function POST(request: Request) {
       );
     }
 
+    syncTiming.mark("parseFormData");
+
     const orderId = nanoid(12);
     const createdAt = new Date().toISOString();
     const supabase = createAdminClient();
@@ -132,6 +139,8 @@ export async function POST(request: Request) {
       );
     }
 
+    syncTiming.mark("saveDatabase");
+
     let originalFile: { buffer: Buffer; filename: string } | undefined;
     if (original instanceof Blob && original.size > 0) {
       const originalExt = extFromMime(original.type || "image/png");
@@ -153,38 +162,71 @@ export async function POST(request: Request) {
       created_at: createdAt,
     };
 
-    const { package: proofPackage, email } = await generateProof(
-      proofOrder,
-      PROOF_VERSION,
-      artifacts,
-      ctx,
-      {
-        designJson,
-        textJson: typeof textJson === "string" ? textJson : undefined,
-        applicantJson:
-          typeof applicantJson === "string" ? applicantJson : undefined,
-        original: originalFile,
-      },
-    );
+    const internalFiles = {
+      designJson,
+      textJson: typeof textJson === "string" ? textJson : undefined,
+      applicantJson:
+        typeof applicantJson === "string" ? applicantJson : undefined,
+      original: originalFile,
+    };
 
-    await supabase
-      .from("design_submissions")
-      .update({
-        storage_path: proofPackage.storage_path,
-        proof_pdf_url: proofPackage.pdf_url,
-        proof_package: proofPackage,
-        mockup_front_url: null,
-        mockup_back_url: null,
-        print_file_url: null,
-      })
-      .eq("id", orderId);
+    await uploadSubmissionFiles(
+      ctx,
+      submissionNo,
+      internalFiles,
+      artifacts,
+    );
+    syncTiming.finish("uploadFiles");
+    syncTiming.setOrderRef(submissionNo);
+    syncTiming.log();
+
+    after(async () => {
+      const bgTiming = new SubmitTiming("background", submissionNo);
+      try {
+        const { package: proofPackage, email } = await generateProofDocuments(
+          proofOrder,
+          PROOF_VERSION,
+          artifacts,
+          ctx,
+          internalFiles,
+          bgTiming,
+        );
+
+        await supabase
+          .from("design_submissions")
+          .update({
+            storage_path: proofPackage.storage_path,
+            proof_pdf_url: proofPackage.pdf_url,
+            proof_package: proofPackage,
+            mockup_front_url: null,
+            mockup_back_url: null,
+            print_file_url: null,
+          })
+          .eq("id", orderId);
+
+        bgTiming.mark("updateDatabase");
+        bgTiming.log();
+
+        if (!email.admin.sent) {
+          console.warn(
+            `[submit-background] admin email not sent for ${submissionNo}:`,
+            email.admin.message ?? email.admin.reason,
+          );
+        }
+      } catch (error) {
+        console.error(
+          `[submit-background] proof pipeline failed for ${submissionNo}:`,
+          error,
+        );
+      }
+    });
 
     return NextResponse.json({
       submissionNo,
       orderId,
       createdAt,
-      proof: proofPackage,
-      email,
+      proofProcessing: true,
+      timing: syncTiming.getDurations(),
     });
   } catch (error) {
     console.error(error);

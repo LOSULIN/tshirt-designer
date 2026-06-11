@@ -1,19 +1,57 @@
 /**
- * 印刷區與 shirt container（固定 mockup）分離。
+ * 印刷區與 shirt container（向後相容 facade）。
  *
- * - 印刷規格：固定 35×50 cm（與尺碼無關）
- * - UI 視覺：cm × UI_SCALE → 對應 shirt container 固定 %
- * - 定位：PRINT_REFERENCE + translate(-50%, -50%)
- *
- * 不修改：shirt container、template image、sizes data。
+ * - Production 真相：`lib/coordinates/production.ts`（mm）
+ * - Preview UI：`lib/coordinates/preview.ts`
+ * - Mockup：`lib/coordinates/mockup.ts`
  */
 
 import { APPAREL_SIZES, type ApparelSize } from "./sizes";
+import {
+  getProductionPrintAreaCm,
+  getProductionSafeAreaMm,
+  mmToLegacyCmField,
+  PRODUCTION_LEGACY_UI_UNITS_PER_CM,
+  PRODUCTION_PRINT_AREA_MM,
+  PRODUCTION_SAFE_MARGIN_RATIO,
+} from "./coordinates/production";
+import {
+  getPreviewContainerAspectRatio,
+  getPreviewContainerWidthOverHeight,
+  getPreviewPrintAreaContainerPct,
+  getPreviewPrintAreaContainerStyle,
+  getPreviewPrintReference,
+  PREVIEW_CONTAINER,
+  PREVIEW_REFERENCE_TRANSFORM,
+  PREVIEW_SIDES,
+  PREVIEW_UI_UNITS_PER_MM,
+  type PreviewPrintPositionOptions,
+} from "./coordinates/preview";
+export type {
+  PreviewPrintPositionMode,
+  PreviewPrintPositionOptions,
+} from "./coordinates/preview-position-mode";
+export {
+  DEFAULT_PRINT_MODE,
+  parsePreviewPrintPositionMode,
+  resolvePreviewPrintPositionMode,
+} from "./coordinates/preview-position-mode";
+import {
+  getUiPrintAreaContainerStyle,
+  type UiPrintAreaView,
+} from "./coordinates/ui-print-area";
+import { UI_GLOBAL_PRINT_OFFSET_Y_PX } from "./coordinates/ui-print-offset";
+
+export { getUiPrintAreaContainerStyle, type UiPrintAreaView };
+
+export { UI_GLOBAL_PRINT_OFFSET_Y_PX };
+
+const productionCm = getProductionPrintAreaCm();
 
 /** 固定印刷規格（物理／設計／匯出） */
 export const PRINT_AREA = {
-  widthCm: 35,
-  heightCm: 50,
+  widthCm: productionCm.width,
+  heightCm: productionCm.height,
 } as const;
 
 export const PRINT_AREA_WIDTH_CM = PRINT_AREA.widthCm;
@@ -24,28 +62,83 @@ export const PRINT_AREA_CM = {
   heightCm: PRINT_AREA.heightCm,
 } as const;
 
+export const PRINT_SAFE_AREA_SPEC = {
+  mode: "ratio" as const,
+  marginRatio: PRODUCTION_SAFE_MARGIN_RATIO,
+} as const;
+
+/** @deprecated 請用 PRINT_SAFE_AREA_SPEC.marginRatio */
+export const DESIGN_SAFE_MARGIN = PRINT_SAFE_AREA_SPEC.marginRatio;
+
+export interface PrintAreaCmSize {
+  width: number;
+  height: number;
+}
+
+export interface PrintSafeAreaCm {
+  x_cm: number;
+  y_cm: number;
+  width_cm: number;
+  height_cm: number;
+}
+
+export function getPrintSafeAreaCm(
+  printArea: PrintAreaCmSize = {
+    width: PRINT_AREA.widthCm,
+    height: PRINT_AREA.heightCm,
+  },
+): PrintSafeAreaCm {
+  const safe = getProductionSafeAreaMm({
+    width_mm: printArea.width * 10,
+    height_mm: printArea.height * 10,
+  });
+
+  return {
+    x_cm: mmToLegacyCmField(safe.x_mm),
+    y_cm: mmToLegacyCmField(safe.y_mm),
+    width_cm: mmToLegacyCmField(safe.width_mm),
+    height_cm: mmToLegacyCmField(safe.height_mm),
+  };
+}
+
 export const PRINT_COLLAR_OFFSET_CM = {
   front: 10,
   back: 10,
 } as const;
 
-/**
- * 印刷區固定錨點（相對 shirt container 0~1，為 print area 中心）。
- * 搭配 translate(-50%, -50%) 定位。
- */
+/** @deprecated 請用 getPreviewPrintReference */
+export const PRINT_REFERENCE_BY_SIDE = {
+  get front() {
+    return getPreviewPrintReference("front");
+  },
+  get back() {
+    return getPreviewPrintReference("back");
+  },
+};
+
+/** @deprecated 請用 getPreviewPrintReference */
 export const PRINT_REFERENCE = {
-  x: 0.5,
-  y: 0.53,
-} as const;
+  get x() {
+    return getPreviewPrintReference("front").x;
+  },
+  get y() {
+    return getPreviewPrintReference("front").y;
+  },
+};
 
-export const PRINT_REFERENCE_TRANSFORM = "translate(-50%, -50%)" as const;
+export type PrintReferenceSide = (typeof PREVIEW_SIDES)[number];
 
-/** UI 視覺縮放：px（邏輯單位）= cm × UI_SCALE */
-export const UI_SCALE = 10 as const;
+export function getPrintReference(side: PrintReferenceSide = "front") {
+  return getPreviewPrintReference(side);
+}
 
-/** 固定 shirt container（模板 PNG 比例，不依尺碼） */
-export const SHIRT_CONTAINER_WIDTH = 1024;
-export const SHIRT_CONTAINER_HEIGHT = 1536;
+export const PRINT_REFERENCE_TRANSFORM = PREVIEW_REFERENCE_TRANSFORM;
+
+/** @deprecated 請用 production 的 PRODUCTION_LEGACY_UI_UNITS_PER_CM */
+export const UI_SCALE = PRODUCTION_LEGACY_UI_UNITS_PER_CM;
+
+export const SHIRT_CONTAINER_WIDTH = PREVIEW_CONTAINER.width;
+export const SHIRT_CONTAINER_HEIGHT = PREVIEW_CONTAINER.height;
 
 export interface PrintAreaContainerStyle {
   left: string;
@@ -66,83 +159,59 @@ export function cmToUiUnits(cm: number): number {
 
 export function getFixedPrintAreaUiSize(): { width: number; height: number } {
   return {
-    width: cmToUiUnits(PRINT_AREA.widthCm),
-    height: cmToUiUnits(PRINT_AREA.heightCm),
+    width: PRODUCTION_PRINT_AREA_MM.width_mm * PREVIEW_UI_UNITS_PER_MM,
+    height: PRODUCTION_PRINT_AREA_MM.height_mm * PREVIEW_UI_UNITS_PER_MM,
   };
 }
 
-/** 固定 UI 比例（相對 shirt container，與尺碼無關） */
 export function getFixedPrintAreaContainerPct(): PrintScale {
-  const ui = getFixedPrintAreaUiSize();
-  return {
-    widthPct: ui.width / SHIRT_CONTAINER_WIDTH,
-    heightPct: ui.height / SHIRT_CONTAINER_HEIGHT,
-  };
+  return getPreviewPrintAreaContainerPct();
 }
 
 export function getShirtContainerAspectRatio(): string {
-  return `${SHIRT_CONTAINER_WIDTH} / ${SHIRT_CONTAINER_HEIGHT}`;
+  return getPreviewContainerAspectRatio();
 }
 
 export function getShirtContainerWidthOverHeight(): number {
-  return SHIRT_CONTAINER_WIDTH / SHIRT_CONTAINER_HEIGHT;
+  return getPreviewContainerWidthOverHeight();
 }
 
-/**
- * print area 樣式：固定 35×50 cm 視覺尺寸 + PRINT_REFERENCE 定位。
- * size / side 保留參數以相容既有呼叫，不影響結果。
- */
 export function getPrintAreaContainerStyle(
-  _side: "front" | "back" = "front",
+  side: PrintReferenceSide = "front",
+  options?: PreviewPrintPositionOptions,
 ): PrintAreaContainerStyle {
-  const { widthPct, heightPct } = getFixedPrintAreaContainerPct();
-
-  return {
-    left: `${PRINT_REFERENCE.x * 100}%`,
-    top: `${PRINT_REFERENCE.y * 100}%`,
-    transform: PRINT_REFERENCE_TRANSFORM,
-    width: `${widthPct * 100}%`,
-    height: `${heightPct * 100}%`,
-  };
+  return getUiPrintAreaContainerStyle("editor", side, options);
 }
 
-/** @deprecated 尺碼不再影響印刷區；回傳固定 UI 比例 */
 export function getVisualPrintScale(_size?: ApparelSize): PrintScale {
   return getFixedPrintAreaContainerPct();
 }
 
-/** @deprecated 尺碼不再影響印刷區 */
 export function getPrintScale(_size?: ApparelSize): PrintScale {
   return getFixedPrintAreaContainerPct();
 }
 
-/** @deprecated 尺碼不再影響印刷區 */
 export function getBaselineNaturalPrintScale(): PrintScale {
   return getFixedPrintAreaContainerPct();
 }
 
-/** @deprecated 尺碼不再影響印刷區 */
 export function getPrintAreaVisualAreaRatio(_size?: ApparelSize): number {
   const { widthPct, heightPct } = getFixedPrintAreaContainerPct();
   return widthPct * heightPct;
 }
 
-/** @deprecated 各尺碼印刷區面積相同 */
 export function getPrintScaleRankOrder(): ApparelSize[] {
   return [...APPAREL_SIZES];
 }
 
-/** @deprecated 請用 getShirtContainerAspectRatio */
 export function getUiMockupAspectRatio(): string {
   return getShirtContainerAspectRatio();
 }
 
-/** @deprecated 請用 getShirtContainerWidthOverHeight */
 export function getUiMockupWidthOverHeight(): number {
   return getShirtContainerWidthOverHeight();
 }
 
-/** @deprecated 請用 getPrintAreaContainerStyle() */
 export function getPrintAreaUiContainerStyle(): PrintAreaContainerStyle {
   return getPrintAreaContainerStyle();
 }

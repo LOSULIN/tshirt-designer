@@ -3,18 +3,17 @@
  * 不修改 print area 或 shirt scale 系統。
  */
 
-import { DESIGN_SAFE_MARGIN } from "./constants";
 import {
   getLayerEffectiveCmRect,
   getPrintAreaCmBounds,
   type LayerCmRect,
   type PrintAreaCmBounds,
 } from "./design-cm";
+import { getPrintSafeAreaCm, PRINT_SAFE_AREA_SPEC } from "./printArea";
 import { getRotatedAabb } from "./geometry";
-import { measureTextBoundsCm } from "./text-layer";
 import type { DesignLayer } from "./types";
 
-export const DESIGN_SAFE_ZONE_SCALE = 1 - DESIGN_SAFE_MARGIN * 2;
+export const DESIGN_SAFE_ZONE_SCALE = 1 - PRINT_SAFE_AREA_SPEC.marginRatio * 2;
 
 export type LayerInspectorStatus = "ok" | "warning";
 
@@ -45,32 +44,11 @@ export interface LayerInspectorReport {
 export function getDesignSafeZoneCm(
   printArea: PrintAreaCmBounds = getPrintAreaCmBounds(),
 ): LayerCmRect {
-  const insetX = printArea.width * DESIGN_SAFE_MARGIN;
-  const insetY = printArea.height * DESIGN_SAFE_MARGIN;
-  return {
-    x_cm: insetX,
-    y_cm: insetY,
-    width_cm: printArea.width * DESIGN_SAFE_ZONE_SCALE,
-    height_cm: printArea.height * DESIGN_SAFE_ZONE_SCALE,
-  };
+  return getPrintSafeAreaCm(printArea);
 }
 
+/** Inspector／export 與 Canvas 共用 getLayerEffectiveCmRect（文字 bounds 由 fitTextLayer 寫入） */
 export function getLayerInspectorCmRect(layer: DesignLayer): LayerCmRect {
-  if (layer.type === "text") {
-    const fontSize_cm = layer.fontSize_cm * layer.scale;
-    const { width_cm, height_cm } = measureTextBoundsCm(
-      layer.text,
-      fontSize_cm,
-      layer.fontFamily,
-      layer.fontWeight,
-    );
-    return {
-      x_cm: layer.x_cm,
-      y_cm: layer.y_cm,
-      width_cm,
-      height_cm,
-    };
-  }
   return getLayerEffectiveCmRect(layer);
 }
 

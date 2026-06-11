@@ -1,10 +1,15 @@
 import { offsetLayerCmRect, readLayerCmRect } from "./design-cm";
-import { MAX_IMAGES_PER_SIDE, MAX_TEXT_LAYERS } from "./constants";
+import {
+  MAX_IMAGES_PER_SIDE,
+  MAX_SHAPE_LAYERS,
+  MAX_TEXT_LAYERS,
+} from "./constants";
 import type {
   DesignConfig,
   DesignLayer,
   ImageDesignLayer,
   LayerMeta,
+  ShapeDesignLayer,
   TextDesignLayer,
   TextLayer,
   UploadedDesignImage,
@@ -24,7 +29,10 @@ export function getNextZIndex(layers: DesignLayer[]): number {
   return Math.max(...layers.map((l) => l.zIndex)) + 1;
 }
 
-export function countLayersByType(layers: DesignLayer[], type: "image" | "text") {
+export function countLayersByType(
+  layers: DesignLayer[],
+  type: "image" | "text" | "shape",
+) {
   return layers.filter((l) => l.type === type).length;
 }
 
@@ -36,6 +44,10 @@ export function canAddTextLayer(layers: DesignLayer[]): boolean {
   return countLayersByType(layers, "text") < MAX_TEXT_LAYERS;
 }
 
+export function canAddShapeLayer(layers: DesignLayer[]): boolean {
+  return countLayersByType(layers, "shape") < MAX_SHAPE_LAYERS;
+}
+
 export function imageLayerLimitMessage(): string {
   return `單面最多上傳 ${MAX_IMAGES_PER_SIDE} 張圖片`;
 }
@@ -44,9 +56,18 @@ export function textLayerLimitMessage(): string {
   return `最多新增 ${MAX_TEXT_LAYERS} 個文字圖層`;
 }
 
-export function defaultLayerName(layers: DesignLayer[], type: "image" | "text") {
+export function shapeLayerLimitMessage(): string {
+  return `最多新增 ${MAX_SHAPE_LAYERS} 個圖形圖層`;
+}
+
+export function defaultLayerName(
+  layers: DesignLayer[],
+  type: "image" | "text" | "shape",
+) {
   const n = countLayersByType(layers, type) + 1;
-  return type === "image" ? `圖片 ${n}` : `文字 ${n}`;
+  if (type === "image") return `圖片 ${n}`;
+  if (type === "shape") return `圖形 ${n}`;
+  return `文字 ${n}`;
 }
 
 export function reindexLayers(ordered: DesignLayer[]): DesignLayer[] {
@@ -83,6 +104,26 @@ export function moveLayerZIndex(
 
   next.splice(insertAt, 0, item);
   return reindexLayers(next);
+}
+
+export function duplicateShapeLayer(
+  layers: DesignLayer[],
+  layerId: string,
+): ShapeDesignLayer | null {
+  const source = layers.find(
+    (l): l is ShapeDesignLayer => l.id === layerId && l.type === "shape",
+  );
+  if (!source) return null;
+
+  const rect = offsetLayerCmRect(readLayerCmRect(source), 1.2, 1.2);
+
+  return {
+    ...source,
+    id: nanoid(),
+    name: `${source.name} 複本`,
+    zIndex: getNextZIndex(layers),
+    ...rect,
+  };
 }
 
 export function duplicateTextLayer(
@@ -177,6 +218,12 @@ export function textLayerToDesignLayer(
     color: layer.color,
     opacity: layer.opacity,
     fontWeight: layer.fontWeight,
+    fontStyle: "normal",
+    letterSpacing_cm: 0,
+    lineHeight: 1.3,
+    textAlign: "center",
+    stroke: null,
+    shadow: null,
   };
 }
 

@@ -6,7 +6,22 @@ export type {
   ProofOrderApplicant,
 } from "./types";
 
-export { generateProof } from "./generate-proof";
+export {
+  generateProof,
+  generateProofDocuments,
+  uploadSubmissionFiles,
+} from "./generate-proof";
+export {
+  buildOrderJson,
+  ORDER_JSON_FILENAME,
+  resolveOrderPrintMethod,
+  type OrderJsonDocument,
+} from "./order-json";
+export {
+  buildValidationReport,
+  VALIDATION_REPORT_FILENAME,
+  type ValidationReport,
+} from "./validation-report";
 export { generateProofArtifacts } from "./generate-artifacts";
 export {
   buildProofOrder,

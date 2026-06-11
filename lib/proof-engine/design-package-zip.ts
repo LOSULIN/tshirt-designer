@@ -3,11 +3,15 @@
  */
 
 import JSZip from "jszip";
+import { serializeOrderJson, type OrderJsonDocument } from "./order-json";
+import { serializeValidationReport, type ValidationReport } from "./validation-report";
 import { PROOF_STORAGE_FILES } from "./types";
 
 export interface DesignPackageZipInput {
   submissionNo: string;
   proofPdf: Buffer;
+  orderJson: OrderJsonDocument;
+  validationReport: ValidationReport;
   mockupFront?: Buffer;
   mockupBack?: Buffer;
   printFront?: Buffer;
@@ -22,6 +26,11 @@ export async function buildDesignPackageZip(
   const { submissionNo } = input;
 
   zip.file(`${submissionNo}-proof.pdf`, input.proofPdf);
+  zip.file(PROOF_STORAGE_FILES.orderJson, serializeOrderJson(input.orderJson));
+  zip.file(
+    PROOF_STORAGE_FILES.validationReport,
+    serializeValidationReport(input.validationReport),
+  );
 
   if (input.mockupFront?.length) {
     zip.file(PROOF_STORAGE_FILES.mockupFront, input.mockupFront);

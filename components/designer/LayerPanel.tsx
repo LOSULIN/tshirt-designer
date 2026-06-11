@@ -75,7 +75,12 @@ export function LayerPanel({
           {panelLayers.map((layer) => {
             const report = getReport(layer.id);
             if (!report) return null;
-            const typeLabel = layer.type === "image" ? "圖片" : "文字";
+            const typeLabel =
+              layer.type === "image"
+                ? "圖片"
+                : layer.type === "shape"
+                  ? "圖形"
+                  : "文字";
 
             return (
               <LayerInspectorCard

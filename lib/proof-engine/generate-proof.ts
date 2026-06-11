@@ -4,6 +4,8 @@
  */
 
 import { buildDesignPackageZip } from "./design-package-zip";
+import { buildOrderJson, serializeOrderJson } from "./order-json";
+import { buildValidationReport } from "./validation-report";
 import { generateProofPdf } from "./generators/proof-pdf-generator";
 import {
   buildOrderProofPdfFilename,
@@ -13,6 +15,7 @@ import {
   uploadOrderFile,
 } from "./storage-manager";
 import { sendSubmissionAdminEmail, type ProofEmailResult } from "./proof-email";
+import type { SubmitTiming } from "./submit-timing";
 import type {
   ProofArtifactsInput,
   ProofEngineContext,
@@ -31,21 +34,13 @@ export interface ProofGenerationResult {
   email: ProofEmailResult;
 }
 
-export async function generateProof(
-  order: ProofOrder,
-  version: number,
-  artifacts: ProofArtifactsInput,
+/** 同步階段：上傳申請原始檔與客戶端產生的 mockup / print 圖。 */
+export async function uploadSubmissionFiles(
   ctx: ProofEngineContext,
+  submissionNo: string,
   internalFiles: ProofInternalFiles,
-): Promise<ProofGenerationResult> {
-  if (!order.submission_no) {
-    throw new Error("generateProof 需要 submission_no");
-  }
-
-  const createdAt = order.created_at ?? new Date().toISOString();
-  const submissionNo = order.submission_no;
-  const storagePath = buildOrderStoragePath(submissionNo);
-
+  artifacts: ProofArtifactsInput,
+): Promise<void> {
   await uploadOrderFile(
     ctx,
     submissionNo,
@@ -74,16 +69,104 @@ export async function generateProof(
     );
   }
 
+  if (internalFiles.original) {
+    await uploadOrderFile(
+      ctx,
+      submissionNo,
+      internalFiles.original.filename,
+      internalFiles.original.buffer,
+      "image/png",
+    );
+  }
+
+  const artifactUploads: Promise<string>[] = [];
+
+  if (artifacts.mockups.front?.length) {
+    artifactUploads.push(
+      uploadOrderFile(
+        ctx,
+        submissionNo,
+        PROOF_STORAGE_FILES.mockupFront,
+        bufferFrom(artifacts.mockups.front),
+        "image/png",
+      ),
+    );
+  }
+
+  if (artifacts.mockups.back?.length) {
+    artifactUploads.push(
+      uploadOrderFile(
+        ctx,
+        submissionNo,
+        PROOF_STORAGE_FILES.mockupBack,
+        bufferFrom(artifacts.mockups.back),
+        "image/png",
+      ),
+    );
+  }
+
+  if (artifacts.prints.front?.length) {
+    artifactUploads.push(
+      uploadOrderFile(
+        ctx,
+        submissionNo,
+        PROOF_STORAGE_FILES.printFront,
+        bufferFrom(artifacts.prints.front),
+        "image/png",
+      ),
+    );
+  }
+
+  if (artifacts.prints.back?.length) {
+    artifactUploads.push(
+      uploadOrderFile(
+        ctx,
+        submissionNo,
+        PROOF_STORAGE_FILES.printBack,
+        bufferFrom(artifacts.prints.back),
+        "image/png",
+      ),
+    );
+  }
+
+  await Promise.all(artifactUploads);
+}
+
+/** 背景階段：PDF、ZIP、簽章連結、管理員通知信。 */
+export async function generateProofDocuments(
+  order: ProofOrder,
+  version: number,
+  artifacts: ProofArtifactsInput,
+  ctx: ProofEngineContext,
+  internalFiles: ProofInternalFiles,
+  timing?: SubmitTiming,
+): Promise<ProofGenerationResult> {
+  if (!order.submission_no) {
+    throw new Error("generateProofDocuments 需要 submission_no");
+  }
+
+  const createdAt = order.created_at ?? new Date().toISOString();
+  const submissionNo = order.submission_no;
+  const storagePath = buildOrderStoragePath(submissionNo);
+
+  timing?.mark("generateMockup");
+
   const proofPdfBytes = await generateProofPdf({
     order,
     version,
     mockupImages: artifacts.mockups,
   });
+  timing?.mark("generatePdf");
   const proofPdf = bufferFrom(proofPdfBytes);
+
+  const validationReport = buildValidationReport(order, createdAt);
+  const orderJson = buildOrderJson(order, version, validationReport);
 
   const zipBuffer = await buildDesignPackageZip({
     submissionNo,
     proofPdf,
+    orderJson,
+    validationReport,
     mockupFront: artifacts.mockups.front
       ? bufferFrom(artifacts.mockups.front)
       : undefined,
@@ -98,6 +181,7 @@ export async function generateProof(
       : undefined,
     original: internalFiles.original,
   });
+  timing?.mark("generateZip");
 
   const proofPdfFilename = buildOrderProofPdfFilename(submissionNo);
   const zipFilename = buildOrderZipFilename(submissionNo);
@@ -140,7 +224,45 @@ export async function generateProof(
     "application/json",
   );
 
+  await uploadOrderFile(
+    ctx,
+    submissionNo,
+    PROOF_STORAGE_FILES.orderJson,
+    serializeOrderJson(orderJson),
+    "application/json",
+  );
+
+  timing?.mark("uploadProofFiles");
+
   const email = await sendSubmissionAdminEmail({ order, proofPackage });
+  timing?.mark("sendEmail");
 
   return { package: proofPackage, email };
+}
+
+/** 完整同步流程（測試／腳本用）。 */
+export async function generateProof(
+  order: ProofOrder,
+  version: number,
+  artifacts: ProofArtifactsInput,
+  ctx: ProofEngineContext,
+  internalFiles: ProofInternalFiles,
+): Promise<ProofGenerationResult> {
+  if (!order.submission_no) {
+    throw new Error("generateProof 需要 submission_no");
+  }
+
+  await uploadSubmissionFiles(
+    ctx,
+    order.submission_no,
+    internalFiles,
+    artifacts,
+  );
+  return generateProofDocuments(
+    order,
+    version,
+    artifacts,
+    ctx,
+    internalFiles,
+  );
 }

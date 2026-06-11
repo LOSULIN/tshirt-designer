@@ -18,20 +18,26 @@ import {
   hasDesignInSlot,
 } from "../../design-state";
 import { buildLiveDesignState } from "../../live-design-state";
-import { PRINT_COLLAR_OFFSET_CM, PRINT_AREA } from "../../printArea";
+import { MOCKUP_FLAT_CONTAINER } from "../../coordinates/mockup";
+import { getProductionPrintAreaCm } from "../../coordinates/production";
+import { getPrintExportDimensionsPx } from "../../print-export-system";
+import { PRINT_COLLAR_OFFSET_CM } from "../../printArea";
 import {
   getPrintAreaRectInContainerPx,
   MOCKUP_EXPORT_SCALE,
 } from "../../mockup-export";
-import { SHIRT_CONTAINER_HEIGHT, SHIRT_CONTAINER_WIDTH } from "../../printArea";
 import { getShirtColorName } from "../../shirt-template";
 import { embedPdfCjkFonts } from "../../pdf-fonts";
+import { buildArtworkValidationSummary } from "../artwork-validation-summary";
 import type { ProofOrder } from "../types";
+import { PROOF_STORAGE_FILES } from "../types";
 
 export const FACTORY_PROOF_A4_WIDTH_PT = 595.28;
 export const FACTORY_PROOF_A4_HEIGHT_PT = 841.89;
 export const FACTORY_PROOF_DPI = 300;
 export const FACTORY_PROOF_TOLERANCE_CM = 0.3;
+
+const PRODUCTION_PRINT_AREA_CM = getProductionPrintAreaCm();
 
 const MARGIN = 40;
 const FOOTER_H = 28;
@@ -81,6 +87,68 @@ function resolveFabricLabel(order: ProofOrder): string {
     MATERIAL_OPTIONS.find((m) => m.id === material)?.label ??
     MATERIAL_OPTIONS[0].label
   );
+}
+
+type FactoryPrintMethod = "DTF" | "DTG";
+
+function resolvePrimaryArtworkSide(order: ProofOrder): Side {
+  if (
+    hasDesignInSlot(order.layers_by_template, order.gender, order.active_side)
+  ) {
+    return order.active_side;
+  }
+
+  for (const side of DESIGN_SIDES) {
+    if (hasDesignInSlot(order.layers_by_template, order.gender, side)) {
+      return side;
+    }
+  }
+
+  return order.active_side;
+}
+
+function resolvePrintMethod(order: ProofOrder): FactoryPrintMethod {
+  const raw = order.design_meta?.printMethod;
+  if (raw === "DTF" || raw === "DTG") {
+    return raw;
+  }
+
+  const side = resolvePrimaryArtworkSide(order);
+  const layers = getLayersForSlot(
+    order.layers_by_template,
+    order.gender,
+    side,
+  );
+  return layers.some((layer) => layer.type === "image") ? "DTF" : "DTG";
+}
+
+function resolveArtworkFileNames(order: ProofOrder): string {
+  const files: string[] = [];
+
+  for (const side of DESIGN_SIDES) {
+    if (!hasDesignInSlot(order.layers_by_template, order.gender, side)) {
+      continue;
+    }
+    files.push(
+      side === "front"
+        ? PROOF_STORAGE_FILES.printFront
+        : PROOF_STORAGE_FILES.printBack,
+    );
+  }
+
+  if (files.length === 0) {
+    const side = resolvePrimaryArtworkSide(order);
+    return side === "front"
+      ? PROOF_STORAGE_FILES.printFront
+      : PROOF_STORAGE_FILES.printBack;
+  }
+
+  return files.join(", ");
+}
+
+function formatArtworkPixelSize(): string {
+  const { widthPx, heightPx } = getPrintExportDimensionsPx();
+  return `${widthPx} × ${heightPx} px`;
 }
 
 function toPngBuffer(bytes: Uint8Array | Buffer): Buffer {
@@ -245,8 +313,8 @@ function drawPrintAreaBoundingBox(
   ctx: PageContext,
   imageLayout: { x: number; y: number; drawW: number; drawH: number },
 ) {
-  const containerW = SHIRT_CONTAINER_WIDTH * MOCKUP_EXPORT_SCALE;
-  const containerH = SHIRT_CONTAINER_HEIGHT * MOCKUP_EXPORT_SCALE;
+  const containerW = MOCKUP_FLAT_CONTAINER.width * MOCKUP_EXPORT_SCALE;
+  const containerH = MOCKUP_FLAT_CONTAINER.height * MOCKUP_EXPORT_SCALE;
   const printRect = getPrintAreaRectInContainerPx(containerW, containerH);
 
   const relLeft = printRect.left / containerW;
@@ -270,7 +338,7 @@ function drawPrintAreaBoundingBox(
     borderWidth: 1.5,
   });
 
-  const label = `PRINT AREA ${PRINT_AREA.widthCm} x ${PRINT_AREA.heightCm} cm`;
+  const label = `PRINT AREA ${PRODUCTION_PRINT_AREA_CM.width} x ${PRODUCTION_PRINT_AREA_CM.height} cm`;
   page.drawText(label, {
     x: boxX,
     y: boxY + boxH + 4,
@@ -330,7 +398,50 @@ async function drawMockupPage(
   void order;
 }
 
-type FactoryPageType = "overview" | "mockup" | "technical" | "notes";
+function drawArtworkValidationPage(
+  ctx: PageContext,
+  order: ProofOrder,
+  colors: { success: RGB; error: RGB },
+) {
+  const summary = buildArtworkValidationSummary(order);
+
+  drawPageTitle(
+    ctx,
+    "ARTWORK VALIDATION",
+    "Automated artwork checks before production",
+  );
+
+  let y = FACTORY_PROOF_A4_HEIGHT_PT - MARGIN - HEADER_H - 48;
+
+  if (!summary.allPassed) {
+    ctx.page.drawText("✗ Validation Failed", {
+      x: MARGIN,
+      y,
+      size: 14,
+      font: ctx.fonts.bold,
+      color: colors.error,
+    });
+    return;
+  }
+
+  for (const check of summary.checks) {
+    ctx.page.drawText(`✓ ${check.label}`, {
+      x: MARGIN,
+      y,
+      size: 11,
+      font: ctx.fonts.regular,
+      color: colors.success,
+    });
+    y -= 24;
+  }
+}
+
+type FactoryPageType =
+  | "overview"
+  | "mockup"
+  | "technical"
+  | "validation"
+  | "notes";
 
 function buildPagePlan(
   order: ProofOrder,
@@ -354,6 +465,7 @@ function buildPagePlan(
     "overview",
     ...mockupSides.map(() => "mockup" as const),
     "technical",
+    "validation",
     "notes",
   ];
 
@@ -379,6 +491,8 @@ export async function generateFactoryProofPdf(
   const gray = rgb(0.45, 0.45, 0.45);
   const accent = rgb(0.12, 0.35, 0.75);
   const border = rgb(0.78, 0.78, 0.78);
+  const validationSuccess = rgb(0.12, 0.48, 0.24);
+  const validationError = rgb(0.72, 0.14, 0.14);
 
   const garmentState = buildLiveDesignState(
     getLayersForSlot(order.layers_by_template, order.gender, order.active_side),
@@ -448,7 +562,7 @@ export async function generateFactoryProofPdf(
         [
           {
             label: "PRINT AREA",
-            value: `${formatCm(PRINT_AREA.widthCm, 0)} x ${formatCm(PRINT_AREA.heightCm, 0)}`,
+            value: `${formatCm(PRODUCTION_PRINT_AREA_CM.width, 0)} x ${formatCm(PRODUCTION_PRINT_AREA_CM.height, 0)}`,
           },
           {
             label: "OUTPUT DPI",
@@ -461,6 +575,26 @@ export async function generateFactoryProofPdf(
           {
             label: "ACTIVE SIDE",
             value: order.active_side.toUpperCase(),
+          },
+          {
+            label: "PRINT METHOD",
+            value: resolvePrintMethod(order),
+          },
+          {
+            label: "ARTWORK FILE",
+            value: resolveArtworkFileNames(order),
+          },
+          {
+            label: "PIXEL SIZE",
+            value: formatArtworkPixelSize(),
+          },
+          {
+            label: "COLOR MODE",
+            value: "RGB",
+          },
+          {
+            label: "BACKGROUND",
+            value: "Transparent",
           },
         ],
         2,
@@ -515,7 +649,7 @@ export async function generateFactoryProofPdf(
           [
             {
               label: "PRINT AREA SIZE",
-              value: `${formatCm(PRINT_AREA.widthCm, 0)} x ${formatCm(PRINT_AREA.heightCm, 0)}`,
+              value: `${formatCm(PRODUCTION_PRINT_AREA_CM.width, 0)} x ${formatCm(PRODUCTION_PRINT_AREA_CM.height, 0)}`,
             },
             {
               label: "FROM NECKLINE (TOP)",
@@ -562,6 +696,13 @@ export async function generateFactoryProofPdf(
         y -= 12;
         if (y < 120) break;
       }
+    }
+
+    if (pageType === "validation") {
+      drawArtworkValidationPage(ctx, order, {
+        success: validationSuccess,
+        error: validationError,
+      });
     }
 
     if (pageType === "notes") {

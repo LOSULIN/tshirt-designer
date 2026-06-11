@@ -8,6 +8,10 @@ import {
 } from "@/lib/constants";
 import { getLayersForSlot } from "@/lib/design-state";
 import { getExportDimensions } from "@/lib/print-area";
+import {
+  DEFAULT_PRINT_MODE,
+  type PreviewPrintPositionMode,
+} from "@/lib/printArea";
 import type { DesignLayersByTemplate } from "@/lib/types";
 import { ModelDesignPreview } from "./ModelDesignPreview";
 
@@ -17,6 +21,7 @@ export function DesignReviewModal({
   shirtColor,
   size,
   layersByTemplate,
+  previewPrintPositionMode = DEFAULT_PRINT_MODE,
   onClose,
 }: {
   open: boolean;
@@ -24,6 +29,7 @@ export function DesignReviewModal({
   shirtColor: ShirtColor;
   size: Size;
   layersByTemplate: DesignLayersByTemplate;
+  previewPrintPositionMode?: PreviewPrintPositionMode;
   onClose: () => void;
 }) {
   const frontLayers = getLayersForSlot(layersByTemplate, gender, "front");
@@ -83,6 +89,7 @@ export function DesignReviewModal({
                   shirtColor={shirtColor}
                   size={size}
                   layers={frontLayers}
+                  previewPrintPositionMode={previewPrintPositionMode}
                 />
               </div>
             </div>
@@ -97,6 +104,7 @@ export function DesignReviewModal({
                   shirtColor={shirtColor}
                   size={size}
                   layers={backLayers}
+                  previewPrintPositionMode={previewPrintPositionMode}
                 />
               </div>
             </div>

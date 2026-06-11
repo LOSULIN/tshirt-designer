@@ -38,7 +38,7 @@
 npm run check:templates
 ```
 
-確認 `adult-tshirt-front.png`、`adult-tshirt-back.png` 皆為 **1024×1536 px** 且檔名正確。
+確認 `adult-tshirt-{color}-front.png` / `back.png`（10 色）皆為 **1024×1536 px**，並執行 `npm run check:template-alignment` 檢查印刷區對位。
 
 ## 快速開始
 

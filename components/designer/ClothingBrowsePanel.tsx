@@ -7,6 +7,7 @@ import {
   type Side,
   type Size,
 } from "@/lib/constants";
+import { DEFAULT_PRINT_MODE, type PreviewPrintPositionMode } from "@/lib/printArea";
 import type { DesignLayer } from "@/lib/types";
 import { FlatShirtDesignView } from "./FlatShirtDesignView";
 
@@ -17,6 +18,7 @@ export function ClothingBrowsePanel({
   shirtColor,
   size,
   layers,
+  previewPrintPositionMode = DEFAULT_PRINT_MODE,
   onExpand,
 }: {
   gender: Gender;
@@ -24,6 +26,7 @@ export function ClothingBrowsePanel({
   shirtColor: ShirtColor;
   size: Size;
   layers: DesignLayer[];
+  previewPrintPositionMode?: PreviewPrintPositionMode;
   onExpand: () => void;
 }) {
   const sideLabel = side === "front" ? "正面" : "背面";
@@ -48,6 +51,7 @@ export function ClothingBrowsePanel({
             shirtColor={shirtColor}
             size={size}
             layers={layers}
+            previewPrintPositionMode={previewPrintPositionMode}
             compact
           />
         </div>

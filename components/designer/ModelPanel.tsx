@@ -1,5 +1,10 @@
 "use client";
 
+/**
+ * 模特選擇面板 — 邏輯完整保留，暫由 GarmentInfoPanel 取代右側 UI。
+ * 恢復：DesignerApp 改回 ModelPanel，並將 ui-visibility.showModelPanel 設為 true。
+ */
+
 import { useState } from "react";
 import type { Gender, ModelType, Side, SizeSuggestion } from "@/lib/constants";
 import { TemplateImage } from "./TemplateImage";

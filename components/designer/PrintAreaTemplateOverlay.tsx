@@ -3,7 +3,7 @@
 import { ADULT_UNISEX_PRINT_SPEC } from "@/lib/print-area";
 import {
   getPrintAreaContainerStyle,
-  PRINT_REFERENCE,
+  getPrintReference,
 } from "@/lib/printArea";
 import type { ApparelSize } from "@/lib/sizes";
 import type { Side } from "@/lib/constants";
@@ -23,10 +23,11 @@ export function PrintAreaTemplateOverlay({
   showScaleInfo?: boolean;
 }) {
   const containerStyle = getPrintAreaContainerStyle(side);
+  const ref = getPrintReference(side);
   const boxWidth = parseFloat(containerStyle.width);
   const boxHeight = parseFloat(containerStyle.height);
-  const centerX = PRINT_REFERENCE.x * 100;
-  const centerY = PRINT_REFERENCE.y * 100;
+  const centerX = ref.x * 100;
+  const centerY = ref.y * 100;
   const boxLeft = centerX - boxWidth / 2;
   const boxTop = centerY - boxHeight / 2;
 
@@ -75,7 +76,7 @@ export function PrintAreaTemplateOverlay({
             fontWeight={600}
             dominantBaseline="middle"
           >
-            ref ({PRINT_REFERENCE.x}, {PRINT_REFERENCE.y})
+            ref ({ref.x}, {ref.y})
           </text>
         </>
       )}

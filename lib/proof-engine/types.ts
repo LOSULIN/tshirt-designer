@@ -61,6 +61,8 @@ export const PROOF_STORAGE_FILES = {
   printFront: "print-front.png",
   printBack: "print-back.png",
   proofPackage: "proof-package.json",
+  orderJson: "order.json",
+  validationReport: "validation-report.json",
   designJson: "design.json",
   textsJson: "texts.json",
   applicantJson: "applicant.json",

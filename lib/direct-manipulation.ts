@@ -2,6 +2,8 @@
  * Direct manipulation：corner resize 幾何（cm 空間，支援旋轉）
  */
 
+import { clampRasterResizeRect } from "./image-print-quality";
+
 export type ResizeCorner = "nw" | "ne" | "sw" | "se";
 export type ResizeEdge = "n" | "e" | "s" | "w";
 export type ResizeHandle = ResizeCorner | ResizeEdge;
@@ -237,11 +239,25 @@ export function computeHandleResizeCm(
     minWidth?: number;
     minHeight?: number;
     lockAspect?: boolean;
+    maxWidth_cm?: number;
+    maxHeight_cm?: number;
   },
 ): { x: number; y: number; width: number; height: number } {
-  const { handle, lockAspect = true, ...rest } = params;
-  if (handle === "n" || handle === "e" || handle === "s" || handle === "w") {
-    return computeEdgeResizeCm({ edge: handle, ...rest });
+  const {
+    handle,
+    lockAspect = true,
+    maxWidth_cm,
+    maxHeight_cm,
+    ...rest
+  } = params;
+  const raw =
+    handle === "n" || handle === "e" || handle === "s" || handle === "w"
+      ? computeEdgeResizeCm({ edge: handle, ...rest })
+      : computeCornerResizeCm({ corner: handle, lockAspect, ...rest });
+
+  if (maxWidth_cm == null || maxHeight_cm == null) {
+    return raw;
   }
-  return computeCornerResizeCm({ corner: handle, lockAspect, ...rest });
+
+  return clampRasterResizeRect(raw, maxWidth_cm, maxHeight_cm);
 }
