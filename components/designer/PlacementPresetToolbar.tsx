@@ -7,15 +7,17 @@ import {
 } from "@/lib/placement-presets";
 
 const buttonClass =
-  "shrink-0 rounded border border-zinc-300 bg-white px-2 py-1 text-[10px] font-medium text-zinc-700 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40";
+  "shrink-0 rounded border px-2 py-1 text-[10px] font-medium disabled:cursor-not-allowed disabled:opacity-40";
 
 export function PlacementPresetToolbar({
   side,
   disabled,
+  activePresetId = null,
   onApplyPreset,
 }: {
   side: Side;
   disabled: boolean;
+  activePresetId?: PlacementPresetId | null;
   onApplyPreset: (presetId: PlacementPresetId) => void;
 }) {
   const presets = getPlacementPresetsForSide(side);
@@ -27,22 +29,30 @@ export function PlacementPresetToolbar({
     >
       <span className="shrink-0 text-[10px] font-medium text-zinc-500">版型</span>
       <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
-        {presets.map((preset) => (
-          <button
-            key={preset.id}
-            type="button"
-            disabled={disabled}
-            title={`${preset.label} · ${preset.width_cm}×${preset.height_cm} cm`}
-            aria-label={`套用版型：${preset.label}`}
-            className={buttonClass}
-            onClick={() => onApplyPreset(preset.id)}
-          >
-            {preset.shortLabel}
-          </button>
-        ))}
+        {presets.map((preset) => {
+          const isActive = activePresetId === preset.id;
+          return (
+            <button
+              key={preset.id}
+              type="button"
+              disabled={disabled}
+              title={`${preset.label} · ${preset.width_cm}×${preset.height_cm} cm`}
+              aria-label={`套用版型：${preset.label}`}
+              aria-pressed={isActive}
+              className={`${buttonClass} ${
+                isActive
+                  ? "border-blue-500 bg-blue-50 text-blue-700"
+                  : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50"
+              }`}
+              onClick={() => onApplyPreset(preset.id)}
+            >
+              {preset.shortLabel}
+            </button>
+          );
+        })}
       </div>
       <span className="hidden shrink-0 text-[10px] text-zinc-400 lg:inline">
-        等比縮放至版型區
+        {activePresetId ? "已選版型，新增物件將套用模板尺寸" : "點選版型套用尺寸"}
       </span>
     </div>
   );

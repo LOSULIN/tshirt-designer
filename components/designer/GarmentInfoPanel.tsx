@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import type { Size, SizeSuggestion } from "@/lib/constants";
 import { SIZES } from "@/lib/constants";
 import { formatInspectorCm } from "@/lib/design-inspector";
-import { PRINT_AREA, getPrintSafeAreaCm } from "@/lib/printArea";
+import { getGarmentRecommendedPrintDisplayCm } from "@/lib/garment-print-config";
 import { getShirtScale } from "@/lib/shirtScale";
 import { getSizeMeasurement, toApparelSize } from "@/lib/sizes";
 import { TshirtSizeGuideModal } from "./TshirtSizeGuideModal";
@@ -26,6 +26,30 @@ function InfoRow({
       >
         {value}
       </dd>
+    </div>
+  );
+}
+
+function formatRecommendedPrintLabel(widthCm: number, heightCm: number): string {
+  return `${widthCm.toFixed(0)} × ${heightCm.toFixed(0)} cm`;
+}
+
+function RecommendedPrintSideBlock({
+  sideLabel,
+  widthCm,
+  heightCm,
+}: {
+  sideLabel: string;
+  widthCm: number;
+  heightCm: number;
+}) {
+  return (
+    <div className="space-y-0.5">
+      <p className="text-[11px] font-medium text-zinc-800">{sideLabel}</p>
+      <p className="text-[10px] text-zinc-500">建議印製區域</p>
+      <p className="font-mono text-[11px] font-medium tabular-nums text-zinc-900">
+        {formatRecommendedPrintLabel(widthCm, heightCm)}
+      </p>
     </div>
   );
 }
@@ -64,8 +88,14 @@ export function GarmentInfoPanel({
   const apparelSize = toApparelSize(size);
   const { chestCm, lengthCm } = getSizeMeasurement(apparelSize);
   const shirtScale = getShirtScale(size);
-  const safeZone = useMemo(() => getPrintSafeAreaCm(), []);
-  const safeZoneLabel = `${formatInspectorCm(safeZone.width_cm, 0)} × ${formatInspectorCm(safeZone.height_cm, 0)}`;
+  const frontRecommended = useMemo(
+    () => getGarmentRecommendedPrintDisplayCm("front", size),
+    [size],
+  );
+  const backRecommended = useMemo(
+    () => getGarmentRecommendedPrintDisplayCm("back", size),
+    [size],
+  );
 
   return (
     <aside className="flex w-64 shrink-0 flex-col border-l border-zinc-200 bg-white">
@@ -102,25 +132,33 @@ export function GarmentInfoPanel({
             <dl className="space-y-1.5">
               <InfoRow
                 label="胸寬"
-                value={`${formatInspectorCm(chestCm, 0)} cm`}
+                value={`${formatInspectorCm(chestCm, 0)}`}
               />
               <InfoRow
                 label="衣長"
-                value={`${formatInspectorCm(lengthCm, 0)} cm`}
-              />
-              <InfoRow
-                label="印刷區"
-                value={`${PRINT_AREA.widthCm} × ${PRINT_AREA.heightCm} cm`}
+                value={`${formatInspectorCm(lengthCm, 0)}`}
               />
               <InfoRow
                 label="Shirt scale"
                 value={shirtScale.toFixed(3)}
               />
-              <InfoRow label="安全區" value={safeZoneLabel} />
             </dl>
 
+            <div className="space-y-3 border-t border-zinc-200 pt-3">
+              <RecommendedPrintSideBlock
+                sideLabel="正面"
+                widthCm={frontRecommended.widthCm}
+                heightCm={frontRecommended.heightCm}
+              />
+              <RecommendedPrintSideBlock
+                sideLabel="背面"
+                widthCm={backRecommended.widthCm}
+                heightCm={backRecommended.heightCm}
+              />
+            </div>
+
             <p className="text-[10px] leading-relaxed text-zinc-500">
-              安全區為印刷區內縮 5% 邊距；設計元素建議置於安全區內。
+              真實穿著效果會因衣服版型、尺寸與人體曲線產生些微落差。
             </p>
           </div>
         </div>

@@ -19,6 +19,7 @@ import {
   getPreviewContainerAspectRatio,
   getPreviewContainerWidthOverHeight,
   getPreviewPrintAreaContainerPct,
+  getPreviewPrintAreaContainerPctForSide,
   getPreviewPrintAreaContainerStyle,
   getPreviewPrintReference,
   PREVIEW_CONTAINER,
@@ -40,11 +41,15 @@ import {
   getUiPrintAreaContainerStyle,
   type UiPrintAreaView,
 } from "./coordinates/ui-print-area";
+import {
+  PRINT_AREA_OFFSET_CM,
+  PRINT_COLLAR_OFFSET_CM,
+} from "./coordinates/print-area-offset";
 import { UI_GLOBAL_PRINT_OFFSET_Y_PX } from "./coordinates/ui-print-offset";
 
 export { getUiPrintAreaContainerStyle, type UiPrintAreaView };
 
-export { UI_GLOBAL_PRINT_OFFSET_Y_PX };
+export { UI_GLOBAL_PRINT_OFFSET_Y_PX, PRINT_COLLAR_OFFSET_CM, PRINT_AREA_OFFSET_CM };
 
 const productionCm = getProductionPrintAreaCm();
 
@@ -101,11 +106,6 @@ export function getPrintSafeAreaCm(
   };
 }
 
-export const PRINT_COLLAR_OFFSET_CM = {
-  front: 10,
-  back: 10,
-} as const;
-
 /** @deprecated 請用 getPreviewPrintReference */
 export const PRINT_REFERENCE_BY_SIDE = {
   get front() {
@@ -128,8 +128,11 @@ export const PRINT_REFERENCE = {
 
 export type PrintReferenceSide = (typeof PREVIEW_SIDES)[number];
 
-export function getPrintReference(side: PrintReferenceSide = "front") {
-  return getPreviewPrintReference(side);
+export function getPrintReference(
+  side: PrintReferenceSide = "front",
+  options?: PreviewPrintPositionOptions,
+) {
+  return getPreviewPrintReference(side, options);
 }
 
 export const PRINT_REFERENCE_TRANSFORM = PREVIEW_REFERENCE_TRANSFORM;
@@ -164,8 +167,10 @@ export function getFixedPrintAreaUiSize(): { width: number; height: number } {
   };
 }
 
-export function getFixedPrintAreaContainerPct(): PrintScale {
-  return getPreviewPrintAreaContainerPct();
+export function getFixedPrintAreaContainerPct(
+  side: PrintReferenceSide = "front",
+): PrintScale {
+  return getPreviewPrintAreaContainerPctForSide(side);
 }
 
 export function getShirtContainerAspectRatio(): string {

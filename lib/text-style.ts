@@ -1,6 +1,5 @@
 import type { CSSProperties } from "react";
-import { getPreviewPxPerCm } from "./coordinates/preview";
-import { cmToUiPx, uiPxToCm } from "./design-cm";
+import { getOverlayPxPerCm } from "./design-cm";
 import type { TextDesignLayer, TextFontFamily } from "./types";
 import { buildCanvasFont, resolveCssFontFamily } from "./text-layer";
 
@@ -106,15 +105,19 @@ export function measureRichTextBoundsCm(
   fontSize_cm = layer.fontSize_cm,
 ): { width_cm: number; height_cm: number } {
   const style = normalizeRichTextFields(layer);
-  const fontSizePx = cmToUiPx(fontSize_cm);
+  const pxPerCm = getOverlayPxPerCm();
+  const fontSizePx = fontSize_cm * pxPerCm;
   const lines = (layer.text || " ").split("\n");
-  const letterSpacingPx = cmToUiPx(style.letterSpacing_cm);
+  const letterSpacingPx = style.letterSpacing_cm * pxPerCm;
 
   if (typeof document === "undefined") {
     const maxLen = Math.max(...lines.map((l) => l.length), 1);
     return {
-      width_cm: Math.max(uiPxToCm(maxLen * fontSizePx * 0.55), fontSize_cm),
-      height_cm: uiPxToCm(fontSizePx * style.lineHeight * lines.length),
+      width_cm: Math.max(
+        (maxLen * fontSizePx * 0.55 + 12) / pxPerCm,
+        fontSize_cm,
+      ),
+      height_cm: (fontSizePx * style.lineHeight * lines.length) / pxPerCm,
     };
   }
 
@@ -143,8 +146,8 @@ export function measureRichTextBoundsCm(
 
   const lineHeightPx = fontSizePx * style.lineHeight;
   return {
-    width_cm: uiPxToCm(Math.ceil(maxWidthPx) + 12),
-    height_cm: uiPxToCm(Math.ceil(lineHeightPx * lines.length)),
+    width_cm: (Math.ceil(maxWidthPx) + 12) / pxPerCm,
+    height_cm: (Math.ceil(lineHeightPx * lines.length)) / pxPerCm,
   };
 }
 
@@ -157,7 +160,7 @@ export function getRichTextDomStyle(
   const stroke = style.stroke;
   const shadow = style.shadow;
 
-  const previewPx = (cm: number) => cm * getPreviewPxPerCm();
+  const previewPx = (cm: number) => cm * getOverlayPxPerCm();
 
   const textShadow = shadow
     ? `${previewPx(shadow.offsetX_cm)}px ${previewPx(shadow.offsetY_cm)}px ${previewPx(shadow.blur_cm)}px ${shadow.color}`

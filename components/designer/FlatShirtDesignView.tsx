@@ -12,7 +12,7 @@ import {
 } from "@/lib/constants";
 import {
   getLayerEffectiveCmRect,
-  getPrintAreaCmBounds,
+  getDesignerPrintAreaCmBounds,
   type PrintAreaCmBounds,
 } from "@/lib/design-cm";
 import {
@@ -206,7 +206,7 @@ export function FlatShirtDesignView({
   const rib = isLight ? "#e4e4e7" : shadeHex(fill, -18);
 
   const visibleLayers = sortLayersByZIndex(layers).filter((l) => l.visible);
-  const printArea = getPrintAreaCmBounds();
+  const printArea = getDesignerPrintAreaCmBounds(side);
   const printAreaStyle = getPrintAreaContainerStyle(side, {
     mode: resolvePreviewPrintPositionMode(previewPrintPositionMode),
     size,

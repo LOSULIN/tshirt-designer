@@ -1,8 +1,7 @@
 /**
  * Preview 印刷區定位模式
  * ─────────────────────
- * - canvas：固定 ref.y / UI offset（既有邏輯，預設）
- * - garment：領口下緣 + 尺碼縮放後 8cm（僅 UI 框線）
+ * - canvas / garment：皆走 print-area-offset（領口錨點 + PRINT_AREA_OFFSET_CM）
  *
  * 不影響 Production mm、工廠匯出、mockup PNG 匯出。
  */
@@ -11,7 +10,7 @@ import type { ApparelSize } from "../sizes";
 
 export type PreviewPrintPositionMode = "canvas" | "garment";
 
-/** 系統預設：garment-relative（領口下 8cm · 隨尺碼 scale） */
+/** 系統預設：garment-relative（領口 + offset cm · 隨尺碼 scale） */
 export const DEFAULT_PRINT_MODE: PreviewPrintPositionMode = "garment";
 
 /** @deprecated 請用 DEFAULT_PRINT_MODE */

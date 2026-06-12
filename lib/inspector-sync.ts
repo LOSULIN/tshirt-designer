@@ -2,7 +2,7 @@
  * Inspector ↔ Canvas 雙向同步 — cm 為唯一真實單位。
  */
 
-import { getLayerEffectiveCmRect } from "./design-cm";
+import { getLayerInspectorCmRect } from "./design-inspector";
 import type {
   DesignLayer,
   ImageDesignLayer,
@@ -44,7 +44,7 @@ export function getImageInspectorValues(layer: ImageDesignLayer): ImageInspector
 export function getScalableLayerInspectorValues(
   layer: ImageDesignLayer | ShapeDesignLayer,
 ): ImageInspectorValues {
-  const rect = getLayerEffectiveCmRect(layer);
+  const rect = getLayerInspectorCmRect(layer);
   return {
     width_cm: rect.width_cm,
     height_cm: rect.height_cm,

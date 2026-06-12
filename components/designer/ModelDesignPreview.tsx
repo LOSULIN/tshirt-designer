@@ -3,7 +3,8 @@
 import { getModelTemplateSrc, type ShirtColor } from "@/lib/constants";
 import {
   getLayerEffectiveCmRect,
-  getPrintAreaCmBounds,
+  getDesignerPrintAreaCmBounds,
+  type PrintAreaCmBounds,
 } from "@/lib/design-cm";
 import {
   DEFAULT_PRINT_MODE,
@@ -24,7 +25,7 @@ function StaticDesignLayer({
   printArea,
 }: {
   layer: DesignLayer;
-  printArea: ReturnType<typeof getPrintAreaCmBounds>;
+  printArea: PrintAreaCmBounds;
 }) {
   const rect = getLayerEffectiveCmRect(layer);
 
@@ -73,7 +74,7 @@ export function ModelDesignPreview({
 }) {
   const templateSrc = getModelTemplateSrc(gender, side);
   const visibleLayers = sortLayersByZIndex(layers).filter((l) => l.visible);
-  const printArea = getPrintAreaCmBounds();
+  const printArea = getDesignerPrintAreaCmBounds(side);
   const printAreaStyle = getUiPrintAreaContainerStyle("model", side, {
     mode: resolvePreviewPrintPositionMode(previewPrintPositionMode),
     size,

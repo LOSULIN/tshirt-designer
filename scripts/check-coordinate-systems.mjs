@@ -63,12 +63,12 @@ assert(
 );
 assert(
   preview.includes("getPreviewPrintAreaContainerStyle") &&
-    preview.includes("resolveUiPrintReference"),
-  "Preview overlay 使用 ui-print-offset",
+    preview.includes("getGarmentPrintReference"),
+  "Preview overlay 使用 garment 基準",
 );
 assert(
-  mockup.includes("resolveUiPrintReference"),
-  "Mockup overlay 使用 ui-print-offset",
+  mockup.includes("getGarmentPrintReference"),
+  "Mockup overlay 使用 garment 基準",
 );
 assert(!preview.includes("mmToExportPx"), "Preview 不直接匯出 px");
 mustNotImport(preview, ["mockup"], "Preview");

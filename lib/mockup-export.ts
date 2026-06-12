@@ -10,9 +10,11 @@ import {
   MOCKUP_FLAT_CONTAINER,
   productionRectToMockupCanvasPx,
 } from "./coordinates/mockup";
-import { readLayerProductionRectMm } from "./design-cm";
 import {
-  getProductionPrintAreaCm,
+  getOverlayPxPerCmFromPrintRect,
+  readLayerProductionRectMm,
+} from "./design-cm";
+import {
   getProductionPrintAreaMm,
   legacyCmFieldToMm,
 } from "./coordinates/production";
@@ -70,8 +72,7 @@ function drawDesignLayerOnMockup(
   layer: DesignLayer,
   printRect: MockupContainerRect,
 ) {
-  const printCm = getProductionPrintAreaCm();
-  const pxPerCm = printRect.width / printCm.width;
+  const pxPerCm = getOverlayPxPerCmFromPrintRect(printRect.width);
   const rect = getLayerInspectorCmRect(layer);
 
   ctx.save();

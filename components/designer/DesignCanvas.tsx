@@ -2,12 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlignmentToolbar } from "./AlignmentToolbar";
+import { PlacementPresetCalibrationPanel } from "./PlacementPresetCalibrationPanel";
 import { PlacementPresetToolbar } from "./PlacementPresetToolbar";
 import { CanvasInlineTextEditor } from "./CanvasInlineTextEditor";
 import { LayerFloatingControls } from "./LayerFloatingControls";
 import { getAdultTshirtTemplateSrc } from "@/lib/constants";
 import { getLayerEffectiveCmRect } from "@/lib/design-cm";
-import { getPrintAreaCmBounds } from "@/lib/design-cm";
+import { getTextLayerCmRect } from "@/lib/text-layer";
+import { getDesignerPrintAreaCmBounds } from "@/lib/design-cm";
 import {
   DEFAULT_PRINT_MODE,
   getFixedPrintAreaContainerPct,
@@ -50,7 +52,7 @@ import { ElementAlignmentGuides } from "./ElementAlignmentGuides";
 import {
   PrintAreaCenterGuides,
   PrintAreaGrid,
-  PrintSafeZoneGuide,
+  GarmentPrintSafeZoneGuide,
 } from "./PrintAreaGrid";
 import { PrintAreaDebugOverlay } from "./PrintAreaDebugOverlay";
 import {
@@ -115,6 +117,7 @@ export function DesignCanvas({
   onRotationChange,
   onAlignLayers,
   onApplyPlacementPreset,
+  activePlacementPresetId = null,
 }: {
   gender: Gender;
   shirtColor: ShirtColor;
@@ -146,6 +149,7 @@ export function DesignCanvas({
   onLayerResize: (
     id: string,
     next: { x_cm: number; y_cm: number; width_cm: number; height_cm: number },
+    lockAspect?: boolean,
   ) => void;
   onClearSelection: () => void;
   onFocusTextEditorConsumed: () => void;
@@ -183,6 +187,7 @@ export function DesignCanvas({
   onRotationChange: (id: string, rotation: number) => void;
   onAlignLayers: (axis: LayerAlignmentAxis) => void;
   onApplyPlacementPreset: (presetId: PlacementPresetId) => void;
+  activePlacementPresetId?: PlacementPresetId | null;
 }) {
   const [snapGuides, setSnapGuides] = useState<SnapGuidesState>(EMPTY_GUIDES);
   const alignGuideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -203,12 +208,15 @@ export function DesignCanvas({
   );
 
   const templateSrc = getAdultTshirtTemplateSrc(shirtColor, side);
-  const printArea = useMemo(() => getPrintAreaCmBounds(), []);
+  const printArea = useMemo(
+    () => getDesignerPrintAreaCmBounds(side),
+    [side],
+  );
   const printAreaStyle = useMemo(() => {
     const mode = resolvePreviewPrintPositionMode(previewPrintPositionMode);
     return getPrintAreaContainerStyle(side, { mode, size });
   }, [side, size, previewPrintPositionMode]);
-  const { widthPct, heightPct } = getFixedPrintAreaContainerPct();
+  const { widthPct, heightPct } = getFixedPrintAreaContainerPct(side);
   const visibleLayers = useMemo(
     () => getLayersForCanvasRender(layers).filter((l) => l.visible),
     [layers],
@@ -401,9 +409,18 @@ export function DesignCanvas({
 
         <PlacementPresetToolbar
           side={side}
-          disabled={isBusy || readOnly || selectedIds.length === 0}
+          disabled={isBusy || readOnly}
+          activePresetId={activePlacementPresetId}
           onApplyPreset={onApplyPlacementPreset}
         />
+
+        {debugPrintArea && (
+          <PlacementPresetCalibrationPanel
+            side={side}
+            size={size}
+            selectedLayer={primaryLayer}
+          />
+        )}
 
         <div className="flex min-h-0 flex-1 overflow-hidden bg-zinc-100">
           {UI_VISIBILITY.showCanvasInfoPanel && (
@@ -466,7 +483,7 @@ export function DesignCanvas({
                   onClearSelection();
                 }}
               >
-              <PrintSafeZoneGuide />
+              <GarmentPrintSafeZoneGuide side={side} size={size} />
               <PrintAreaGrid visible={showGrid} printArea={printArea} />
 
               {visibleLayers.map((layer) => {
@@ -478,7 +495,10 @@ export function DesignCanvas({
                   !layer.locked &&
                   !interactionLocked &&
                   !isEditing;
-                const rect = getLayerEffectiveCmRect(layer);
+                const rect =
+                  layer.type === "text"
+                    ? getTextLayerCmRect(layer)
+                    : getLayerEffectiveCmRect(layer);
                 const scale =
                   layer.type === "image" || layer.type === "shape"
                     ? layer.scale
@@ -521,12 +541,16 @@ export function DesignCanvas({
                     onResizeChange={
                       showControls
                         ? (next) =>
-                            onLayerResize(layer.id, {
-                              x_cm: next.x,
-                              y_cm: next.y,
-                              width_cm: next.width,
-                              height_cm: next.height,
-                            })
+                            onLayerResize(
+                              layer.id,
+                              {
+                                x_cm: next.x,
+                                y_cm: next.y,
+                                width_cm: next.width,
+                                height_cm: next.height,
+                              },
+                              false,
+                            )
                         : undefined
                     }
                     onDoubleClick={() => {

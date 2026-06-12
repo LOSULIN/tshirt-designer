@@ -25,6 +25,7 @@ export function StackedInspectorPanel({
   onLayerResize: (
     id: string,
     next: { x_cm: number; y_cm: number; width_cm: number; height_cm: number },
+    lockAspect: boolean,
   ) => void;
   className?: string;
 }) {

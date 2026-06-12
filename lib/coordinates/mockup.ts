@@ -2,10 +2,15 @@
  * Mockup Coordinate System
  * ────────────────────────
  * 平面 mockup PNG 匯出 + 模特預覽 UI。
- * 與 Preview 分離；UI 框線同樣套用 ui-print-offset。
+ * 印刷區定位與 Preview 共用 print-area-offset + garment 基準。
  */
 
 import type { Side } from "../constants";
+import {
+  getDesignerPrintAreaCmBounds,
+  getPrintAreaCmToTemplateContainerPct,
+} from "../design-cm";
+import type { ApparelSize } from "../sizes";
 import { getGarmentPrintReference } from "./garment";
 import {
   getProductionPrintAreaMm,
@@ -14,14 +19,9 @@ import {
 } from "./production";
 import {
   type PreviewPrintPositionOptions,
-  isGarmentPreviewPositionMode,
   resolvePreviewPrintPositionMode,
 } from "./preview-position-mode";
-import {
-  buildUiPrintAreaContainerStyle,
-  resolveUiPrintReference,
-  UI_PRINT_REF_BASE_Y,
-} from "./ui-print-offset";
+import { buildUiPrintAreaContainerStyle } from "./ui-print-offset";
 
 export const MOCKUP_EXPORT_SCALE = 2;
 
@@ -35,13 +35,7 @@ export const MOCKUP_MODEL_CONTAINER = {
   height: 1536,
 } as const;
 
-/** 平面 mockup 額外 Y 微調（疊加 UI_GLOBAL；UI 若走 Preview 則改 global 即可） */
-export const MOCKUP_FLAT_PRINT_AREA_CENTER_OFFSET_Y_PX = 0;
-
-/** 模特預覽額外 Y 微調（疊加 UI_GLOBAL） */
-export const MOCKUP_MODEL_PRINT_AREA_CENTER_OFFSET_Y_PX = 0;
-
-/** 模特預覽基準錨點（0~1，不含 offset） */
+/** @deprecated 模特預覽已改為 garment 基準；保留常數供舊校準腳本參考 */
 export const MOCKUP_MODEL_PRINT_REF_BASE_Y_BY_SIDE = {
   front: 0.48,
   back: 0.5,
@@ -51,6 +45,8 @@ export const MOCKUP_SIDES = ["front", "back"] as const;
 export type MockupSide = (typeof MOCKUP_SIDES)[number];
 
 export const MOCKUP_REFERENCE_TRANSFORM = "translate(-50%, -50%)" as const;
+
+const DEFAULT_MOCKUP_SIZE: ApparelSize = "M";
 
 export interface MockupContainerRect {
   left: number;
@@ -71,23 +67,34 @@ function getMockupContainer(mode: "flat" | "model") {
   return mode === "model" ? MOCKUP_MODEL_CONTAINER : MOCKUP_FLAT_CONTAINER;
 }
 
-function getMockupPrintReference(
+function resolveGarmentPrintReference(
   side: MockupSide,
   mode: "flat" | "model",
-): { x: number; y: number } {
+  options?: PreviewPrintPositionOptions,
+) {
   const container = getMockupContainer(mode);
-  if (mode === "model") {
-    return resolveUiPrintReference(
-      MOCKUP_MODEL_PRINT_AREA_CENTER_OFFSET_Y_PX,
-      container.height,
-      MOCKUP_MODEL_PRINT_REF_BASE_Y_BY_SIDE[side],
-    );
-  }
-  return resolveUiPrintReference(
-    MOCKUP_FLAT_PRINT_AREA_CENTER_OFFSET_Y_PX,
-    container.height,
-    UI_PRINT_REF_BASE_Y,
-  );
+  void resolvePreviewPrintPositionMode(options?.mode);
+  return getGarmentPrintReference({
+    side,
+    size: options?.size ?? DEFAULT_MOCKUP_SIZE,
+    containerHeight: container.height,
+  });
+}
+
+/** @deprecated 請用 resolveGarmentPrintReference / getGarmentPrintReference */
+export function getFlatMockupPrintReference(
+  side: MockupSide = "front",
+  options?: PreviewPrintPositionOptions,
+) {
+  return resolveGarmentPrintReference(side, "flat", options);
+}
+
+/** @deprecated 請用 resolveGarmentPrintReference / getGarmentPrintReference */
+export function getModelMockupPrintReference(
+  side: MockupSide = "front",
+  options?: PreviewPrintPositionOptions,
+) {
+  return resolveGarmentPrintReference(side, "model", options);
 }
 
 /** @deprecated 請用 getFlatMockupPrintReference() */
@@ -110,40 +117,31 @@ export const MOCKUP_MODEL_PRINT_REFERENCE_BY_SIDE = {
   },
 } as const;
 
-export function getFlatMockupPrintReference(side: MockupSide = "front") {
-  return getMockupPrintReference(side, "flat");
-}
-
-export function getModelMockupPrintReference(side: MockupSide = "front") {
-  return getMockupPrintReference(side, "model");
-}
-
 function getMockupPrintAreaContainerPct(
   containerWidth: number,
   containerHeight: number,
   printArea: ProductionPrintAreaMm = getProductionPrintAreaMm(),
 ): { widthPct: number; heightPct: number } {
-  return {
-    widthPct: printArea.width_mm / containerWidth,
-    heightPct: printArea.height_mm / containerHeight,
-  };
+  return getPrintAreaCmToTemplateContainerPct(
+    {
+      width: printArea.width_mm / 10,
+      height: printArea.height_mm / 10,
+    },
+    containerWidth,
+    containerHeight,
+  );
 }
 
-function resolveMockupOverlayReference(
+function getDesignerMockupPrintAreaContainerPct(
   side: MockupSide,
-  mode: "flat" | "model",
-  options?: PreviewPrintPositionOptions,
-) {
-  const positionMode = resolvePreviewPrintPositionMode(options?.mode);
-  if (isGarmentPreviewPositionMode(positionMode) && options?.size) {
-    const container = getMockupContainer(mode);
-    return getGarmentPrintReference({
-      side,
-      size: options.size,
-      containerHeight: container.height,
-    });
-  }
-  return getMockupPrintReference(side, mode);
+  containerWidth: number,
+  containerHeight: number,
+): { widthPct: number; heightPct: number } {
+  return getPrintAreaCmToTemplateContainerPct(
+    getDesignerPrintAreaCmBounds(side),
+    containerWidth,
+    containerHeight,
+  );
 }
 
 function buildMockupContainerStyle(
@@ -152,11 +150,12 @@ function buildMockupContainerStyle(
   options?: PreviewPrintPositionOptions,
 ): MockupContainerStyle {
   const container = getMockupContainer(mode);
-  const { widthPct, heightPct } = getMockupPrintAreaContainerPct(
+  const { widthPct, heightPct } = getDesignerMockupPrintAreaContainerPct(
+    side,
     container.width,
     container.height,
   );
-  const ref = resolveMockupOverlayReference(side, mode, options);
+  const ref = resolveGarmentPrintReference(side, mode, options);
   return buildUiPrintAreaContainerStyle(
     ref,
     widthPct,
@@ -176,14 +175,16 @@ export function getModelMockupPrintAreaContainerStyle(
 /** 平面 mockup 預覽／匯出 PNG */
 export function getFlatMockupPrintAreaContainerStyle(
   side: MockupSide = "front",
+  options?: PreviewPrintPositionOptions,
 ): MockupContainerStyle {
-  return buildMockupContainerStyle(side, "flat");
+  return buildMockupContainerStyle(side, "flat", options);
 }
 
 export function getFlatMockupPrintAreaRectPx(
   containerWidth: number,
   containerHeight: number,
   side: MockupSide = "front",
+  size: ApparelSize | string = DEFAULT_MOCKUP_SIZE,
   printArea: ProductionPrintAreaMm = getProductionPrintAreaMm(),
 ): MockupContainerRect {
   const { widthPct, heightPct } = getMockupPrintAreaContainerPct(
@@ -191,7 +192,11 @@ export function getFlatMockupPrintAreaRectPx(
     containerHeight,
     printArea,
   );
-  const ref = getMockupPrintReference(side, "flat");
+  const ref = getGarmentPrintReference({
+    side,
+    size,
+    containerHeight: MOCKUP_FLAT_CONTAINER.height,
+  });
   const width = widthPct * containerWidth;
   const height = heightPct * containerHeight;
   const centerX = ref.x * containerWidth;

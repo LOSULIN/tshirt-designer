@@ -11,8 +11,20 @@ import {
   PRODUCTION_LEGACY_UI_UNITS_PER_CM,
   type ProductionRectMm,
 } from "./coordinates/production";
+import type { Side } from "./constants";
+import { getGarmentMaxPrintAreaCm } from "./garment-print-config";
+import {
+  ADULT_TSHIRT_TEMPLATE_SPEC,
+  getTemplatePxPerCm,
+} from "./shirt-template";
+import { ADULT_TSHIRT_SIZE_MEASUREMENTS } from "./sizes";
 
 const UI_SCALE = PRODUCTION_LEGACY_UI_UNITS_PER_CM;
+
+/** M 號胸寬基準（與模板視覺校準一致） */
+export const GARMENT_CHEST_CM_M = ADULT_TSHIRT_SIZE_MEASUREMENTS.find(
+  (r) => r.size === "M",
+)!.chestCm;
 import type {
   DesignLayer,
   ImageDesignLayer,
@@ -40,8 +52,94 @@ export function uiPxToCm(px: number): number {
   return px / UI_SCALE;
 }
 
+/** 匯出／inspector 用（固定 35×50 cm） */
 export function getPrintAreaCmBounds(): PrintAreaCmBounds {
   return getProductionPrintAreaCm();
+}
+
+/** 設計器預覽藍框（正面 35×50、背面 38×45） */
+export function getDesignerPrintAreaCmBounds(side: Side): PrintAreaCmBounds {
+  const max = getGarmentMaxPrintAreaCm(side);
+  return { width: max.widthCm, height: max.heightCm };
+}
+
+/**
+ * 模板 overlay：1 cm（物理）→ px @ 1024×1536 畫布。
+ * Designer / Preview / Mockup 圖層渲染共用。
+ */
+export function getOverlayPxPerCm(): number {
+  return getTemplatePxPerCm();
+}
+
+/** 印刷區（cm）→ 模板畫布上的寬高比例 */
+export function getPrintAreaCmToTemplateContainerPct(
+  printArea: PrintAreaCmBounds = getPrintAreaCmBounds(),
+  containerWidth: number = ADULT_TSHIRT_TEMPLATE_SPEC.widthPx,
+  containerHeight: number = ADULT_TSHIRT_TEMPLATE_SPEC.heightPx,
+): { widthPct: number; heightPct: number } {
+  const pxPerCm = getOverlayPxPerCm();
+  return {
+    widthPct: (printArea.width * pxPerCm) / containerWidth,
+    heightPct: (printArea.height * pxPerCm) / containerHeight,
+  };
+}
+
+/** 圖層 cm → overlay px（依實際 print rect 寬度換算） */
+export function cmToOverlayPx(
+  cm: number,
+  options: {
+    printRectWidthPx: number;
+    printAreaWidthCm?: number;
+  },
+): number {
+  const printAreaWidthCm =
+    options.printAreaWidthCm ?? getPrintAreaCmBounds().width;
+  return cm * (options.printRectWidthPx / printAreaWidthCm);
+}
+
+/** overlay 上 1 cm 對應多少 px（由 print rect 寬度推導） */
+export function getOverlayPxPerCmFromPrintRect(printRectWidthPx: number): number {
+  return printRectWidthPx / getPrintAreaCmBounds().width;
+}
+
+export interface LayerRenderScaleDebugReport {
+  garmentWidthCm: number;
+  printAreaWidthCm: number;
+  textLayerWidthCm: number;
+  templatePxPerCm: number;
+  printAreaWidthPx: number;
+  layerWidthPx: number;
+  layerToPrintAreaRatio: number;
+  layerToGarmentChestRatio: number;
+}
+
+/** 開發用：追蹤 cm → overlay px 換算是否一致 */
+export function debugLayerRenderScale(
+  layerWidthCm: number,
+  garmentChestCm: number = GARMENT_CHEST_CM_M,
+): LayerRenderScaleDebugReport {
+  const printArea = getPrintAreaCmBounds();
+  const templatePxPerCm = getOverlayPxPerCm();
+  const { widthPct } = getPrintAreaCmToTemplateContainerPct(printArea);
+  const printAreaWidthPx =
+    ADULT_TSHIRT_TEMPLATE_SPEC.widthPx * widthPct;
+  const layerWidthPx = cmToOverlayPx(layerWidthCm, {
+    printRectWidthPx: printAreaWidthPx,
+  });
+  const report: LayerRenderScaleDebugReport = {
+    garmentWidthCm: garmentChestCm,
+    printAreaWidthCm: printArea.width,
+    textLayerWidthCm: layerWidthCm,
+    templatePxPerCm,
+    printAreaWidthPx: Math.round(printAreaWidthPx * 100) / 100,
+    layerWidthPx: Math.round(layerWidthPx * 100) / 100,
+    layerToPrintAreaRatio: layerWidthCm / printArea.width,
+    layerToGarmentChestRatio: layerWidthCm / garmentChestCm,
+  };
+  if (process.env.NODE_ENV === "development") {
+    console.log("[LayerRenderScale]", report);
+  }
+  return report;
 }
 
 export function readLayerProductionRectMm(layer: DesignLayer): ProductionRectMm {

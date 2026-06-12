@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { getLayerInspectorCmRect } from "@/lib/design-inspector";
 import {
   formatInspectorDimensionDisplay,
@@ -61,20 +62,43 @@ export function InspectorObjectCard({
   onResize: (
     id: string,
     next: { x_cm: number; y_cm: number; width_cm: number; height_cm: number },
+    lockAspect: boolean,
   ) => void;
 }) {
+  const [lockAspect, setLockAspect] = useState(true);
   const bounds = getLayerInspectorCmRect(layer);
   const displayName = getObjectDisplayName(layer, allLayers);
   const typeLabel = getLayerTypeLabel(layer.type);
-  const isText = layer.type === "text";
 
   const commitSize = (patch: { width_cm?: number; height_cm?: number }) => {
-    onResize(layer.id, {
-      x_cm: bounds.x_cm,
-      y_cm: bounds.y_cm,
-      width_cm: patch.width_cm ?? bounds.width_cm,
-      height_cm: patch.height_cm ?? bounds.height_cm,
-    });
+    let width_cm = patch.width_cm ?? bounds.width_cm;
+    let height_cm = patch.height_cm ?? bounds.height_cm;
+
+    if (
+      lockAspect &&
+      bounds.width_cm > 0 &&
+      bounds.height_cm > 0
+    ) {
+      if (patch.width_cm !== undefined && patch.height_cm === undefined) {
+        height_cm = bounds.height_cm * (width_cm / bounds.width_cm);
+      } else if (patch.height_cm !== undefined && patch.width_cm === undefined) {
+        width_cm = bounds.width_cm * (height_cm / bounds.height_cm);
+      }
+    }
+
+    const centerX = bounds.x_cm + bounds.width_cm / 2;
+    const centerY = bounds.y_cm + bounds.height_cm / 2;
+
+    onResize(
+      layer.id,
+      {
+        x_cm: centerX - width_cm / 2,
+        y_cm: centerY - height_cm / 2,
+        width_cm,
+        height_cm,
+      },
+      lockAspect,
+    );
   };
 
   return (
@@ -124,43 +148,47 @@ export function InspectorObjectCard({
       </header>
 
       <div
-        className="space-y-0.5"
+        className="space-y-1"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => e.stopPropagation()}
       >
-        <CompactSizeRow label="Width">
-          {isText ? (
-            <span
-              className="font-mono text-[10px] tabular-nums text-zinc-700"
-              title={formatInspectorDimensionPrecise(bounds.width_cm)}
-            >
-              {formatInspectorDimensionDisplay(bounds.width_cm)}
-            </span>
-          ) : (
-            <InspectorNumberInput
-              compact
-              value={bounds.width_cm}
-              decimals={1}
-              dimensionDisplay
-              disabled={disabled}
-              ariaLabel={`${displayName} width in centimeters`}
-              onCommit={(width_cm) => commitSize({ width_cm })}
-            />
-          )}
+        <p className="text-[9px] font-semibold uppercase tracking-wide text-zinc-500">
+          尺寸
+        </p>
+        <CompactSizeRow label="寬度">
+          <InspectorNumberInput
+            compact
+            value={bounds.width_cm}
+            decimals={1}
+            dimensionDisplay
+            disabled={disabled}
+            ariaLabel={`${displayName} 寬度 cm`}
+            onCommit={(width_cm) => commitSize({ width_cm })}
+          />
           <span className="shrink-0 text-[9px] text-zinc-400">cm</span>
         </CompactSizeRow>
-        <CompactSizeRow label="Height">
+        <CompactSizeRow label="高度">
           <InspectorNumberInput
             compact
             value={bounds.height_cm}
             decimals={1}
             dimensionDisplay
             disabled={disabled}
-            ariaLabel={`${displayName} height in centimeters`}
+            ariaLabel={`${displayName} 高度 cm`}
             onCommit={(height_cm) => commitSize({ height_cm })}
           />
           <span className="shrink-0 text-[9px] text-zinc-400">cm</span>
         </CompactSizeRow>
+        <label className="flex cursor-pointer items-center gap-1.5 text-[10px] text-zinc-600">
+          <input
+            type="checkbox"
+            className="h-3 w-3 rounded border-zinc-300"
+            checked={lockAspect}
+            disabled={disabled}
+            onChange={(e) => setLockAspect(e.target.checked)}
+          />
+          保持比例
+        </label>
         <InspectorProofDetails layer={layer} />
       </div>
     </article>

@@ -11,6 +11,7 @@ import {
 } from "./design-cm";
 import { getPrintSafeAreaCm, PRINT_SAFE_AREA_SPEC } from "./printArea";
 import { getRotatedAabb } from "./geometry";
+import { getTextLayerCmRect } from "./text-layer";
 import type { DesignLayer } from "./types";
 
 export const DESIGN_SAFE_ZONE_SCALE = 1 - PRINT_SAFE_AREA_SPEC.marginRatio * 2;
@@ -47,9 +48,26 @@ export function getDesignSafeZoneCm(
   return getPrintSafeAreaCm(printArea);
 }
 
-/** Inspector／export 與 Canvas 共用 getLayerEffectiveCmRect（文字 bounds 由 fitTextLayer 寫入） */
-export function getLayerInspectorCmRect(layer: DesignLayer): LayerCmRect {
+function readLayerModelCmRect(layer: DesignLayer): LayerCmRect {
+  if (layer.type === "text") {
+    return getTextLayerCmRect(layer);
+  }
   return getLayerEffectiveCmRect(layer);
+}
+
+/** Object Panel 顯示用印刷尺寸（cm），與模板 overlay 比例一致 */
+export function getLayerInspectorCmRect(layer: DesignLayer): LayerCmRect {
+  const rect = readLayerModelCmRect(layer);
+  if (layer.rotation !== 0) {
+    const aabb = getLayerOrientedAabbCm(rect, layer.rotation);
+    return {
+      x_cm: aabb.left,
+      y_cm: aabb.top,
+      width_cm: aabb.width_cm,
+      height_cm: aabb.height_cm,
+    };
+  }
+  return rect;
 }
 
 export function getLayerOrientedAabbCm(
@@ -88,7 +106,7 @@ export function inspectDesignLayer(
   layer: DesignLayer,
   printArea: PrintAreaCmBounds = getPrintAreaCmBounds(),
 ): LayerInspectorReport {
-  const rect = getLayerInspectorCmRect(layer);
+  const rect = readLayerModelCmRect(layer);
   const aabb = getLayerOrientedAabbCm(rect, layer.rotation);
   const printBounds: LayerCmRect = {
     x_cm: 0,

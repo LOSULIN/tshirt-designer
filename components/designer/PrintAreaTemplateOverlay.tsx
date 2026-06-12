@@ -22,8 +22,8 @@ export function PrintAreaTemplateOverlay({
   showReferenceAnchor?: boolean;
   showScaleInfo?: boolean;
 }) {
-  const containerStyle = getPrintAreaContainerStyle(side);
-  const ref = getPrintReference(side);
+  const containerStyle = getPrintAreaContainerStyle(side, { size });
+  const ref = getPrintReference(side, { size });
   const boxWidth = parseFloat(containerStyle.width);
   const boxHeight = parseFloat(containerStyle.height);
   const centerX = ref.x * 100;

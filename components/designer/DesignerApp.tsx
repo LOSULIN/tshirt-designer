@@ -71,7 +71,7 @@ import {
 } from "@/lib/proof-engine/client";
 import {
   cmToUiPx,
-  getPrintAreaCmBounds,
+  getDesignerPrintAreaCmBounds,
   migrateDesignLayersToCm,
   type PrintAreaCmBounds,
 } from "@/lib/design-cm";
@@ -101,11 +101,12 @@ import {
 import {
   applyLayerPlacementPreset,
   getPlacementPresetById,
+  getPlacementPresetLayerPlacement,
   type PlacementPresetId,
 } from "@/lib/placement-presets";
 import { normalizeDesignLayers } from "@/lib/layer-normalize";
 import { createDefaultShapeLayer } from "@/lib/shape-layer";
-import { createDefaultTextLayer } from "@/lib/text-layer";
+import { createDefaultTextLayer, getTextLayerCmRect } from "@/lib/text-layer";
 import { DEFAULT_RICH_TEXT_FIELDS } from "@/lib/text-style";
 import {
   canAddImageLayer,
@@ -279,7 +280,7 @@ async function hydrateDesignLayersByTemplate(
               migrateLayersFromLegacyCanvasUnits(hydrated),
             ),
           ),
-          getPrintAreaCmBounds(),
+          getDesignerPrintAreaCmBounds(templateSide),
         ),
       );
     }
@@ -360,6 +361,8 @@ export function DesignerApp({
   const [pendingTextEditLayerId, setPendingTextEditLayerId] = useState<
     string | null
   >(null);
+  const [pendingPlacementPresetId, setPendingPlacementPresetId] =
+    useState<PlacementPresetId | null>(null);
   const [isDesignLocked, setIsDesignLocked] = useState(false);
   const [applicationForm, setApplicationForm] =
     useState<ApplicationFormData>(EMPTY_FORM);
@@ -372,7 +375,10 @@ export function DesignerApp({
     [layersByTemplate, gender, side],
   );
 
-  const printArea = useMemo(() => getPrintAreaCmBounds(), []);
+  const printArea = useMemo(
+    () => getDesignerPrintAreaCmBounds(side),
+    [side],
+  );
   const exportDims = useMemo(() => getExportDimensions(), []);
 
   const setLayers = useCallback(
@@ -381,7 +387,7 @@ export function DesignerApp({
         updateLayersForSlot(prev, gender, side, (current) => {
           const next =
             typeof updater === "function" ? updater(current) : updater;
-          return fitDesignLayers(next, getPrintAreaCmBounds());
+          return fitDesignLayers(next, getDesignerPrintAreaCmBounds(side));
         }),
       );
     },
@@ -395,6 +401,7 @@ export function DesignerApp({
   useEffect(() => {
     setSelectedIds([]);
     setFocusTextEditor(false);
+    setPendingPlacementPresetId(null);
   }, [gender, side]);
 
   useEffect(() => {
@@ -631,19 +638,27 @@ export function DesignerApp({
     (
       id: string,
       next: { x_cm: number; y_cm: number; width_cm: number; height_cm: number },
+      lockAspect = true,
     ) => {
       markGestureMutation();
       setLayers((prev) =>
         prev.map((layer) => {
           if (layer.id !== id) return layer;
 
-          const current = getLayerEffectiveCmRect(layer);
+          const current =
+            layer.type === "text"
+              ? getTextLayerCmRect(layer)
+              : getLayerEffectiveCmRect(layer);
           const anchorCenterX = current.x_cm + current.width_cm / 2;
           const anchorCenterY = current.y_cm + current.height_cm / 2;
 
           if (layer.type === "text") {
             const factor =
-              current.height_cm > 0 ? next.height_cm / current.height_cm : 1;
+              lockAspect && current.width_cm > 0
+                ? next.width_cm / current.width_cm
+                : current.height_cm > 0
+                  ? next.height_cm / current.height_cm
+                  : 1;
             if (Math.abs(factor - 1) < 1e-6) return layer;
 
             return fitTextLayer(
@@ -661,14 +676,28 @@ export function DesignerApp({
             );
           }
 
-          const scaleW =
-            current.width_cm > 0 ? next.width_cm / current.width_cm : 1;
-          const scaleH =
-            current.height_cm > 0 ? next.height_cm / current.height_cm : 1;
-          const factor =
-            Math.abs(scaleW - 1) >= Math.abs(scaleH - 1) ? scaleW : scaleH;
-
           if (layer.type === "shape") {
+            if (lockAspect) {
+              const scaleW =
+                current.width_cm > 0 ? next.width_cm / current.width_cm : 1;
+              const scaleH =
+                current.height_cm > 0 ? next.height_cm / current.height_cm : 1;
+              const factor =
+                Math.abs(scaleW - 1) >= Math.abs(scaleH - 1) ? scaleW : scaleH;
+              const width_cm = current.width_cm * factor;
+              const height_cm = current.height_cm * factor;
+              return fitShapeLayer(
+                {
+                  ...layer,
+                  width_cm,
+                  height_cm,
+                  scale: 1,
+                  x_cm: anchorCenterX - width_cm / 2,
+                  y_cm: anchorCenterY - height_cm / 2,
+                },
+                printArea,
+              );
+            }
             return fitShapeLayer(
               {
                 ...layer,
@@ -690,21 +719,32 @@ export function DesignerApp({
               rasterFit.maxPrintWidth_cm,
               rasterFit.maxPrintHeight_cm,
             );
-            const clampedScaleW =
-              current.width_cm > 0 ? clamped.width_cm / current.width_cm : 1;
-            const clampedScaleH =
-              current.height_cm > 0 ? clamped.height_cm / current.height_cm : 1;
-            const clampedFactor =
-              Math.abs(clampedScaleW - 1) >= Math.abs(clampedScaleH - 1)
-                ? clampedScaleW
-                : clampedScaleH;
+
+            if (lockAspect) {
+              const factor =
+                current.width_cm > 0
+                  ? clamped.width_cm / current.width_cm
+                  : 1;
+              return fitImageLayer(
+                {
+                  ...layer,
+                  x_cm: next.x_cm,
+                  y_cm: next.y_cm,
+                  scale: layer.scale * factor,
+                },
+                printArea,
+                rasterFit,
+              );
+            }
 
             return fitImageLayer(
               {
                 ...layer,
-                x_cm: next.x_cm,
-                y_cm: next.y_cm,
-                scale: layer.scale * clampedFactor,
+                width_cm: clamped.width_cm,
+                height_cm: clamped.height_cm,
+                scale: 1,
+                x_cm: anchorCenterX - clamped.width_cm / 2,
+                y_cm: anchorCenterY - clamped.height_cm / 2,
               },
               printArea,
               rasterFit,
@@ -767,9 +807,10 @@ export function DesignerApp({
     (
       id: string,
       next: { x_cm: number; y_cm: number; width_cm: number; height_cm: number },
+      lockAspect = true,
     ) => {
       if (!guardEditable()) return;
-      applyLayerResize(id, next);
+      applyLayerResize(id, next, lockAspect);
     },
     [guardEditable, applyLayerResize],
   );
@@ -1018,22 +1059,38 @@ export function DesignerApp({
       }
 
       const preview = await createPreviewFromFile(file);
-      const placement = getInitialPlacement(
-        preview.naturalWidth,
-        preview.naturalHeight,
-        printArea,
-      );
-      const stagger = getStaggeredPlacement(
-        printArea,
-        placement.width_cm,
-        placement.height_cm,
-        layers.length,
-      );
-      const staggeredPlacement = {
-        ...placement,
-        x_cm: stagger.x_cm,
-        y_cm: stagger.y_cm,
+      const pendingPreset = pendingPlacementPresetId
+        ? getPlacementPresetById(pendingPlacementPresetId)
+        : null;
+      const presetActive =
+        pendingPreset != null && pendingPreset.sides.includes(side);
+
+      let placement: {
+        x_cm: number;
+        y_cm: number;
+        width_cm: number;
+        height_cm: number;
       };
+      if (presetActive) {
+        placement = getPlacementPresetLayerPlacement(pendingPreset);
+      } else {
+        placement = getInitialPlacement(
+          preview.naturalWidth,
+          preview.naturalHeight,
+          printArea,
+        );
+        const stagger = getStaggeredPlacement(
+          printArea,
+          placement.width_cm,
+          placement.height_cm,
+          layers.length,
+        );
+        placement = {
+          ...placement,
+          x_cm: stagger.x_cm,
+          y_cm: stagger.y_cm,
+        };
+      }
 
       const originalUrl = URL.createObjectURL(file);
       const uploaded: UploadedDesignImage = {
@@ -1050,11 +1107,16 @@ export function DesignerApp({
         fileName: file.name,
       };
 
-      const newLayer = fitImageLayer(
-        createImageLayer(layers, uploaded, staggeredPlacement),
-        printArea,
-        getImageFitOptions(largePrintModeEnabled),
-      );
+      const createdLayer = createImageLayer(layers, uploaded, placement);
+      const newLayer = presetActive
+        ? (applyLayerPlacementPreset(createdLayer, pendingPreset, printArea, {
+            largePrintMode: largePrintModeEnabled,
+          }) as ImageDesignLayer)
+        : fitImageLayer(
+            createdLayer,
+            printArea,
+            getImageFitOptions(largePrintModeEnabled),
+          );
       appendLayers(newLayer);
       setSelectedIds([newLayer.id]);
       const msgs: string[] = [];
@@ -1068,7 +1130,11 @@ export function DesignerApp({
         msgs.push("建議使用透明背景PNG獲得最佳印刷效果");
       }
       setWarnings(msgs);
-      setStatusMessage("圖片已上傳，可拖曳、縮放與旋轉");
+      setStatusMessage(
+        presetActive
+          ? `圖片已上傳並套用版型 ${pendingPreset.label}（${pendingPreset.width_cm}×${pendingPreset.height_cm} cm）`
+          : "圖片已上傳，可拖曳、縮放與旋轉",
+      );
     } catch (error) {
       showUploadError(
         error instanceof Error ? error.message : "圖片無法讀取",
@@ -1134,11 +1200,28 @@ export function DesignerApp({
       return;
     }
 
-    const layer = createDefaultTextDesignLayer(layers, printArea);
+    const pendingPreset = pendingPlacementPresetId
+      ? getPlacementPresetById(pendingPlacementPresetId)
+      : null;
+    const presetActive =
+      pendingPreset != null && pendingPreset.sides.includes(side);
+
+    const layer = presetActive
+      ? (applyLayerPlacementPreset(
+          createDefaultTextDesignLayer(layers, printArea),
+          pendingPreset,
+          printArea,
+          { largePrintMode: largePrintModeEnabled },
+        ) as TextDesignLayer)
+      : createDefaultTextDesignLayer(layers, printArea);
     appendLayers(layer);
     setSelectedIds([layer.id]);
     setPendingTextEditLayerId(layer.id);
-    setStatusMessage("已新增文字 TEST，輸入後按 Enter 或點擊空白確認");
+    setStatusMessage(
+      presetActive
+        ? `已新增文字並套用版型 ${pendingPreset.label}（${pendingPreset.width_cm}×${pendingPreset.height_cm} cm）`
+        : "已新增文字 TEST，輸入後按 Enter 或點擊空白確認",
+    );
   };
 
   const handleAddShape = (kind: ShapeKind) => {
@@ -1148,13 +1231,25 @@ export function DesignerApp({
       return;
     }
 
-    const layer = fitShapeLayer(
-      createDefaultShapeLayer(kind, layers, printArea),
-      printArea,
-    );
+    const pendingPreset = pendingPlacementPresetId
+      ? getPlacementPresetById(pendingPlacementPresetId)
+      : null;
+    const presetActive =
+      pendingPreset != null && pendingPreset.sides.includes(side);
+
+    const createdShape = createDefaultShapeLayer(kind, layers, printArea);
+    const layer = presetActive
+      ? (applyLayerPlacementPreset(createdShape, pendingPreset, printArea, {
+          largePrintMode: largePrintModeEnabled,
+        }) as ShapeDesignLayer)
+      : fitShapeLayer(createdShape, printArea);
     appendLayers(layer);
     setSelectedIds([layer.id]);
-    setStatusMessage(`已新增${layer.name}`);
+    setStatusMessage(
+      presetActive
+        ? `已新增${layer.name}並套用版型 ${pendingPreset.label}（${pendingPreset.width_cm}×${pendingPreset.height_cm} cm）`
+        : `已新增${layer.name}`,
+    );
   };
 
   const handleTextStylePatch = useCallback(
@@ -1214,11 +1309,18 @@ export function DesignerApp({
       const preset = getPlacementPresetById(presetId);
       if (!preset || !preset.sides.includes(side)) return;
 
+      setPendingPlacementPresetId(presetId);
+
       const targetIds = selectedIds.filter((id) => {
         const layer = layers.find((entry) => entry.id === id);
         return layer && !layer.locked;
       });
-      if (targetIds.length === 0) return;
+      if (targetIds.length === 0) {
+        setStatusMessage(
+          `已選擇版型：${preset.label}（${preset.width_cm}×${preset.height_cm} cm），上傳或新增物件將套用此尺寸`,
+        );
+        return;
+      }
 
       prepareDiscreteMutation();
       const idSet = new Set(targetIds);
@@ -1229,6 +1331,9 @@ export function DesignerApp({
             largePrintMode: largePrintModeEnabled,
           });
         }),
+      );
+      setStatusMessage(
+        `已套用版型：${preset.label}（${preset.width_cm}×${preset.height_cm} cm）`,
       );
     },
     [
@@ -1526,7 +1631,7 @@ export function DesignerApp({
             templateSide,
             fitDesignLayers(
               getLayersForSlot(next, templateGender, templateSide),
-              getPrintAreaCmBounds(),
+              getDesignerPrintAreaCmBounds(templateSide),
             ),
           );
         }
@@ -1637,11 +1742,11 @@ export function DesignerApp({
             if (isDesignLocked || selectedIds.length === 0) return;
             rotateLayersQuick90(selectedIds, clockwise, true);
           }}
-          onLayerResize={(id, next) => {
+          onLayerResize={(id, next, lockAspect) => {
             if (isDesignLocked || layers.find((l) => l.id === id)?.locked) {
               return;
             }
-            applyLayerResize(id, next);
+            applyLayerResize(id, next, lockAspect);
           }}
           onClearSelection={() => setSelectedIds([])}
           onFocusTextEditorConsumed={() => setFocusTextEditor(false)}
@@ -1671,6 +1776,7 @@ export function DesignerApp({
           onRotationChange={handleInspectorRotation}
           onAlignLayers={handleAlignLayers}
           onApplyPlacementPreset={handleApplyPlacementPreset}
+          activePlacementPresetId={pendingPlacementPresetId}
           onClearCurrentSlotDesign={handleClearCurrentSlotDesign}
           onClearAllDesign={handleClearAllDesign}
         />

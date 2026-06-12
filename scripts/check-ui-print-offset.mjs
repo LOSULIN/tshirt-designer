@@ -34,13 +34,14 @@ assert(
   "ui-print-offset 定義 UI_GLOBAL_PRINT_OFFSET_Y_PX",
 );
 assert(
-  preview.includes("resolveUiPrintReference") &&
-    preview.includes("getGarmentPrintReference"),
-  "Preview 支援 canvas + garment 雙模式",
+  preview.includes("getGarmentPrintReference") &&
+    preview.includes("buildUiPrintAreaContainerStyle"),
+  "Preview 使用 garment + print-area-offset 基準",
 );
 assert(
-  mockup.includes("resolveUiPrintReference"),
-  "Mockup style 使用 ui-print-offset",
+  mockup.includes("getGarmentPrintReference") &&
+    mockup.includes("buildUiPrintAreaContainerStyle"),
+  "Mockup 使用 garment + print-area-offset 基準",
 );
 assert(
   previewMode.includes('DEFAULT_PRINT_MODE: PreviewPrintPositionMode = "garment"'),

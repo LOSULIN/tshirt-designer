@@ -34,6 +34,7 @@ export function CanvasInfoPanel({
   onLayerResize: (
     id: string,
     next: { x_cm: number; y_cm: number; width_cm: number; height_cm: number },
+    lockAspect: boolean,
   ) => void;
   onTextPatch: (id: string, patch: Partial<TextDesignLayer>) => void;
   onImagePatch: (id: string, patch: Partial<ImageDesignLayer>) => void;

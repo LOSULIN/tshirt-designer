@@ -1,5 +1,7 @@
-import { DESIGN_SAFE_MARGIN, GRID_SIZE_CM } from "@/lib/constants";
+import { GRID_SIZE_CM } from "@/lib/constants";
+import type { Side } from "@/lib/constants";
 import type { PrintAreaCmBounds } from "@/lib/design-cm";
+import { getGarmentPrintSafeZonePctInPrintArea } from "@/lib/coordinates/garment";
 
 export function PrintAreaGrid({
   visible,
@@ -28,19 +30,29 @@ export function PrintAreaGrid({
   );
 }
 
-/** 安全設計區（5% 內縮邊界） */
-export function PrintSafeZoneGuide() {
-  const inset = DESIGN_SAFE_MARGIN * 100;
+/**
+ * 尺碼建議安全區（橘色虛線）— 僅視覺 Guide，不限制編輯。
+ */
+export function GarmentPrintSafeZoneGuide({
+  side,
+  size,
+}: {
+  side: Side;
+  size: string;
+}) {
+  const { leftPct, topPct, widthPct, heightPct } =
+    getGarmentPrintSafeZonePctInPrintArea({ side, size });
 
   return (
     <div
-      className="pointer-events-none absolute z-[6] border border-dashed border-amber-500/80"
+      className="pointer-events-none absolute z-[6] border-2 border-dashed border-amber-500/90"
       aria-hidden
+      data-garment-safe-zone
       style={{
-        left: `${inset}%`,
-        top: `${inset}%`,
-        width: `${100 - inset * 2}%`,
-        height: `${100 - inset * 2}%`,
+        left: `${leftPct}%`,
+        top: `${topPct}%`,
+        width: `${widthPct}%`,
+        height: `${heightPct}%`,
       }}
     />
   );

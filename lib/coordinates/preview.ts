@@ -2,7 +2,7 @@
  * Preview Coordinate System
  * ─────────────────────────
  * 設計器主畫布 + Flat Shirt 右側預覽（`getPrintAreaContainerStyle`）。
- * 圖層 mm 不變；overlay 框線支援 canvas / garment 兩種定位模式。
+ * 圖層 mm 不變；overlay 框線由 print-area-offset + garment 單一基準定位。
  */
 
 import type { Side } from "../constants";
@@ -17,29 +17,27 @@ import { getGarmentPrintReference } from "./garment";
 import {
   type PreviewPrintPositionMode,
   type PreviewPrintPositionOptions,
-  isGarmentPreviewPositionMode,
   resolvePreviewPrintPositionMode,
 } from "./preview-position-mode";
 import { getShirtScale, getShirtScaleTransform } from "../shirtScale";
-import { getTemplatePxPerCm } from "../shirt-template";
 import {
-  buildUiPrintAreaContainerStyle,
-  resolveUiPrintReference,
-  UI_PRINT_REF_BASE_Y,
-} from "./ui-print-offset";
+  getDesignerPrintAreaCmBounds,
+  getPrintAreaCmToTemplateContainerPct,
+} from "../design-cm";
+import { getTemplatePxPerCm } from "../shirt-template";
+import { buildUiPrintAreaContainerStyle } from "./ui-print-offset";
 
 export const PREVIEW_CONTAINER = {
   width: 1024,
   height: 1536,
 } as const;
 
-/** Preview 專用 Y 微調（canvas 模式；疊加 UI_GLOBAL） */
-export const PREVIEW_PRINT_AREA_CENTER_OFFSET_Y_PX = 0;
-
 export const PREVIEW_SIDES = ["front", "back"] as const;
 export type PreviewSide = (typeof PREVIEW_SIDES)[number];
 
 export const PREVIEW_REFERENCE_TRANSFORM = "translate(-50%, -50%)" as const;
+
+const DEFAULT_PREVIEW_SIZE: ApparelSize = "M";
 
 /**
  * Preview overlay：1 mm（production）→ UI px。
@@ -69,36 +67,20 @@ export interface PreviewPercentStyle {
   height: string;
 }
 
-function getCanvasPreviewPrintReference(side: PreviewSide = "front") {
-  void side;
-  return resolveUiPrintReference(
-    PREVIEW_PRINT_AREA_CENTER_OFFSET_Y_PX,
-    PREVIEW_CONTAINER.height,
-    UI_PRINT_REF_BASE_Y,
-  );
-}
-
 /**
- * 依模式解析印刷區錨點
- * - canvas：固定 ref.y + UI_GLOBAL（預設，與 size 無關）
- * - garment：領口 + 8cm（隨 size scale），需傳入 size
+ * 印刷區錨點：領口錨點 + PRINT_AREA_OFFSET_CM（隨尺碼 scale）
+ * 預設 M 尺碼；canvas / garment 模式共用同一公式。
  */
 export function getPreviewPrintReference(
   side: PreviewSide = "front",
   options?: PreviewPrintPositionOptions,
 ) {
-  const mode = resolvePreviewPrintPositionMode(options?.mode);
-  if (isGarmentPreviewPositionMode(mode)) {
-    if (!options?.size) {
-      return getCanvasPreviewPrintReference(side);
-    }
-    return getGarmentPrintReference({
-      side,
-      size: options.size,
-      containerHeight: PREVIEW_CONTAINER.height,
-    });
-  }
-  return getCanvasPreviewPrintReference(side);
+  void resolvePreviewPrintPositionMode(options?.mode);
+  return getGarmentPrintReference({
+    side,
+    size: options?.size ?? DEFAULT_PREVIEW_SIZE,
+    containerHeight: PREVIEW_CONTAINER.height,
+  });
 }
 
 /** @deprecated 請用 getPreviewPrintReference(side, options) */
@@ -114,19 +96,32 @@ export const PREVIEW_PRINT_REFERENCE_BY_SIDE = {
 export function getPreviewPrintAreaContainerPct(
   printArea: ProductionPrintAreaMm = getProductionPrintAreaMm(),
 ): { widthPct: number; heightPct: number } {
-  const widthUnits = printArea.width_mm * PREVIEW_UI_UNITS_PER_MM;
-  const heightUnits = printArea.height_mm * PREVIEW_UI_UNITS_PER_MM;
-  return {
-    widthPct: widthUnits / PREVIEW_CONTAINER.width,
-    heightPct: heightUnits / PREVIEW_CONTAINER.height,
-  };
+  return getPrintAreaCmToTemplateContainerPct(
+    {
+      width: printArea.width_mm / 10,
+      height: printArea.height_mm / 10,
+    },
+    PREVIEW_CONTAINER.width,
+    PREVIEW_CONTAINER.height,
+  );
+}
+
+/** 設計器藍框比例（依面別最大印刷區） */
+export function getPreviewPrintAreaContainerPctForSide(
+  side: PreviewSide = "front",
+): { widthPct: number; heightPct: number } {
+  return getPrintAreaCmToTemplateContainerPct(
+    getDesignerPrintAreaCmBounds(side),
+    PREVIEW_CONTAINER.width,
+    PREVIEW_CONTAINER.height,
+  );
 }
 
 export function getPreviewPrintAreaContainerStyle(
   side: PreviewSide = "front",
   options?: PreviewPrintPositionOptions,
 ): PreviewContainerStyle {
-  const { widthPct, heightPct } = getPreviewPrintAreaContainerPct();
+  const { widthPct, heightPct } = getPreviewPrintAreaContainerPctForSide(side);
   const ref = getPreviewPrintReference(side, options);
   return buildUiPrintAreaContainerStyle(
     ref,

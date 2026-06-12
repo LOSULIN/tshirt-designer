@@ -1,19 +1,15 @@
 /**
- * UI Print Area Vertical Offset
- * ─────────────────────────────
- * 全站預覽／mockup 印刷區框線的 Y 校準（不影響 Production mm 或工廠匯出）。
- *
- * 調整 `UI_GLOBAL_PRINT_OFFSET_Y_PX` 即可讓 Editor / Flat Shirt / Model 預覽
- * 的框線整體上下移動（負值＝向上）。
+ * UI Print Area — CSS 組裝與舊版 canvas 偏移工具
+ * ───────────────────────────────────────────────
+ * 印刷區 Y 基準請改 `print-area-offset.ts`（COLLAR_ANCHOR + PRINT_AREA_OFFSET_CM）。
+ * 此檔僅負責 ref → % style；不再作為永久定位旋鈕。
  */
 
+/** @deprecated 僅供舊 canvas 校準腳本參考；定位已改 print-area-offset */
 export const UI_PRINT_REF_BASE_Y = 0.53;
 
-/**
- * 全域 UI 垂直偏移（px @ 1536 容器高度）。
- * 這是控制預覽框線上下位置的主要旋鈕。
- */
-export const UI_GLOBAL_PRINT_OFFSET_Y_PX = -25;
+/** @deprecated 不再套用於 Designer / Preview / Mockup 定位 */
+export const UI_GLOBAL_PRINT_OFFSET_Y_PX = 0;
 
 export interface UiPrintReference {
   x: number;

@@ -312,10 +312,11 @@ function computeMockupImageLayout(imageW: number, imageH: number) {
 function drawPrintAreaBoundingBox(
   ctx: PageContext,
   imageLayout: { x: number; y: number; drawW: number; drawH: number },
+  side: Side,
 ) {
   const containerW = MOCKUP_FLAT_CONTAINER.width * MOCKUP_EXPORT_SCALE;
   const containerH = MOCKUP_FLAT_CONTAINER.height * MOCKUP_EXPORT_SCALE;
-  const printRect = getPrintAreaRectInContainerPx(containerW, containerH);
+  const printRect = getPrintAreaRectInContainerPx(containerW, containerH, side);
 
   const relLeft = printRect.left / containerW;
   const relTop = printRect.top / containerH;
@@ -372,7 +373,7 @@ async function drawMockupPage(
     height: layout.drawH,
   });
 
-  drawPrintAreaBoundingBox(ctx, layout);
+  drawPrintAreaBoundingBox(ctx, layout, side);
 
   const sideLabel = side === "front" ? "FRONT" : "BACK";
   ctx.page.drawText(sideLabel, {
