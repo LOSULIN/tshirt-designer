@@ -58,8 +58,8 @@ function evaluatePrintAreaPassed(order: ProofOrder): boolean {
 export function buildArtworkValidationSummary(
   order: ProofOrder,
 ): ArtworkValidationSummary {
-  const spec = getPrintExportSpec();
-  const { widthPx, heightPx } = getPrintExportDimensionsPx();
+  const spec = getPrintExportSpec(order.active_side);
+  const { widthPx, heightPx } = getPrintExportDimensionsPx(order.active_side);
   const printAreaPassed = evaluatePrintAreaPassed(order);
 
   const baseChecks: ArtworkValidationCheck[] = [

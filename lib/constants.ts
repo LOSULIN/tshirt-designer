@@ -5,7 +5,7 @@ export type Product = typeof PRODUCT_ID;
 
 export const PRODUCT = {
   id: PRODUCT_ID,
-  name: "ZIIIGO 經典純棉短袖 T-Shirt",
+  name: "TIIIGO 經典純棉短袖 T-Shirt",
   description: "經典純棉圓領短袖",
 } as const;
 export type Size = "XS" | "S" | "M" | "L" | "XL" | "2XL";

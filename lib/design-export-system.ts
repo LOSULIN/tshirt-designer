@@ -18,6 +18,10 @@ import {
   buildProofSheetFileName,
   renderProofSheetPdf,
 } from "./proof-sheet-export";
+import {
+  buildExportDebugReport,
+  logExportDebugReport,
+} from "./export-debug";
 import type { DesignLayer } from "./types";
 
 export type DesignExportFileKind = "mockup" | "print" | "proof";
@@ -66,6 +70,9 @@ export async function exportDesignBundle(
   if (!hasExportableDesign(layers)) {
     throw new Error("此面向尚無可輸出的設計內容");
   }
+
+  const debugReport = buildExportDebugReport(layers, side);
+  logExportDebugReport(debugReport);
 
   const [mockupBlob, printResult, proofBlob] = await Promise.all([
     renderMockupPreviewPng({ shirtColor, side, layers }),

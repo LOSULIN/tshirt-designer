@@ -185,12 +185,11 @@ export function getFlatMockupPrintAreaRectPx(
   containerHeight: number,
   side: MockupSide = "front",
   size: ApparelSize | string = DEFAULT_MOCKUP_SIZE,
-  printArea: ProductionPrintAreaMm = getProductionPrintAreaMm(),
 ): MockupContainerRect {
-  const { widthPct, heightPct } = getMockupPrintAreaContainerPct(
+  const { widthPct, heightPct } = getDesignerMockupPrintAreaContainerPct(
+    side,
     containerWidth,
     containerHeight,
-    printArea,
   );
   const ref = getGarmentPrintReference({
     side,

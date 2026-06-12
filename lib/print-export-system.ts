@@ -1,19 +1,22 @@
 /**
  * 印刷輸出系統（Export Pipeline）
- * - 座標：Production Coordinate System（mm）
- * - 輸出：350×500 mm @ 300 DPI · PNG / PDF
- *
- * 不經 Preview / Mockup 座標。
+ * - 座標：Designer 儲存之 width_cm / height_cm / x_cm / y_cm
+ * - 換算：與 Preview 相同之 print area 比例 → 實際印刷尺寸 px
+ * - 輸出：面別印刷區 @ 300 DPI · PNG / PDF
  */
 
+import type { Side } from "./constants";
 import {
-  getProductionExportDimensionsPx,
-  getProductionPrintAreaCm,
   legacyCmFieldToMm,
   MM_TO_EXPORT_PX,
   PRODUCTION_DPI,
 } from "./coordinates/production";
-import { getLayerInspectorCmRect } from "./design-inspector";
+import {
+  getExportCanvasSpec,
+  getLayerExportCmRect,
+  mapLayerCmRectToExportPx,
+  type ExportLayerRectPx,
+} from "./export-coordinates";
 import { embedPngDpi } from "./png-dpi";
 import { sortLayersByZIndex } from "./layers";
 import { drawRichTextOnCanvas } from "./text-style";
@@ -49,20 +52,22 @@ export interface PrintExportSpec {
   background: "transparent";
 }
 
-export function getPrintExportDimensionsPx(): PrintExportDimensionsPx {
-  return getProductionExportDimensionsPx();
+export function getPrintExportDimensionsPx(
+  side: Side = "front",
+): PrintExportDimensionsPx {
+  const spec = getExportCanvasSpec(side);
+  return { widthPx: spec.widthPx, heightPx: spec.heightPx };
 }
 
-export function getPrintExportSpec(): PrintExportSpec {
-  const { widthPx, heightPx } = getProductionExportDimensionsPx();
-  const printCm = getProductionPrintAreaCm();
+export function getPrintExportSpec(side: Side = "front"): PrintExportSpec {
+  const canvasSpec = getExportCanvasSpec(side);
   return {
-    widthCm: printCm.width,
-    heightCm: printCm.height,
-    dpi: PRINT_EXPORT_DPI,
-    widthPx,
-    heightPx,
-    cmToPx: CM_TO_EXPORT_PX,
+    widthCm: canvasSpec.printAreaCm.width,
+    heightCm: canvasSpec.printAreaCm.height,
+    dpi: canvasSpec.dpi,
+    widthPx: canvasSpec.widthPx,
+    heightPx: canvasSpec.heightPx,
+    cmToPx: canvasSpec.widthPx / canvasSpec.printAreaCm.width,
     background: "transparent",
   };
 }
@@ -81,19 +86,27 @@ function drawImageLayer(
   ctx: CanvasRenderingContext2D,
   layer: Extract<DesignLayer, { type: "image" }>,
   img: HTMLImageElement,
-  pxPerCm: number,
+  exportRect: ExportLayerRectPx,
 ) {
-  const rect = getLayerInspectorCmRect(layer);
-  const centerX = (rect.x_cm + rect.width_cm / 2) * pxPerCm;
-  const centerY = (rect.y_cm + rect.height_cm / 2) * pxPerCm;
-  const drawW = rect.width_cm * pxPerCm;
-  const drawH = rect.height_cm * pxPerCm;
+  const centerX = exportRect.x + exportRect.width / 2;
+  const centerY = exportRect.y + exportRect.height / 2;
 
   ctx.save();
   ctx.translate(centerX, centerY);
   ctx.rotate((layer.rotation * Math.PI) / 180);
-  ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
+  ctx.drawImage(
+    img,
+    -exportRect.width / 2,
+    -exportRect.height / 2,
+    exportRect.width,
+    exportRect.height,
+  );
   ctx.restore();
+}
+
+export interface RenderPrintExportOptions {
+  /** 與 Designer / Preview 一致之印刷區（正面 35×50、背面 38×45） */
+  side?: Side;
 }
 
 /**
@@ -101,9 +114,12 @@ function drawImageLayer(
  */
 export async function renderPrintExportPng(
   layers: DesignLayer[],
+  options?: RenderPrintExportOptions,
 ): Promise<Blob> {
-  const spec = getPrintExportSpec();
-  const { widthPx, heightPx } = spec;
+  const side = options?.side ?? "front";
+  const canvasSpec = getExportCanvasSpec(side);
+  const { widthPx, heightPx } = canvasSpec;
+  const printAreaCm = canvasSpec.printAreaCm;
 
   const canvas = document.createElement("canvas");
   canvas.width = widthPx;
@@ -129,30 +145,28 @@ export async function renderPrintExportPng(
   }
 
   const imageCache = new Map<string, HTMLImageElement>();
-  const pxPerCm = CM_TO_EXPORT_PX;
+  const canvasSize = { widthPx, heightPx };
 
   for (const layer of visibleLayers) {
+    const cmRect = getLayerExportCmRect(layer);
+    const exportRect = mapLayerCmRectToExportPx(cmRect, printAreaCm, canvasSize);
+
     if (layer.type === "image") {
       let img = imageCache.get(layer.id);
       if (!img) {
         img = await loadImage(layer.image.originalUrl);
         imageCache.set(layer.id, img);
       }
-      drawImageLayer(ctx, layer, img, pxPerCm);
+      drawImageLayer(ctx, layer, img, exportRect);
     } else if (layer.type === "shape") {
       drawShapeOnCanvas(
         ctx,
         layer as ShapeDesignLayer,
-        pxPerCm,
-        getLayerInspectorCmRect(layer),
+        exportRect.pxPerCmX,
+        cmRect,
       );
     } else if (layer.text.trim().length > 0) {
-      drawRichTextOnCanvas(
-        ctx,
-        layer,
-        pxPerCm,
-        getLayerInspectorCmRect(layer),
-      );
+      drawRichTextOnCanvas(ctx, layer, exportRect.pxPerCmX, cmRect);
     }
   }
 

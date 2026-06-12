@@ -40,9 +40,9 @@ export async function renderProofSheetPdf(params: {
 
   const { PDFDocument, rgb } = await import("pdf-lib");
   const pdfDoc = await PDFDocument.create();
-  pdfDoc.setTitle(`ZIIIGO Proof ${gender} ${side} ${size}`);
-  pdfDoc.setProducer("ZIIIGO T-Shirt Designer");
-  pdfDoc.setCreator("ZIIIGO T-Shirt Designer");
+  pdfDoc.setTitle(`TIIIGO Proof ${gender} ${side} ${size}`);
+  pdfDoc.setProducer("TIIIGO T-Shirt Designer");
+  pdfDoc.setCreator("TIIIGO T-Shirt Designer");
 
   const { regular: font, bold: fontBold } = await embedPdfCjkFonts(pdfDoc);
   const black = rgb(0, 0, 0);
@@ -71,7 +71,7 @@ export async function renderProofSheetPdf(params: {
     y -= opts?.size ? opts.size + 4 : lineHeight;
   };
 
-  drawLine("ZIIIGO Design Proof Sheet", { bold: true, size: 18 });
+  drawLine("TIIIGO Design Proof Sheet", { bold: true, size: 18 });
   y -= 4;
   drawLine(`Generated: ${formatExportDate()}`, { color: gray, size: 9 });
   y -= 8;

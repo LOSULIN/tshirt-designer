@@ -121,8 +121,12 @@ assert(
 );
 assert(pdfSrc.includes("595.28"), "Proof PDF 使用 A4");
 assert(
-  pdfSrc.includes("ZIIIGO PROOF"),
-  "Proof PDF 標題為 ZIIIGO",
+  pdfSrc.includes("drawSideProofPage") && pdfSrc.includes("TIIIGO"),
+  "Proof PDF 為 TIIIGO 每面校稿格式",
+);
+assert(
+  !pdfSrc.includes("PRINT ARTWORK"),
+  "Proof PDF 不含單獨 artwork 頁",
 );
 assert(
   !pdfSrc.includes('drawText("CUSTOMER"'),

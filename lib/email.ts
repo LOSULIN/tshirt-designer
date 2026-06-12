@@ -81,8 +81,8 @@ export async function sendDesignSubmittedEmail(params: {
     applicantName,
   );
   const subject = applicantName
-    ? `【ZIIIGO】新設計投稿｜${applicantName}`
-    : "【ZIIIGO】新設計投稿";
+    ? `【TIIIGO】新設計投稿｜${applicantName}`
+    : "【TIIIGO】新設計投稿";
   const html = `
     <h2>服飾設計申請已送出</h2>
     <p><strong>設計編號：</strong>${displayLabel}</p>
@@ -301,7 +301,7 @@ async function sendContestAdminEmail(params: {
   const subject = `徵選投稿新作品 - ${params.submissionNo}`;
   const html = `
     <pre style="font-family: Menlo, Monaco, Consolas, monospace; font-size: 14px; line-height: 1.6; white-space: pre-wrap;">====================
-ZIIIGO 徵選投稿通知
+TIIIGO 徵選投稿通知
 ====================
 
 申請人：

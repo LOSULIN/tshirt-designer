@@ -50,4 +50,22 @@ assert(
   "放大比例一致（向量輸出，可直接送印）",
 );
 
+const ratioWidthPx = (21 / PRINT_WIDTH_CM) * widthPx;
+const directWidthPx = cmToExportPx(21);
+assert(
+  Math.abs(ratioWidthPx - directWidthPx) <= 2,
+  `比例換算與 cm 換算一致（21cm → ${Math.round(ratioWidthPx)}px ≈ ${directWidthPx}px）`,
+);
+
+const BACK_WIDTH_CM = 38;
+const BACK_HEIGHT_CM = 45;
+const backWidthPx = cmToExportPx(BACK_WIDTH_CM);
+const backHeightPx = cmToExportPx(BACK_HEIGHT_CM);
+
+assert(backWidthPx === 4488, `背面寬度：38 cm → ${backWidthPx}px @ ${EXPORT_DPI} DPI`);
+assert(
+  backHeightPx === 5315,
+  `背面高度：45 cm → ${backHeightPx}px @ ${EXPORT_DPI} DPI`,
+);
+
 console.log("\n印刷輸出系統校驗完成。");

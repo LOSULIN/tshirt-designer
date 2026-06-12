@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { Gender, ShirtColor, Side, Size } from "@/lib/constants";
 import {
   exportAndDownloadDesignBundle,
@@ -8,6 +8,7 @@ import {
   hasExportableDesign,
   type DesignExportBundle,
 } from "@/lib/design-export-system";
+import { buildExportDebugReport } from "@/lib/export-debug";
 import { formatPrintExportSpecLine } from "@/lib/print-export";
 import type { DesignLayer } from "@/lib/types";
 
@@ -35,6 +36,10 @@ export function DesignExportModal({
 
   const exportable = hasExportableDesign(layers);
   const sideLabel = side === "front" ? "正面" : "背面";
+  const debugReport = useMemo(
+    () => (exportable ? buildExportDebugReport(layers, side) : null),
+    [exportable, layers, side],
+  );
 
   const handleExport = useCallback(async () => {
     if (!exportable) return;
@@ -117,8 +122,29 @@ export function DesignExportModal({
         </ul>
 
         <div className="mt-4 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
-          {formatPrintExportSpecLine(gender)}
+          {formatPrintExportSpecLine(gender, side)}
         </div>
+
+        {debugReport && (
+          <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950">
+            <p className="font-medium">匯出尺寸除錯</p>
+            <p className="mt-1">
+              Export：{debugReport.exportWidthPx}×{debugReport.exportHeightPx}{" "}
+              px · DPI {debugReport.dpi}
+            </p>
+            <ul className="mt-2 space-y-1.5">
+              {debugReport.objects.map((obj) => (
+                <li key={obj.layerId}>
+                  <span className="font-medium">{obj.label}</span>
+                  <span className="ml-1 text-amber-900/80">
+                    Width {obj.widthCm} cm · Height {obj.heightCm} cm →{" "}
+                    {obj.exportWidthPx}×{obj.exportHeightPx} px
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         <div className="mt-4">
           <p className="text-xs font-medium text-zinc-700">Print 檔案格式</p>

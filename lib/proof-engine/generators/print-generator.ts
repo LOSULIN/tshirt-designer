@@ -23,7 +23,7 @@ export async function generatePrintPng(params: {
     throw new Error(`No design on ${side} for print generation`);
   }
 
-  const blob = await renderPrintExportPng(layers);
+  const blob = await renderPrintExportPng(layers, { side });
   return new Uint8Array(await blob.arrayBuffer());
 }
 

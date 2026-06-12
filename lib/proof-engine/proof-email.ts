@@ -49,7 +49,7 @@ function buildSubmissionAdminEmailHtml(params: {
     : "";
 
   return `
-    <h2>ZIIIGO 新設計申請</h2>
+    <h2>TIIIGO 新設計申請</h2>
     <p>客戶已送出自由設計申請，請使用下方連結下載校稿與完整設計包（7 天有效）。</p>
 
     <h3>案件資訊</h3>
@@ -135,7 +135,7 @@ export async function sendSubmissionAdminEmail(params: {
 
   const admin = await sendAdminEmail({
     recipients,
-    subject: `【ZIIIGO】新設計申請｜${proofPackage.submission_no}`,
+    subject: `【TIIIGO】新設計申請｜${proofPackage.submission_no}`,
     html: buildSubmissionAdminEmailHtml({ order, proofPackage }),
   });
 

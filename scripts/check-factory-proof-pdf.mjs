@@ -1,5 +1,5 @@
 /**
- * 驗證：工廠級 Proof PDF Template（A4 · 4~5 pages）
+ * 驗證：工廠校稿 PDF（每面一頁 · Mockup + 印刷資訊）
  */
 
 import { existsSync, readFileSync } from "node:fs";
@@ -28,67 +28,77 @@ assert(
   "generateFactoryProofPdf 已實作",
 );
 assert(
-  templateSrc.includes("ZIIIGO PROOF"),
-  "PAGE 1: ZIIIGO Proof Overview",
+  templateSrc.includes("drawSideProofPage"),
+  "每面一頁校稿版面",
+);
+assert(
+  templateSrc.includes("getProductName"),
+  "標題含商品名稱",
+);
+assert(
+  templateSrc.includes("computePdfMockupPlacement"),
+  "Mockup 使用 Designer 固定像素比例放置",
+);
+assert(
+  templateSrc.includes("logPdfMockupPlacementDebug"),
+  "PDF Mockup 匯出前除錯資訊",
+);
+assert(
+  !templateSrc.includes("drawClippedMockupImage") &&
+    templateSrc.includes("drawMockupImage"),
+  "PDF Mockup 完整繪製、不 clip 裁切",
+);
+
+const layoutSrc = readFileSync(
+  join(root, "lib/proof-engine/generators/pdf-mockup-layout.ts"),
+  "utf8",
+);
+assert(
+  layoutSrc.includes("MOCKUP_FLAT_CONTAINER") &&
+    layoutSrc.includes("MOCKUP_EXPORT_SCALE") &&
+    layoutSrc.includes('fitMode: "contain"') &&
+    layoutSrc.includes("Math.min(scaleX, scaleY)"),
+  "pdf-mockup-layout 使用 contain 完整顯示 Mockup PNG",
+);
+assert(
+  templateSrc.includes("drawPrintInfoSection"),
+  "含印刷資訊區",
+);
+assert(
+  templateSrc.includes("getGarmentMaxPrintAreaCm"),
+  "印刷尺寸依面別藍框（35×50 / 38×45）",
+);
+assert(
+  templateSrc.includes("getPrintAreaOffsetCm"),
+  "含領口距離",
+);
+assert(
+  templateSrc.includes("buildLiveDesignState"),
+  "物件尺寸來自 Designer cm 資料",
+);
+assert(
+  !templateSrc.includes("PRINT ARTWORK"),
+  "不含單獨 PRINT ARTWORK 頁",
+);
+assert(
+  !templateSrc.includes("drawPrintArtworkPage"),
+  "不含印刷圖稿獨立頁",
+);
+assert(
+  !templateSrc.includes("ARTWORK VALIDATION"),
+  "不含舊版 Validation 頁",
+);
+assert(
+  !templateSrc.includes("PRODUCTION NOTES"),
+  "不含舊版 Production Notes 頁",
 );
 assert(
   !templateSrc.includes("CUSTOMER"),
   "Proof PDF 不含 CUSTOMER 個資區塊",
 );
 assert(
-  templateSrc.includes("PRINT AREA") &&
-    templateSrc.includes("drawPrintAreaBoundingBox"),
-  "Mockup page 含 print area bounding box",
-);
-assert(
-  templateSrc.includes("PRINT METHOD") &&
-    templateSrc.includes("ARTWORK FILE") &&
-    templateSrc.includes("PIXEL SIZE") &&
-    templateSrc.includes("COLOR MODE") &&
-    templateSrc.includes("BACKGROUND"),
-  "Summary 含印刷檔案規格欄位",
-);
-assert(
-  templateSrc.includes("resolvePrintMethod") &&
-    templateSrc.includes("getPrintExportDimensionsPx"),
-  "印刷規格由既有匯出尺寸推導",
-);
-assert(
   templateSrc.includes("FRONT") && templateSrc.includes("BACK"),
-  "Front / Back mockup labels",
-);
-assert(
-  templateSrc.includes("PRINT TECHNICAL SHEET"),
-  "PAGE 4: Print Technical Sheet",
-);
-assert(
-  templateSrc.includes("FROM NECKLINE") && templateSrc.includes("W (cm)"),
-  "Technical sheet 含 neckline 與 element cm 欄位",
-);
-assert(
-  templateSrc.includes("ARTWORK VALIDATION"),
-  "含 Artwork Validation 頁",
-);
-assert(
-  templateSrc.includes("buildArtworkValidationSummary"),
-  "Validation 彙整既有驗證結果",
-);
-assert(
-  templateSrc.includes("✓") && templateSrc.includes("Validation Failed"),
-  "Validation 頁含通過／失敗顯示",
-);
-assert(
-  templateSrc.includes("PRODUCTION NOTES"),
-  "含 Production Notes 頁",
-);
-assert(
-  templateSrc.includes("FACTORY_PROOF_DPI") &&
-    templateSrc.includes("FACTORY_PROOF_TOLERANCE_CM"),
-  "Notes 含 DPI 300 與 tolerance",
-);
-assert(
-  templateSrc.includes("buildLiveDesignState"),
-  "PDF 依據 designState（cm 標準）",
+  "支援正面 / 背面標題",
 );
 assert(
   !templateSrc.includes("html2canvas") && !templateSrc.includes("screenshot"),
@@ -96,7 +106,7 @@ assert(
 );
 assert(
   templateSrc.includes("embedPdfCjkFonts"),
-  "使用 CJK 字型（非 WinAnsi StandardFonts）",
+  "使用 CJK 字型",
 );
 
 const pdfFontsSrc = readFileSync(join(root, "lib/pdf-fonts.ts"), "utf8");
@@ -116,6 +126,10 @@ const wrapperSrc = readFileSync(
 assert(
   wrapperSrc.includes("generateFactoryProofPdf"),
   "proof-pdf-generator 委派 factory template",
+);
+assert(
+  !wrapperSrc.includes("printImages"),
+  "校稿 PDF 不嵌入單獨 print artwork",
 );
 
 console.log("\nFactory Proof PDF Template 結構檢查完成。");

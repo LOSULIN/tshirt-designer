@@ -85,9 +85,9 @@ assert(
 mustNotImport(mockup, ["preview"], "Mockup");
 
 assert(
-  printExport.includes("coordinates/production") &&
-    printExport.includes("getProductionExportDimensionsPx"),
-  "Print export 僅用 Production",
+  printExport.includes("getExportCanvasSpec") &&
+    printExport.includes("mapLayerCmRectToExportPx"),
+  "Print export 使用統一 cm → export px 換算",
 );
 assert(
   !printExport.includes("coordinates/preview") &&
@@ -96,10 +96,10 @@ assert(
 );
 
 assert(
-  mockupExport.includes("getFlatMockupPrintAreaRectPx") &&
-    mockupExport.includes("productionRectToMockupCanvasPx") &&
+  mockupExport.includes("getMockupExportPrintAreaRectPx") &&
+    mockupExport.includes("mapLayerCmRectToMockupPx") &&
     mockupExport.includes("MOCKUP_FLAT_CONTAINER"),
-  "Mockup export 使用 Mockup 座標",
+  "Mockup export 印刷區隨 exportScale 與 Designer Preview 同比例",
 );
 assert(
   !mockupExport.includes("coordinates/preview"),

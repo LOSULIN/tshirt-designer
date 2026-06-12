@@ -23,7 +23,7 @@ export function buildValidationReport(
   timestamp?: string,
 ): ValidationReport {
   const summary = buildArtworkValidationSummary(order);
-  const spec = getPrintExportSpec();
+  const spec = getPrintExportSpec(order.active_side);
 
   const transparent =
     summary.checks.find((check) => check.label === "Transparent Background")

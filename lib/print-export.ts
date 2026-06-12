@@ -53,7 +53,7 @@ export function getPrintExportDescriptor(
   side: Side,
   format: PrintExportFormat,
 ): PrintExportDescriptor {
-  const spec = getPrintExportSpec();
+  const spec = getPrintExportSpec(side);
 
   return {
     gender,
@@ -95,14 +95,14 @@ export async function renderPrintableDesignPdf(
   _side: Side,
   layers: DesignLayer[],
 ): Promise<Blob> {
-  const pngBlob = await renderPrintExportPng(layers);
+  const pngBlob = await renderPrintExportPng(layers, { side: _side });
   const descriptor = getPrintExportDescriptor(gender, _side, "pdf");
   const { PDFDocument } = await import("pdf-lib");
 
   const pdfDoc = await PDFDocument.create();
-  pdfDoc.setTitle(`ZIIIGO Print ${gender} ${_side}`);
-  pdfDoc.setProducer("ZIIIGO T-Shirt Designer");
-  pdfDoc.setCreator("ZIIIGO T-Shirt Designer");
+  pdfDoc.setTitle(`TIIIGO Print ${gender} ${_side}`);
+  pdfDoc.setProducer("TIIIGO T-Shirt Designer");
+  pdfDoc.setCreator("TIIIGO T-Shirt Designer");
 
   const page = pdfDoc.addPage([descriptor.widthPt, descriptor.heightPt]);
   const pngBytes = new Uint8Array(await pngBlob.arrayBuffer());
@@ -126,7 +126,7 @@ export async function renderPrintableDesign(
   format: PrintExportFormat,
 ): Promise<Blob> {
   if (format === "png") {
-    return renderPrintExportPng(layers);
+    return renderPrintExportPng(layers, { side });
   }
   return renderPrintableDesignPdf(gender, side, layers);
 }
@@ -175,8 +175,11 @@ export function listPrintableExportSlots(
   });
 }
 
-export function formatPrintExportSpecLine(_gender?: Gender): string {
-  const spec = getPrintExportSpec();
+export function formatPrintExportSpecLine(
+  _gender?: Gender,
+  side: Side = "front",
+): string {
+  const spec = getPrintExportSpec(side);
   return `PNG / PDF · ${spec.widthCm}×${spec.heightCm}cm · ${spec.widthPx}×${spec.heightPx}px · ${spec.dpi} DPI · 透明背景 · 僅可印刷區`;
 }
 

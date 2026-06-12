@@ -1,5 +1,6 @@
 /**
  * Mockup Preview 輸出 — 模板 + cm-based elements overlay（非 DOM 截圖）。
+ * 座標與 Designer / Flat Preview 相同（designer print area）。
  */
 
 import type { ShirtColor, Side } from "./constants";
@@ -8,17 +9,17 @@ import {
   getFlatMockupPrintAreaRectPx,
   MOCKUP_EXPORT_SCALE,
   MOCKUP_FLAT_CONTAINER,
-  productionRectToMockupCanvasPx,
 } from "./coordinates/mockup";
 import {
-  getOverlayPxPerCmFromPrintRect,
-  readLayerProductionRectMm,
-} from "./design-cm";
+  getLayerExportCmRect,
+  mapLayerCmRectToMockupPx,
+  resolveExportPrintAreaCm,
+} from "./export-coordinates";
 import {
-  getProductionPrintAreaMm,
-  legacyCmFieldToMm,
-} from "./coordinates/production";
-import { getLayerInspectorCmRect } from "./design-inspector";
+  buildMockupOverlayDebugReport,
+  getMockupExportPrintAreaRectPx,
+  logMockupOverlayDebugReport,
+} from "./mockup-export-debug";
 import { getAdultTshirtTemplateSrc } from "./shirt-template";
 import { drawRichTextOnCanvas } from "./text-style";
 import { drawShapeOnCanvas } from "./shape-layer";
@@ -55,15 +56,22 @@ function drawImageLayerOnMockup(
   layer: Extract<DesignLayer, { type: "image" }>,
   img: HTMLImageElement,
   printRect: MockupContainerRect,
+  side: Side,
 ) {
-  const rectMm = readLayerProductionRectMm(layer);
-  const { centerX, centerY, width: drawW, height: drawH } =
-    productionRectToMockupCanvasPx(rectMm, printRect);
+  const printAreaCm = resolveExportPrintAreaCm(side);
+  const cmRect = getLayerExportCmRect(layer);
+  const mapped = mapLayerCmRectToMockupPx(cmRect, printAreaCm, printRect);
 
   ctx.save();
-  ctx.translate(centerX, centerY);
+  ctx.translate(mapped.centerX, mapped.centerY);
   ctx.rotate((layer.rotation * Math.PI) / 180);
-  ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
+  ctx.drawImage(
+    img,
+    -mapped.width / 2,
+    -mapped.height / 2,
+    mapped.width,
+    mapped.height,
+  );
   ctx.restore();
 }
 
@@ -71,16 +79,18 @@ function drawDesignLayerOnMockup(
   ctx: CanvasRenderingContext2D,
   layer: DesignLayer,
   printRect: MockupContainerRect,
+  side: Side,
 ) {
-  const pxPerCm = getOverlayPxPerCmFromPrintRect(printRect.width);
-  const rect = getLayerInspectorCmRect(layer);
+  const printAreaCm = resolveExportPrintAreaCm(side);
+  const cmRect = getLayerExportCmRect(layer);
+  const mapped = mapLayerCmRectToMockupPx(cmRect, printAreaCm, printRect);
 
   ctx.save();
   ctx.translate(printRect.left, printRect.top);
   if (layer.type === "shape") {
-    drawShapeOnCanvas(ctx, layer as ShapeDesignLayer, pxPerCm, rect);
+    drawShapeOnCanvas(ctx, layer as ShapeDesignLayer, mapped.pxPerCmX, cmRect);
   } else if (layer.type === "text" && layer.text.trim().length > 0) {
-    drawRichTextOnCanvas(ctx, layer, pxPerCm, rect);
+    drawRichTextOnCanvas(ctx, layer, mapped.pxPerCmX, cmRect);
   }
   ctx.restore();
 }
@@ -120,12 +130,12 @@ export async function renderMockupPreviewPng(params: {
     ctx.fillRect(canvasWidth * 0.15, canvasHeight * 0.1, canvasWidth * 0.7, canvasHeight * 0.8);
   }
 
-  const printRect = getFlatMockupPrintAreaRectPx(
-    canvasWidth,
-    canvasHeight,
-    side,
-  );
+  // 模板隨 exportScale 放大；印刷區須同比例放大（非 getPrintAreaCmToTemplateContainerPct 的固定 px）
+  const printRect = getMockupExportPrintAreaRectPx(side, scale);
   const visibleLayers = getLayersForCanvasRender(layers).filter((l) => l.visible);
+
+  const overlayDebug = buildMockupOverlayDebugReport(visibleLayers, side, scale);
+  logMockupOverlayDebugReport(overlayDebug);
 
   const textLayers = visibleLayers.filter(
     (l): l is TextDesignLayer => l.type === "text",
@@ -144,9 +154,9 @@ export async function renderMockupPreviewPng(params: {
         img = await loadImage(layer.image.previewUrl || layer.image.originalUrl);
         imageCache.set(layer.id, img);
       }
-      drawImageLayerOnMockup(ctx, layer, img, printRect);
+      drawImageLayerOnMockup(ctx, layer, img, printRect, side);
     } else if (layer.type === "text" || layer.type === "shape") {
-      drawDesignLayerOnMockup(ctx, layer, printRect);
+      drawDesignLayerOnMockup(ctx, layer, printRect, side);
     }
   }
 
