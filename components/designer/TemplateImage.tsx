@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import type { Gender, Side } from "@/lib/constants";
-import { ModelTemplatePlaceholder } from "./ModelTemplatePlaceholder";
+import { ProcessedTemplateImage } from "./ProcessedTemplateImage";
 
 export function TemplateImage({
   gender,
@@ -19,30 +18,14 @@ export function TemplateImage({
   className?: string;
   showPlaceholderGuide?: boolean;
 }) {
-  const [missing, setMissing] = useState(false);
-
-  useEffect(() => {
-    setMissing(false);
-  }, [src]);
-
-  if (missing) {
-    return (
-      <ModelTemplatePlaceholder
-        gender={gender}
-        side={side}
-        className={className}
-        showGuide={showPlaceholderGuide}
-      />
-    );
-  }
-
   return (
-    /* eslint-disable-next-line @next/next/no-img-element */
-    <img
+    <ProcessedTemplateImage
+      gender={gender}
+      side={side}
       src={src}
       alt={alt}
       className={className}
-      onError={() => setMissing(true)}
+      showPlaceholderGuide={showPlaceholderGuide}
     />
   );
 }

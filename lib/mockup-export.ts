@@ -1,6 +1,7 @@
 /**
  * Mockup Preview 輸出 — 模板 + cm-based elements overlay（非 DOM 截圖）。
  * 座標與 Designer / Flat Preview 相同（designer print area）。
+ * 輸出 PNG 保留透明背景（alpha）；預覽區底色僅由 UI CSS 提供。
  */
 
 import type { ShirtColor, Side } from "./constants";
@@ -118,16 +119,14 @@ export async function renderMockupPreviewPng(params: {
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("無法建立 mockup 畫布");
 
-  ctx.fillStyle = "#f4f4f5";
-  ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+  ctx.clearRect(0, 0, canvasWidth, canvasHeight);
 
   const templateSrc = getAdultTshirtTemplateSrc(shirtColor, side);
   try {
     const template = await loadImage(templateSrc);
     ctx.drawImage(template, 0, 0, canvasWidth, canvasHeight);
   } catch {
-    ctx.fillStyle = "#e4e4e7";
-    ctx.fillRect(canvasWidth * 0.15, canvasHeight * 0.1, canvasWidth * 0.7, canvasHeight * 0.8);
+    // 模板載入失敗時維持透明畫布，不填入底色
   }
 
   // 模板隨 exportScale 放大；印刷區須同比例放大（非 getPrintAreaCmToTemplateContainerPct 的固定 px）

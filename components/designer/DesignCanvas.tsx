@@ -47,7 +47,7 @@ import { ClothingBrowseModal } from "./ClothingBrowseModal";
 import { ClothingBrowsePanel } from "./ClothingBrowsePanel";
 import { DesignReviewModal } from "./DesignReviewModal";
 import { DesignToolbar } from "./DesignToolbar";
-import { TemplateImage } from "./TemplateImage";
+import { ProcessedTemplateImage } from "./ProcessedTemplateImage";
 import { ElementAlignmentGuides } from "./ElementAlignmentGuides";
 import {
   PrintAreaCenterGuides,
@@ -448,7 +448,7 @@ export function DesignCanvas({
               onPointerDown={() => onClearSelection()}
             >
               <ShirtVisualScale size={size}>
-                <TemplateImage
+                <ProcessedTemplateImage
                   gender={gender}
                   side={side}
                   src={templateSrc}

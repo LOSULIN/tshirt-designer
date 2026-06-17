@@ -1,10 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import {
   getAdultTshirtTemplateSrc,
-  getShirtColorHex,
-  isLightShirtColor,
   type Gender,
   type ShirtColor,
   type Side,
@@ -26,118 +23,7 @@ import type { DesignLayer } from "@/lib/types";
 import { LayerPreviewContent } from "./LayerPreviewContent";
 import { ShirtContainerFrame } from "./ShirtContainerFrame";
 import { ShirtVisualScale } from "./ShirtVisualScale";
-
-const VIEW_WIDTH = 400;
-const VIEW_HEIGHT = 460;
-
-function shadeHex(hex: string, amount: number): string {
-  const normalized = hex.replace("#", "");
-  const channels = [0, 2, 4].map((i) =>
-    parseInt(normalized.slice(i, i + 2), 16),
-  );
-  const shaded = channels.map((c) =>
-    Math.max(0, Math.min(255, Math.round(c + amount))),
-  );
-  return `#${shaded.map((c) => c.toString(16).padStart(2, "0")).join("")}`;
-}
-
-function FlatShirtSvg({
-  side,
-  fill,
-  stroke,
-  rib,
-}: {
-  side: Side;
-  fill: string;
-  stroke: string;
-  rib: string;
-}) {
-  if (side === "front") {
-    return (
-      <svg
-        viewBox={`0 0 ${VIEW_WIDTH} ${VIEW_HEIGHT}`}
-        className="h-full w-full"
-        aria-hidden
-      >
-        <path
-          fill={fill}
-          stroke={stroke}
-          strokeWidth="1.5"
-          strokeLinejoin="round"
-          d="
-            M 74 118
-            C 74 94 98 76 132 66
-            L 168 56
-            C 186 50 214 50 232 56
-            L 268 66
-            C 302 76 326 94 326 118
-            L 354 131
-            L 382 147
-            L 382 172
-            L 354 185
-            L 354 398
-            C 354 416 278 426 200 426
-            C 122 426 46 416 46 398
-            L 46 185
-            L 18 172
-            L 18 147
-            L 46 131
-            Z
-          "
-        />
-        <path
-          d="M 158 64 Q 200 82 242 64"
-          stroke={rib}
-          strokeWidth="3"
-          fill="none"
-          strokeLinecap="round"
-        />
-      </svg>
-    );
-  }
-
-  return (
-    <svg
-      viewBox={`0 0 ${VIEW_WIDTH} ${VIEW_HEIGHT}`}
-      className="h-full w-full"
-      aria-hidden
-    >
-      <path
-        fill={fill}
-        stroke={stroke}
-        strokeWidth="1.5"
-        strokeLinejoin="round"
-        d="
-          M 74 118
-          C 74 94 98 76 132 66
-          L 168 56
-          C 186 50 214 50 232 56
-          L 268 66
-          C 302 76 326 94 326 118
-          L 354 131
-          L 382 147
-          L 382 172
-          L 354 185
-          L 354 398
-          C 354 416 278 426 200 426
-          C 122 426 46 416 46 398
-          L 46 185
-          L 18 172
-          L 18 147
-          L 46 131
-          Z
-        "
-      />
-      <path
-        d="M 158 64 Q 200 82 242 64"
-        stroke={rib}
-        strokeWidth="3"
-        fill="none"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
+import { ProcessedTemplateImage } from "./ProcessedTemplateImage";
 
 function StaticDesignLayer({
   layer,
@@ -193,17 +79,6 @@ export function FlatShirtDesignView({
   compact?: boolean;
 }) {
   const assetSrc = getAdultTshirtTemplateSrc(shirtColor, side);
-  const [assetFailed, setAssetFailed] = useState(false);
-  const useAsset = !assetFailed;
-
-  useEffect(() => {
-    setAssetFailed(false);
-  }, [assetSrc]);
-
-  const fill = getShirtColorHex(shirtColor);
-  const isLight = isLightShirtColor(shirtColor);
-  const stroke = isLight ? "#d4d4d8" : shadeHex(fill, -30);
-  const rib = isLight ? "#e4e4e7" : shadeHex(fill, -18);
 
   const visibleLayers = sortLayersByZIndex(layers).filter((l) => l.visible);
   const printArea = getDesignerPrintAreaCmBounds(side);
@@ -225,17 +100,14 @@ export function FlatShirtDesignView({
         fitRatio={compact ? 0.95 : undefined}
       >
         <ShirtVisualScale size={size}>
-          {useAsset ? (
-            /* eslint-disable-next-line @next/next/no-img-element */
-            <img
-              src={assetSrc}
-              alt={side === "front" ? "T 恤正面" : "T 恤背面"}
-              className="absolute inset-0 z-0 h-full w-full object-contain"
-              onError={() => setAssetFailed(true)}
-            />
-          ) : (
-            <FlatShirtSvg side={side} fill={fill} stroke={stroke} rib={rib} />
-          )}
+          <ProcessedTemplateImage
+            gender={_gender}
+            side={side}
+            src={assetSrc}
+            alt={side === "front" ? "T 恤正面" : "T 恤背面"}
+            className="absolute inset-0 z-0 h-full w-full object-contain"
+            showPlaceholderGuide={false}
+          />
         </ShirtVisualScale>
         <div
           data-print-area

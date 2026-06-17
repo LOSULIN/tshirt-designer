@@ -48,8 +48,15 @@ assert(
   "mockup 使用 shirt template image",
 );
 assert(
-  mockupSrc.includes("getLayerInspectorCmRect"),
+  mockupSrc.includes("getLayerExportCmRect") ||
+    mockupSrc.includes("mapLayerCmRectToMockupPx"),
   "mockup 依 cm 資料渲染元素",
+);
+assert(
+  mockupSrc.includes("clearRect") &&
+    !mockupSrc.includes("SHIRT_PREVIEW_BACKGROUND") &&
+    !mockupSrc.includes("strip-template-checkerboard"),
+  "mockup 匯出保留透明背景（不填 preview 底色、無 runtime 去棋盤格）",
 );
 assert(
   !mockupSrc.includes("html2canvas") && !mockupSrc.includes("dom-to-image"),

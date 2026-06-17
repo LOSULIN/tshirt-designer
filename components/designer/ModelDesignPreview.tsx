@@ -18,7 +18,7 @@ import type { DesignLayer } from "@/lib/types";
 import { LayerPreviewContent } from "./LayerPreviewContent";
 import { ShirtContainerFrame } from "./ShirtContainerFrame";
 import { ShirtVisualScale } from "./ShirtVisualScale";
-import { TemplateImage } from "./TemplateImage";
+import { ProcessedTemplateImage } from "./ProcessedTemplateImage";
 
 function StaticDesignLayer({
   layer,
@@ -90,7 +90,7 @@ export function ModelDesignPreview({
       zoom={zoom}
     >
       <ShirtVisualScale size={size}>
-        <TemplateImage
+        <ProcessedTemplateImage
           gender={gender}
           side={side}
           src={templateSrc}

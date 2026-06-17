@@ -20,6 +20,7 @@ import {
 } from "@/lib/printArea";
 import { APPAREL_SIZES, type ApparelSize } from "@/lib/sizes";
 import { PrintAreaTemplateOverlay } from "./PrintAreaTemplateOverlay";
+import { ProcessedTemplateImage } from "./ProcessedTemplateImage";
 import { getShirtScale } from "@/lib/shirtScale";
 import { ShirtContainerFrame } from "./ShirtContainerFrame";
 import { ShirtVisualScale } from "./ShirtVisualScale";
@@ -139,11 +140,13 @@ export function PrintAreaPreviewPanel() {
           zoom={zoom}
         >
           <ShirtVisualScale size={size}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <ProcessedTemplateImage
+              gender="male"
+              side={side}
               src={templateSrc}
               alt={`${getShirtColorName(shirtColor)} T 恤${side === "front" ? "正面" : "背面"}`}
-              className="absolute inset-0 h-full w-full object-contain"
+              className="absolute inset-0 z-0 h-full w-full object-contain"
+              showPlaceholderGuide={false}
             />
           </ShirtVisualScale>
           <div

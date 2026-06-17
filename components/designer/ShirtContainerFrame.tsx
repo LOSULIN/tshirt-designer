@@ -5,6 +5,8 @@ import {
   getShirtContainerAspectRatio,
   getShirtContainerWidthOverHeight,
 } from "@/lib/printArea";
+import { SHIRT_PREVIEW_BACKGROUND } from "@/lib/preview-background";
+import { ShirtPreviewStack } from "./ShirtPreviewStack";
 
 /**
  * 固定尺寸外框 + `data-shirt-container`。
@@ -57,7 +59,12 @@ export function ShirtContainerFrame({
       onPointerDown={onPointerDown}
     >
       <div data-shirt-container className="absolute inset-0">
-        {children}
+        <ShirtPreviewStack
+          className="absolute inset-0"
+          backgroundColor={SHIRT_PREVIEW_BACKGROUND}
+        >
+          {children}
+        </ShirtPreviewStack>
       </div>
     </div>
   );
