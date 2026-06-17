@@ -20,6 +20,7 @@ export interface ProofPdfInput {
   order: ProofOrder;
   version: number;
   mockupImages?: Partial<Record<Side, Uint8Array | Buffer>>;
+  printImages?: Partial<Record<Side, Uint8Array | Buffer>>;
 }
 
 export async function generateProofPdf(
@@ -29,6 +30,7 @@ export async function generateProofPdf(
     order: input.order,
     version: input.version,
     mockupImages: input.mockupImages,
+    printImages: input.printImages,
   };
   return generateFactoryProofPdf(factoryInput);
 }

@@ -155,6 +155,7 @@ export async function generateProofDocuments(
     order,
     version,
     mockupImages: artifacts.mockups,
+    printImages: artifacts.prints,
   });
   timing?.mark("generatePdf");
   const proofPdf = bufferFrom(proofPdfBytes);

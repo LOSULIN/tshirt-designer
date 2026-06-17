@@ -9,6 +9,7 @@ import {
   MOCKUP_EXPORT_SCALE,
   MOCKUP_FLAT_CONTAINER,
 } from "../../coordinates/mockup";
+import { COLLAR_ANCHOR_Y_PX_BY_SIDE } from "../../coordinates/print-area-offset";
 
 export interface PdfMockupContentAreaPt {
   originX: number;
@@ -34,6 +35,10 @@ export interface PdfMockupPlacement {
   printAreaHeightCm: number;
   printAreaRenderWidthPt: number;
   printAreaRenderHeightPt: number;
+  printAreaLeftPt: number;
+  printAreaBottomPt: number;
+  printAreaTopPt: number;
+  collarCenterPt: { x: number; y: number };
   contentOriginX: number;
   contentOriginY: number;
   contentWidthPt: number;
@@ -87,6 +92,23 @@ export function computePdfMockupPlacement(
   const printAreaCm = getDesignerPrintAreaCmBounds(side);
   const printRectPx = getMockupPngPrintAreaRectPx(side);
 
+  const normLeft = printRectPx.left / mockupW;
+  const normTop = printRectPx.top / mockupH;
+  const normW = printRectPx.width / mockupW;
+  const normH = printRectPx.height / mockupH;
+
+  const printAreaLeftPt = x + normLeft * drawW;
+  const printAreaBottomPt = y + drawH - (normTop + normH) * drawH;
+  const printAreaWidthPt = normW * drawW;
+  const printAreaHeightPt = normH * drawH;
+  const printAreaTopPt = printAreaBottomPt + printAreaHeightPt;
+
+  const collarYpx = COLLAR_ANCHOR_Y_PX_BY_SIDE[side] * MOCKUP_EXPORT_SCALE;
+  const collarCenterPt = {
+    x: x + drawW / 2,
+    y: y + drawH - (collarYpx / mockupH) * drawH,
+  };
+
   return {
     x,
     y,
@@ -100,8 +122,12 @@ export function computePdfMockupPlacement(
     embeddedHeightPx: embeddedImageSize?.height ?? null,
     printAreaWidthCm: printAreaCm.width,
     printAreaHeightCm: printAreaCm.height,
-    printAreaRenderWidthPt: printRectPx.width * scale,
-    printAreaRenderHeightPt: printRectPx.height * scale,
+    printAreaRenderWidthPt: printAreaWidthPt,
+    printAreaRenderHeightPt: printAreaHeightPt,
+    printAreaLeftPt,
+    printAreaBottomPt,
+    printAreaTopPt,
+    collarCenterPt,
     contentOriginX: contentArea.originX,
     contentOriginY: contentArea.originY,
     contentWidthPt: contentArea.maxWidthPt,

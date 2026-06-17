@@ -61,8 +61,20 @@ assert(
   "pdf-mockup-layout 使用 contain 完整顯示 Mockup PNG",
 );
 assert(
-  templateSrc.includes("drawPrintInfoSection"),
-  "含印刷資訊區",
+  templateSrc.includes("drawLeftInfoPanel"),
+  "左側印刷資訊欄",
+);
+assert(
+  templateSrc.includes("drawMockupAnnotations"),
+  "Mockup 印刷區標示與定位線",
+);
+assert(
+  templateSrc.includes("drawPageFooter"),
+  "頁尾訂單／衣服／注意事項",
+);
+assert(
+  !templateSrc.includes("drawPrintInfoSection"),
+  "舊版底部印刷資訊區已移除",
 );
 assert(
   templateSrc.includes("getGarmentMaxPrintAreaCm"),
@@ -93,8 +105,9 @@ assert(
   "不含舊版 Production Notes 頁",
 );
 assert(
-  !templateSrc.includes("CUSTOMER"),
-  "Proof PDF 不含 CUSTOMER 個資區塊",
+  !templateSrc.includes("客戶確認") &&
+    !templateSrc.includes("簽名"),
+  "Proof PDF 不含客戶確認簽名區",
 );
 assert(
   templateSrc.includes("FRONT") && templateSrc.includes("BACK"),
@@ -128,8 +141,13 @@ assert(
   "proof-pdf-generator 委派 factory template",
 );
 assert(
-  !wrapperSrc.includes("printImages"),
-  "校稿 PDF 不嵌入單獨 print artwork",
+  wrapperSrc.includes("printImages"),
+  "proof-pdf-generator 傳入 print 檔案資訊",
+);
+assert(
+  !wrapperSrc.includes("printArtwork") &&
+    !templateSrc.includes("PRINT ARTWORK"),
+  "校稿 PDF 不嵌入單獨 print artwork 頁",
 );
 
 console.log("\nFactory Proof PDF Template 結構檢查完成。");
