@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="900" viewBox="0 0 1100 900">
+  <rect width="100%" height="100%" fill="#fff"/>
+  <text x="550" y="32" text-anchor="middle" font-family="system-ui,sans-serif" font-size="20" font-weight="700">Mockup Calibration · 調整前後與三視圖比較</text>
+  <text x="550" y="52" text-anchor="middle" font-family="system-ui,sans-serif" font-size="12" fill="#52525b">架構 A · Production 35×50 cm 不變 · 僅視覺錨點</text>
+
+  <text x="40" y="78" font-family="system-ui,sans-serif" font-size="13" font-weight="600" fill="#333">A. printArea.y 校準（Preview / Flat Mockup）</text>
+  
+  <g transform="translate(40, 90)">
+    <text x="112.64" y="-28" text-anchor="middle" font-family="system-ui,sans-serif" font-size="14" font-weight="600" fill="#111">調整前</text>
+    <text x="112.64" y="-12" text-anchor="middle" font-family="system-ui,sans-serif" font-size="10" fill="#666">ref.y = 0.53 · center Y = 814</text>
+    <rect width="225.28" height="337.92" fill="#fafafa" stroke="#e4e4e7"/>
+    <path d="M 49.5616 27.033600000000003 L 85.60640000000001 47.308800000000005 L 112.64 37.1712 L 139.6736 47.308800000000005 L 175.7184 27.033600000000003 L 198.2464 74.3424 L 162.20159999999998 87.8592 L 162.20159999999998 310.88640000000004 L 63.07840000000001 310.88640000000004 L 63.07840000000001 87.8592 L 27.0336 74.3424 Z" fill="#e4e4e7" stroke="#d4d4d8"/>
+    <rect x="74.14" y="124.09760000000001" width="77" height="110" fill="#dc262622" stroke="#dc2626" stroke-width="2" stroke-dasharray="5 3"/>
+    <line x1="112.64" y1="173.09760000000003" x2="112.64" y2="185.09760000000003" stroke="#dc2626" stroke-width="1.5"/>
+    <text x="223.28" y="182.09760000000003" text-anchor="end" font-family="ui-monospace,monospace" font-size="9" fill="#dc2626">Y814</text>
+    <text x="2" y="351.92" font-family="ui-monospace,monospace" font-size="9" fill="#71717a">y=0.5300</text>
+  </g>
+  
+  <g transform="translate(300, 90)">
+    <text x="112.64" y="-28" text-anchor="middle" font-family="system-ui,sans-serif" font-size="14" font-weight="600" fill="#111">調整後</text>
+    <text x="112.64" y="-12" text-anchor="middle" font-family="system-ui,sans-serif" font-size="10" fill="#666">上移 25px · center Y = 789</text>
+    <rect width="225.28" height="337.92" fill="#fafafa" stroke="#e4e4e7"/>
+    <path d="M 49.5616 27.033600000000003 L 85.60640000000001 47.308800000000005 L 112.64 37.1712 L 139.6736 47.308800000000005 L 175.7184 27.033600000000003 L 198.2464 74.3424 L 162.20159999999998 87.8592 L 162.20159999999998 310.88640000000004 L 63.07840000000001 310.88640000000004 L 63.07840000000001 87.8592 L 27.0336 74.3424 Z" fill="#e4e4e7" stroke="#d4d4d8"/>
+    <rect x="74.14" y="118.59760000000004" width="77" height="110" fill="#16a34a22" stroke="#16a34a" stroke-width="2" stroke-dasharray="5 3"/>
+    <line x1="112.64" y1="167.59760000000003" x2="112.64" y2="179.59760000000003" stroke="#16a34a" stroke-width="1.5"/>
+    <text x="223.28" y="176.59760000000003" text-anchor="end" font-family="ui-monospace,monospace" font-size="9" fill="#16a34a">Y789</text>
+    <text x="2" y="351.92" font-family="ui-monospace,monospace" font-size="9" fill="#71717a">y=0.5137</text>
+  </g>
+  <g transform="translate(265, 200)">
+    <path d="M 0 -12 L 0 12 M -6 6 L 0 12 L 6 6" fill="none" stroke="#2563eb" stroke-width="2"/>
+    <text x="0" y="28" text-anchor="middle" font-size="11" fill="#2563eb" font-weight="600">-25px</text>
+  </g>
+
+  <text x="40" y="400" font-family="system-ui,sans-serif" font-size="13" font-weight="600" fill="#333">B. 三視圖現況（正面 · 調整後錨點）</text>
+  
+  <g transform="translate(40, 412)">
+    <text x="112.64" y="-28" text-anchor="middle" font-family="system-ui,sans-serif" font-size="14" font-weight="600" fill="#111">Editor</text>
+    <text x="112.64" y="-12" text-anchor="middle" font-family="system-ui,sans-serif" font-size="10" fill="#666">Preview · 設計器</text>
+    <rect width="225.28" height="337.92" fill="#fafafa" stroke="#e4e4e7"/>
+    <path d="M 49.5616 27.033600000000003 L 85.60640000000001 47.308800000000005 L 112.64 37.1712 L 139.6736 47.308800000000005 L 175.7184 27.033600000000003 L 198.2464 74.3424 L 162.20159999999998 87.8592 L 162.20159999999998 310.88640000000004 L 63.07840000000001 310.88640000000004 L 63.07840000000001 87.8592 L 27.0336 74.3424 Z" fill="#e4e4e7" stroke="#d4d4d8"/>
+    <rect x="74.14" y="118.59760000000004" width="77" height="110" fill="#f9731622" stroke="#f97316" stroke-width="2" stroke-dasharray="5 3"/>
+    <line x1="112.64" y1="167.59760000000003" x2="112.64" y2="179.59760000000003" stroke="#f97316" stroke-width="1.5"/>
+    <text x="223.28" y="176.59760000000003" text-anchor="end" font-family="ui-monospace,monospace" font-size="9" fill="#f97316">Y789</text>
+    <text x="2" y="351.92" font-family="ui-monospace,monospace" font-size="9" fill="#71717a">y=0.5137</text>
+  </g>
+  
+  <g transform="translate(300, 412)">
+    <text x="112.64" y="-28" text-anchor="middle" font-family="system-ui,sans-serif" font-size="14" font-weight="600" fill="#111">Flat Shirt</text>
+    <text x="112.64" y="-12" text-anchor="middle" font-family="system-ui,sans-serif" font-size="10" fill="#666">Preview · 同 Editor Δ=0</text>
+    <rect width="225.28" height="337.92" fill="#fafafa" stroke="#e4e4e7"/>
+    <path d="M 49.5616 27.033600000000003 L 85.60640000000001 47.308800000000005 L 112.64 37.1712 L 139.6736 47.308800000000005 L 175.7184 27.033600000000003 L 198.2464 74.3424 L 162.20159999999998 87.8592 L 162.20159999999998 310.88640000000004 L 63.07840000000001 310.88640000000004 L 63.07840000000001 87.8592 L 27.0336 74.3424 Z" fill="#e4e4e7" stroke="#d4d4d8"/>
+    <rect x="74.14" y="118.59760000000004" width="77" height="110" fill="#3b82f622" stroke="#3b82f6" stroke-width="2" stroke-dasharray="5 3"/>
+    <line x1="112.64" y1="167.59760000000003" x2="112.64" y2="179.59760000000003" stroke="#3b82f6" stroke-width="1.5"/>
+    <text x="223.28" y="176.59760000000003" text-anchor="end" font-family="ui-monospace,monospace" font-size="9" fill="#3b82f6">Y789</text>
+    <text x="2" y="351.92" font-family="ui-monospace,monospace" font-size="9" fill="#71717a">y=0.5137</text>
+  </g>
+  
+  <g transform="translate(560, 412)">
+    <text x="112.64" y="-28" text-anchor="middle" font-family="system-ui,sans-serif" font-size="14" font-weight="600" fill="#111">Flat Mockup</text>
+    <text x="112.64" y="-12" text-anchor="middle" font-family="system-ui,sans-serif" font-size="10" fill="#666">Mockup flat · Δ=0</text>
+    <rect width="225.28" height="337.92" fill="#fafafa" stroke="#e4e4e7"/>
+    <path d="M 49.5616 27.033600000000003 L 85.60640000000001 47.308800000000005 L 112.64 37.1712 L 139.6736 47.308800000000005 L 175.7184 27.033600000000003 L 198.2464 74.3424 L 162.20159999999998 87.8592 L 162.20159999999998 310.88640000000004 L 63.07840000000001 310.88640000000004 L 63.07840000000001 87.8592 L 27.0336 74.3424 Z" fill="#e4e4e7" stroke="#d4d4d8"/>
+    <rect x="74.14" y="118.59760000000004" width="77" height="110" fill="#16a34a22" stroke="#16a34a" stroke-width="2" stroke-dasharray="5 3"/>
+    <line x1="112.64" y1="167.59760000000003" x2="112.64" y2="179.59760000000003" stroke="#16a34a" stroke-width="1.5"/>
+    <text x="223.28" y="176.59760000000003" text-anchor="end" font-family="ui-monospace,monospace" font-size="9" fill="#16a34a">Y789</text>
+    <text x="2" y="351.92" font-family="ui-monospace,monospace" font-size="9" fill="#71717a">y=0.5137</text>
+  </g>
+  
+  <g transform="translate(820, 412)">
+    <text x="112.64" y="-28" text-anchor="middle" font-family="system-ui,sans-serif" font-size="14" font-weight="600" fill="#111">Model Mockup</text>
+    <text x="112.64" y="-12" text-anchor="middle" font-family="system-ui,sans-serif" font-size="10" fill="#666">Mockup model · ΔY=-52px</text>
+    <rect width="225.28" height="337.92" fill="#fafafa" stroke="#e4e4e7"/>
+    <path d="M 49.5616 27.033600000000003 L 85.60640000000001 47.308800000000005 L 112.64 37.1712 L 139.6736 47.308800000000005 L 175.7184 27.033600000000003 L 198.2464 74.3424 L 162.20159999999998 87.8592 L 162.20159999999998 310.88640000000004 L 63.07840000000001 310.88640000000004 L 63.07840000000001 87.8592 L 27.0336 74.3424 Z" fill="#e4e4e7" stroke="#d4d4d8"/>
+    <rect x="74.14" y="107.2016" width="77" height="110" fill="#a855f722" stroke="#a855f7" stroke-width="2" stroke-dasharray="5 3"/>
+    <line x1="112.64" y1="156.2016" x2="112.64" y2="168.2016" stroke="#a855f7" stroke-width="1.5"/>
+    <text x="223.28" y="165.2016" text-anchor="end" font-family="ui-monospace,monospace" font-size="9" fill="#a855f7">Y737</text>
+    <text x="2" y="351.92" font-family="ui-monospace,monospace" font-size="9" fill="#71717a">y=0.4800</text>
+  </g>
+
+  <g transform="translate(40, 780)">
+    <text font-family="ui-monospace,monospace" font-size="11" fill="#3f3f46">
+      <tspan x="0" dy="0">Preview/Flat: y=0.513724 · top=539 · 350×500px</tspan>
+      <tspan x="0" dy="16">Model mockup: y=0.48 · center Y=737 · 較 Editor </tspan>
+      <tspan fill="#b45309" font-weight="600">上方 52px</tspan>
+      <tspan x="0" dy="16">建議 Model ref.y → 0.5137（+0.0337）以對齊 Editor</tspan>
+    </text>
+  </g>
+</svg>
