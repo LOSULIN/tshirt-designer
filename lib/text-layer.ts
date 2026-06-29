@@ -82,8 +82,8 @@ export function buildCanvasFont(
   return `${fontWeight} ${fontSizePx}px ${resolveCanvasFontFamily(fontFamily)}`;
 }
 
-/** 文字圖層幾何：以 fontSize×scale 量測 glyph bounds，搭配儲存的 x/y */
-export function getTextLayerCmRect(layer: TextDesignLayer): LayerCmRect {
+/** 字型量測外框（export／校稿／印刷尺寸） */
+export function getTextLayerMeasuredCmRect(layer: TextDesignLayer): LayerCmRect {
   const fontSize_cm = layer.fontSize_cm * layer.scale;
   const { width_cm, height_cm } = measureTextBoundsCm(
     layer.text,
@@ -98,6 +98,55 @@ export function getTextLayerCmRect(layer: TextDesignLayer): LayerCmRect {
     width_cm,
     height_cm,
   };
+}
+
+/** 畫布／Inspector 定位用外框 */
+export function getTextLayerPlacementCmRect(layer: TextDesignLayer): LayerCmRect {
+  if ("keepRatio" in layer && layer.keepRatio === false) {
+    return {
+      x_cm: layer.x_cm,
+      y_cm: layer.y_cm,
+      width_cm: layer.width_cm,
+      height_cm: layer.height_cm,
+    };
+  }
+  return getTextLayerMeasuredCmRect(layer);
+}
+
+/**
+ * Mockup／匯出用外框：與 image layer 相同，以 layer state 的印刷框 cm 為準。
+ * keepRatio:false 或 stored 框明顯大於 glyph 量測時，使用 width_cm / height_cm。
+ */
+export function getTextLayerExportCmRect(layer: TextDesignLayer): LayerCmRect {
+  if ("keepRatio" in layer && layer.keepRatio === false) {
+    return {
+      x_cm: layer.x_cm,
+      y_cm: layer.y_cm,
+      width_cm: layer.width_cm,
+      height_cm: layer.height_cm,
+    };
+  }
+
+  const measured = getTextLayerMeasuredCmRect(layer);
+  const storedLooksLikePlacementBox =
+    layer.width_cm > measured.width_cm * 1.05 ||
+    layer.height_cm > measured.height_cm * 1.05;
+
+  if (storedLooksLikePlacementBox) {
+    return {
+      x_cm: layer.x_cm,
+      y_cm: layer.y_cm,
+      width_cm: layer.width_cm,
+      height_cm: layer.height_cm,
+    };
+  }
+
+  return measured;
+}
+
+/** @deprecated 請用 getTextLayerMeasuredCmRect（export）或 getTextLayerPlacementCmRect（UI） */
+export function getTextLayerCmRect(layer: TextDesignLayer): LayerCmRect {
+  return getTextLayerMeasuredCmRect(layer);
 }
 
 export function measureTextBoundsCm(
