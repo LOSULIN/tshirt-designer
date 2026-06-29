@@ -24,7 +24,7 @@ import {
   getDesignerPrintAreaCmBounds,
   getPrintAreaCmToTemplateContainerPct,
 } from "../design-cm";
-import { getTemplatePxPerCm } from "../shirt-template";
+import { ADULT_TSHIRT_TEMPLATE_PX_PER_CM } from "../template-metrics";
 import { buildUiPrintAreaContainerStyle } from "./ui-print-offset";
 
 export const PREVIEW_CONTAINER = {
@@ -43,11 +43,11 @@ const DEFAULT_PREVIEW_SIZE: ApparelSize = "M";
  * Preview overlay：1 mm（production）→ UI px。
  * templatePxPerCm / 10 → 12.24 px/cm → 1.224 px/mm。
  */
-export const PREVIEW_UI_UNITS_PER_MM = getTemplatePxPerCm() / 10;
+export const PREVIEW_UI_UNITS_PER_MM = ADULT_TSHIRT_TEMPLATE_PX_PER_CM / 10;
 
 /** Preview 畫布上 1 cm（物理）對應的 px */
 export function getPreviewPxPerCm(): number {
-  return getTemplatePxPerCm();
+  return ADULT_TSHIRT_TEMPLATE_PX_PER_CM;
 }
 
 export type { PreviewPrintPositionMode, PreviewPrintPositionOptions };

@@ -117,6 +117,7 @@ function serializeLayerForJson(layer: DesignLayer) {
     textAlign: layer.textAlign,
     stroke: layer.stroke,
     shadow: layer.shadow,
+    keepRatio: layer.keepRatio,
   };
 }
 

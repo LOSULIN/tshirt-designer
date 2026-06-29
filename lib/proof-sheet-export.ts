@@ -2,7 +2,8 @@
  * Proof Sheet PDF — A4 校稿文件，資料來自 designState（cm）。
  */
 
-import type { Gender, ShirtColor, Side } from "./constants";
+import type { Gender, Material, ShirtColor, Side } from "./constants";
+import { getMaterialLabel } from "./constants";
 import { formatInspectorCm } from "./design-inspector";
 import { buildLiveDesignState } from "./live-design-state";
 import { getShirtColorName } from "./shirt-template";
@@ -33,8 +34,9 @@ export async function renderProofSheetPdf(params: {
   shirtColor: ShirtColor;
   size: string;
   layers: DesignLayer[];
+  material?: Material;
 }): Promise<Blob> {
-  const { gender, side, shirtColor, size, layers } = params;
+  const { gender, side, shirtColor, size, layers, material } = params;
   const designState = buildLiveDesignState(layers, size);
   const { garment, elements } = designState;
 
@@ -85,6 +87,7 @@ export async function renderProofSheetPdf(params: {
   );
   drawLine(`Template: ${gender} / ${side}`);
   drawLine(`Shirt color: ${getShirtColorName(shirtColor)}`);
+  drawLine(`Material: ${getMaterialLabel(material)}`);
   y -= 8;
 
   drawLine(`Design Elements (${elements.length})`, { bold: true, size: 12 });

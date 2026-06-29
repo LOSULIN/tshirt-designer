@@ -17,6 +17,29 @@ export type Fit = "standard";
 export type Material = "combed-cotton-180";
 
 export const DEFAULT_MATERIAL: Material = "combed-cotton-180";
+
+/** 材質／克重顯示文案（前端 UI、PDF、order.json 共用） */
+export const MATERIAL_LABEL = "100% 精梳純棉｜重磅厚棉 290g";
+
+export const MATERIAL_OPTIONS: { id: Material; label: string }[] = [
+  { id: "combed-cotton-180", label: MATERIAL_LABEL },
+];
+
+export function normalizeMaterial(value: unknown): Material {
+  return value === "combed-cotton-180" ? value : DEFAULT_MATERIAL;
+}
+
+export function getMaterialLabel(material?: unknown): string {
+  const id = normalizeMaterial(material);
+  return MATERIAL_OPTIONS.find((option) => option.id === id)?.label ?? MATERIAL_LABEL;
+}
+
+export function resolveMaterialLabelFromDesignMeta(
+  designMeta?: Record<string, unknown> | null,
+): string {
+  return getMaterialLabel(designMeta?.material);
+}
+
 export type ShirtColor =
   | "white"
   | "black"
@@ -74,14 +97,6 @@ export const DEFAULT_MODEL_ID: Record<Gender, string> = {
   "child-male": "child-male-1",
   "child-female": "child-female-1",
 };
-
-export const MATERIAL_OPTIONS: { id: Material; label: string }[] = [
-  { id: "combed-cotton-180", label: "100% 精梳純棉 180g（5.3oz）" },
-];
-
-export function normalizeMaterial(value: unknown): Material {
-  return value === "combed-cotton-180" ? value : DEFAULT_MATERIAL;
-}
 
 export const SIZES: Size[] = ["XS", "S", "M", "L", "XL", "2XL"];
 
@@ -235,17 +250,20 @@ export const ACCEPTED_IMAGE_TYPES = [
   "image/png",
   "image/jpeg",
   "image/jpg",
-  "image/webp",
 ] as const;
 
-export const ACCEPTED_EXTENSIONS = ".png,.jpg,.jpeg,.webp";
-export const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
-export const MIN_IMAGE_WIDTH = 1000;
-export const MIN_IMAGE_HEIGHT = 1000;
+export const ACCEPTED_EXTENSIONS = ".png,.jpg,.jpeg";
+export const MAX_FILE_SIZE_MB = 25;
+export const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+/** 設計器圖片上傳提示（格式與 accept 一致；PDF 請使用專業交稿流程） */
+export const UPLOAD_FILE_HINT =
+  "PNG / JPG，最大尺寸：6000×6000 px，最小尺寸：500×500 px，建議使用 300 DPI 圖片以獲得較佳印刷品質";
+export const MIN_IMAGE_WIDTH = 500;
+export const MIN_IMAGE_HEIGHT = 500;
 export const RECOMMENDED_IMAGE_WIDTH = DESIGN_AREA_WIDTH;
 export const RECOMMENDED_IMAGE_HEIGHT = DESIGN_AREA_HEIGHT;
-export const MAX_IMAGE_WIDTH = 5000;
-export const MAX_IMAGE_HEIGHT = 5000;
+export const MAX_IMAGE_WIDTH = 6000;
+export const MAX_IMAGE_HEIGHT = 6000;
 export const MAX_IMAGES_PER_SIDE = 10;
 export const MAX_TEXT_LAYERS = 20;
 export const MAX_SHAPE_LAYERS = 20;
@@ -255,7 +273,7 @@ export const PREVIEW_MAX_EDGE = 2400;
 
 export const UPLOAD_SPEC_LINES = [
   "支援：PNG / JPG / JPEG / WEBP",
-  "最大檔案：10MB",
+  "最大檔案：25MB",
   "最低尺寸：1000×1000",
   `推薦尺寸：${DESIGN_AREA_WIDTH}×${DESIGN_AREA_HEIGHT}`,
   "最大尺寸：5000×5000",
@@ -288,6 +306,8 @@ export const DRAFT_TTL_MS = 48 * 60 * 60 * 1000;
 export const DRAFT_STORAGE_KEY = "tshirt-designer-draft";
 export const DRAFT_DB_NAME = "tshirt-designer-db";
 export const DRAFT_STORE_NAME = "draft-images";
+/** IndexedDB schema version；升級時於 onupgradeneeded 確保 object store 存在 */
+export const DRAFT_DB_VERSION = 2;
 
 /** 工廠試穿尺寸區間（身高 cm、體重 kg） */
 const FACTORY_TRYON_SIZE_RANGES = [

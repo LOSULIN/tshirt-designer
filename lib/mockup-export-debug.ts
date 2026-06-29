@@ -27,13 +27,30 @@ export interface MockupPrintAreaRectDebug {
 
 export interface MockupObjectMappingDebug {
   layerId: string;
+  layerType: DesignLayer["type"];
   label: string;
+  keepRatio?: boolean;
   widthCm: number;
   heightCm: number;
   x: number;
   y: number;
   width: number;
   height: number;
+  pxPerCmX: number;
+  pxPerCmY: number;
+  widthCmToPrintAreaRatio: number;
+  mappedWidthToPrintRectRatio: number;
+}
+
+export interface MockupLayerCmPxMappingLog {
+  layerType: DesignLayer["type"];
+  layerId: string;
+  label: string;
+  keepRatio?: boolean;
+  printAreaCm: PrintAreaCmBounds;
+  printRect: MockupContainerRectPx;
+  cmRect: ReturnType<typeof getLayerExportCmRect>;
+  mapped: ReturnType<typeof mapLayerCmRectToMockupPx>;
 }
 
 export interface MockupOverlayDebugReport {
@@ -115,13 +132,22 @@ export function buildMockupOverlayDebugReport(
 
     objects.push({
       layerId: layer.id,
+      layerType: layer.type,
       label: layerLabel(layer),
+      keepRatio: layer.type === "text" ? layer.keepRatio : layer.type === "image" ? layer.keepRatio : undefined,
       widthCm: cmRect.width_cm,
       heightCm: cmRect.height_cm,
       x: Math.round((mapped.centerX - mapped.width / 2) * 100) / 100,
       y: Math.round((mapped.centerY - mapped.height / 2) * 100) / 100,
       width: Math.round(mapped.width * 100) / 100,
       height: Math.round(mapped.height * 100) / 100,
+      pxPerCmX: Math.round(mapped.pxPerCmX * 1000) / 1000,
+      pxPerCmY: Math.round(mapped.pxPerCmY * 1000) / 1000,
+      widthCmToPrintAreaRatio:
+        Math.round((cmRect.width_cm / printAreaCm.width) * 10000) / 10000,
+      mappedWidthToPrintRectRatio:
+        Math.round((mapped.width / mockupExportPrintArea.width) * 10000) /
+        10000,
     });
   }
 
@@ -158,19 +184,115 @@ export function logMockupOverlayDebugReport(report: MockupOverlayDebugReport): v
     height_px: report.canvasHeightPx,
     exportScale: report.exportScale,
   });
+  console.log("Print Area (cm):", {
+    width_cm: report.printAreaCm.width,
+    height_cm: report.printAreaCm.height,
+  });
+  console.log("pxPerCm (export print rect):", {
+    x:
+      Math.round(
+        (report.mockupExportPrintArea.widthPx / report.printAreaCm.width) *
+          1000,
+      ) / 1000,
+    y:
+      Math.round(
+        (report.mockupExportPrintArea.heightPx / report.printAreaCm.height) *
+          1000,
+      ) / 1000,
+  });
 
   for (const obj of report.objects) {
     console.log("Object:", {
+      type: obj.layerType,
       label: obj.label,
-      width_cm: obj.widthCm,
-      height_cm: obj.heightCm,
+      keepRatio: obj.keepRatio,
+      cmRect: {
+        width_cm: obj.widthCm,
+        height_cm: obj.heightCm,
+      },
       mapped: {
         x: obj.x,
         y: obj.y,
-        width: obj.width,
-        height: obj.height,
+        width_px: obj.width,
+        height_px: obj.height,
+      },
+      pxPerCm: { x: obj.pxPerCmX, y: obj.pxPerCmY },
+      ratios: {
+        width_cm_over_printAreaWidth: obj.widthCmToPrintAreaRatio,
+        mappedWidth_px_over_printRectWidth: obj.mappedWidthToPrintRectRatio,
+        ratiosMatch:
+          Math.abs(
+            obj.widthCmToPrintAreaRatio - obj.mappedWidthToPrintRectRatio,
+          ) < 0.001,
       },
     });
   }
   console.groupEnd();
+}
+
+/** Mockup draw 前：比對 cm 外框與 px 映射（image / text 共用） */
+export function logMockupLayerCmPxMapping(log: MockupLayerCmPxMappingLog): void {
+  if (typeof console === "undefined") return;
+
+  const { printAreaCm, printRect, cmRect, mapped } = log;
+  const widthCmToPrintRatio = cmRect.width_cm / printAreaCm.width;
+  const mappedWidthToPrintRectRatio = mapped.width / printRect.width;
+  const pxPerCmFromMapped = mapped.width / cmRect.width_cm;
+
+  console.log("[Mockup Debug Rect]", {
+    layerType: log.layerType,
+    label: log.label,
+    keepRatio: log.keepRatio,
+    cm: {
+      width_cm: roundDebug(cmRect.width_cm),
+      height_cm: roundDebug(cmRect.height_cm),
+    },
+    px: {
+      "mapped.width": roundDebug(mapped.width),
+      "mapped.height": roundDebug(mapped.height),
+    },
+    pxPerCmX: roundDebug(mapped.pxPerCmX),
+    pxPerCmY: roundDebug(mapped.pxPerCmY),
+  });
+
+  console.log("[Mockup cm→px]", {
+    type: log.layerType,
+    label: log.label,
+    keepRatio: log.keepRatio,
+    printAreaCm: {
+      width_cm: printAreaCm.width,
+      height_cm: printAreaCm.height,
+    },
+    printRect: {
+      width_px: Math.round(printRect.width * 100) / 100,
+      height_px: Math.round(printRect.height * 100) / 100,
+    },
+    getLayerExportCmRect: {
+      width_cm: cmRect.width_cm,
+      height_cm: cmRect.height_cm,
+      x_cm: cmRect.x_cm,
+      y_cm: cmRect.y_cm,
+    },
+    mapped: {
+      width_px: Math.round(mapped.width * 100) / 100,
+      height_px: Math.round(mapped.height * 100) / 100,
+      pxPerCmX: Math.round(mapped.pxPerCmX * 1000) / 1000,
+      pxPerCmY: Math.round(mapped.pxPerCmY * 1000) / 1000,
+    },
+    verify: {
+      "10cm→px width (if 10cm)":
+        Math.round(10 * mapped.pxPerCmX * 100) / 100,
+      width_cm_to_printArea_ratio: Math.round(widthCmToPrintRatio * 10000) / 10000,
+      mappedWidth_to_printRect_ratio:
+        Math.round(mappedWidthToPrintRectRatio * 10000) / 10000,
+      ratiosMatch:
+        Math.abs(widthCmToPrintRatio - mappedWidthToPrintRectRatio) < 0.001,
+      pxPerCm_matches_mapped:
+        Math.abs(pxPerCmFromMapped - mapped.pxPerCmX) < 0.001,
+    },
+  });
+}
+
+function roundDebug(value: number): number {
+  return Math.round(value * 1000) / 1000;
 }

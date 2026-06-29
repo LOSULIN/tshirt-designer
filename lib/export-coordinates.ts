@@ -14,7 +14,7 @@ import {
   type LayerCmRect,
   type PrintAreaCmBounds,
 } from "./design-cm";
-import { getTextLayerCmRect } from "./text-layer";
+import { getTextLayerExportCmRect, getTextLayerPlacementCmRect } from "./text-layer";
 import type { DesignLayer } from "./types";
 
 export const EXPORT_DPI = PRODUCTION_DPI;
@@ -72,7 +72,7 @@ export interface ExportCanvasSizePx {
 /** 與 DesignCanvas / FlatShirtDesignView 相同的圖層 cm 外框 */
 export function getLayerExportCmRect(layer: DesignLayer): LayerCmRect {
   if (layer.type === "text") {
-    return getTextLayerCmRect(layer);
+    return getTextLayerExportCmRect(layer);
   }
   return getLayerEffectiveCmRect(layer);
 }

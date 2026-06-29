@@ -1,6 +1,4 @@
-import { MAX_FILE_SIZE_BYTES } from "./constants";
-
-const MAX_FILE_SIZE_MB = MAX_FILE_SIZE_BYTES / (1024 * 1024);
+import { MAX_FILE_SIZE_BYTES, MAX_FILE_SIZE_MB } from "./constants";
 
 export function getMaxFileSizeError(): string {
   return `檔案大小超過 ${MAX_FILE_SIZE_MB}MB`;

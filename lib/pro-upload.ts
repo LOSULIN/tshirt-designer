@@ -1,3 +1,8 @@
+import { MAX_FILE_SIZE_BYTES, MAX_FILE_SIZE_MB } from "./constants";
+
+export const PRO_UPLOAD_MAX_FILE_SIZE_MB = MAX_FILE_SIZE_MB;
+export const PRO_UPLOAD_MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_BYTES;
+
 export const PRO_UPLOAD_FORMATS = [
   { label: "PDF（推薦）", value: "pdf" },
   { label: "AI", value: "ai" },
@@ -18,7 +23,7 @@ export const PRO_UPLOAD_RASTER_HINT_LINES = [
 ] as const;
 
 export const PRO_UPLOAD_PDF_NOTE =
-  "PDF 為最推薦的交稿格式，可保留完整尺寸與印刷資訊。";
+  `PDF 為最推薦的交稿格式，可保留完整尺寸與印刷資訊。單檔最大 ${MAX_FILE_SIZE_MB}MB。`;
 
 export function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;

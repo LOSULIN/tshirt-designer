@@ -19,10 +19,12 @@ import {
 import {
   buildMockupOverlayDebugReport,
   getMockupExportPrintAreaRectPx,
+  logMockupLayerCmPxMapping,
   logMockupOverlayDebugReport,
 } from "./mockup-export-debug";
+import { drawImageArtworkOnCanvas } from "./image-artwork-render";
 import { getAdultTshirtTemplateSrc } from "./shirt-template";
-import { drawRichTextOnCanvas } from "./text-style";
+import { drawRichTextOnCanvas, getRichTextRenderMetrics, serializeCanvasTransform } from "./text-style";
 import { drawShapeOnCanvas } from "./shape-layer";
 import { ensureTextFontsLoaded } from "./text-layer";
 import type { DesignLayer, ShapeDesignLayer, TextDesignLayer } from "./types";
@@ -52,6 +54,37 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   });
 }
 
+function logAndMapLayerToMockupPx(
+  layer: DesignLayer,
+  side: Side,
+  printRect: MockupContainerRect,
+) {
+  const printAreaCm = resolveExportPrintAreaCm(side);
+  const cmRect = getLayerExportCmRect(layer);
+  const mapped = mapLayerCmRectToMockupPx(cmRect, printAreaCm, printRect);
+
+  logMockupLayerCmPxMapping({
+    layerType: layer.type,
+    layerId: layer.id,
+    label:
+      layer.type === "text"
+        ? layer.text.trim() || "文字"
+        : layer.type === "image"
+          ? layer.image.fileName || "圖片"
+          : layer.shapeKind,
+    keepRatio:
+      layer.type === "text" || layer.type === "image"
+        ? layer.keepRatio
+        : undefined,
+    printAreaCm,
+    printRect,
+    cmRect,
+    mapped,
+  });
+
+  return { printAreaCm, cmRect, mapped };
+}
+
 function drawImageLayerOnMockup(
   ctx: CanvasRenderingContext2D,
   layer: Extract<DesignLayer, { type: "image" }>,
@@ -59,19 +92,77 @@ function drawImageLayerOnMockup(
   printRect: MockupContainerRect,
   side: Side,
 ) {
-  const printAreaCm = resolveExportPrintAreaCm(side);
-  const cmRect = getLayerExportCmRect(layer);
-  const mapped = mapLayerCmRectToMockupPx(cmRect, printAreaCm, printRect);
+  const { mapped } = logAndMapLayerToMockupPx(layer, side, printRect);
 
   ctx.save();
   ctx.translate(mapped.centerX, mapped.centerY);
   ctx.rotate((layer.rotation * Math.PI) / 180);
-  ctx.drawImage(
+  drawImageArtworkOnCanvas(
+    ctx,
     img,
+    layer.image,
+    img.naturalWidth,
+    img.naturalHeight,
     -mapped.width / 2,
     -mapped.height / 2,
     mapped.width,
     mapped.height,
+  );
+  ctx.restore();
+}
+
+function drawTextLayerOnMockup(
+  ctx: CanvasRenderingContext2D,
+  layer: TextDesignLayer,
+  printRect: MockupContainerRect,
+  side: Side,
+) {
+  const { cmRect, mapped } = logAndMapLayerToMockupPx(layer, side, printRect);
+
+  const localRect = {
+    x_cm: -cmRect.width_cm / 2,
+    y_cm: -cmRect.height_cm / 2,
+    width_cm: cmRect.width_cm,
+    height_cm: cmRect.height_cm,
+  };
+
+  ctx.save();
+  ctx.translate(mapped.centerX, mapped.centerY);
+  ctx.rotate((layer.rotation * Math.PI) / 180);
+  if (typeof console !== "undefined") {
+    console.log("[drawRichTextOnCanvas pre-call]", {
+      layerId: layer.id,
+      text: layer.text,
+      rect: localRect,
+      pxPerCm: mapped.pxPerCmX,
+      pxPerCmY: mapped.pxPerCmY,
+      placementRect: {
+        width_cm: cmRect.width_cm,
+        height_cm: cmRect.height_cm,
+      },
+      cmRect,
+      mapped: {
+        width: mapped.width,
+        height: mapped.height,
+        centerX: mapped.centerX,
+        centerY: mapped.centerY,
+      },
+      ctxTransform: serializeCanvasTransform(ctx),
+    });
+  }
+  drawRichTextOnCanvas(
+    ctx,
+    layer,
+    mapped.pxPerCmX,
+    localRect,
+    mapped.pxPerCmY,
+    {
+      skipRotation: true,
+      placementRect: {
+        width_cm: cmRect.width_cm,
+        height_cm: cmRect.height_cm,
+      },
+    },
   );
   ctx.restore();
 }
@@ -82,18 +173,18 @@ function drawDesignLayerOnMockup(
   printRect: MockupContainerRect,
   side: Side,
 ) {
-  const printAreaCm = resolveExportPrintAreaCm(side);
-  const cmRect = getLayerExportCmRect(layer);
-  const mapped = mapLayerCmRectToMockupPx(cmRect, printAreaCm, printRect);
-
-  ctx.save();
-  ctx.translate(printRect.left, printRect.top);
   if (layer.type === "shape") {
+    const { cmRect, mapped } = logAndMapLayerToMockupPx(layer, side, printRect);
+    ctx.save();
+    ctx.translate(printRect.left, printRect.top);
     drawShapeOnCanvas(ctx, layer as ShapeDesignLayer, mapped.pxPerCmX, cmRect);
-  } else if (layer.type === "text" && layer.text.trim().length > 0) {
-    drawRichTextOnCanvas(ctx, layer, mapped.pxPerCmX, cmRect);
+    ctx.restore();
+    return;
   }
-  ctx.restore();
+
+  if (layer.type === "text" && layer.text.trim().length > 0) {
+    drawTextLayerOnMockup(ctx, layer, printRect, side);
+  }
 }
 
 export function buildMockupExportFileName(side: Side): string {
@@ -131,6 +222,7 @@ export async function renderMockupPreviewPng(params: {
 
   // 模板隨 exportScale 放大；印刷區須同比例放大（非 getPrintAreaCmToTemplateContainerPct 的固定 px）
   const printRect = getMockupExportPrintAreaRectPx(side, scale);
+  const printAreaCm = resolveExportPrintAreaCm(side);
   const visibleLayers = getLayersForCanvasRender(layers).filter((l) => l.visible);
 
   const overlayDebug = buildMockupOverlayDebugReport(visibleLayers, side, scale);
@@ -142,6 +234,17 @@ export async function renderMockupPreviewPng(params: {
   if (textLayers.length > 0) {
     await ensureTextFontsLoaded(
       textLayers.map((t) => ({ ...t, type: "text" as const })),
+      {
+        getRenderFontSize_cm: (layer) => {
+          const rect = getLayerExportCmRect(layer);
+          const mapped = mapLayerCmRectToMockupPx(rect, printAreaCm, printRect);
+          return getRichTextRenderMetrics(
+            layer,
+            rect,
+            mapped.pxPerCmX,
+          ).fontSize_cm;
+        },
+      },
     );
   }
 

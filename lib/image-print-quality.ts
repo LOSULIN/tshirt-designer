@@ -1,3 +1,4 @@
+import { getArtworkPixelSize } from "./image-bounds";
 import { ACCEPTED_IMAGE_TYPES } from "./constants";
 import { getLayerEffectiveCmRect } from "./design-cm";
 import type { ImageDesignLayer, UploadedDesignImage } from "./types";
@@ -25,6 +26,8 @@ export interface RasterPrintSizeCm {
 export interface ImagePrintQualityReport {
   imagePixelWidth: number;
   imagePixelHeight: number;
+  artworkPixelWidth: number;
+  artworkPixelHeight: number;
   printWidth_cm: number;
   printHeight_cm: number;
   dpi: number;
@@ -94,13 +97,18 @@ export function analyzeImagePrintQuality(
   layer: ImageDesignLayer,
 ): ImagePrintQualityReport {
   const { imagePixelWidth, imagePixelHeight } = getImagePixelSize(layer.image);
+  const { artworkPixelWidth, artworkPixelHeight } = getArtworkPixelSize(
+    layer.image,
+  );
   const rect = getLayerEffectiveCmRect(layer);
-  const dpi = computeRasterPrintDpi(imagePixelWidth, rect.width_cm);
+  const dpi = computeRasterPrintDpi(artworkPixelWidth, rect.width_cm);
   const meetsStandard = dpi >= PRINT_QUALITY_TARGET_DPI;
 
   return {
     imagePixelWidth,
     imagePixelHeight,
+    artworkPixelWidth,
+    artworkPixelHeight,
     printWidth_cm: rect.width_cm,
     printHeight_cm: rect.height_cm,
     dpi: Math.round(dpi),

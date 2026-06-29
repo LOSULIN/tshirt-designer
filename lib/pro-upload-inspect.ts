@@ -2,6 +2,7 @@ import {
   formatFileSize,
   getFileFormat,
 } from "./pro-upload";
+import { MAX_FILE_SIZE_BYTES } from "./constants";
 
 export type ProUploadFileKind = "pdf" | "psd" | "ai";
 
@@ -19,10 +20,15 @@ export type ProUploadInspection = {
   checks: ProUploadCheckResult[];
 };
 
-function buildChecks(format: string, size: string): ProUploadCheckResult[] {
+function buildChecks(
+  format: string,
+  size: string,
+  fileSizeBytes: number,
+): ProUploadCheckResult[] {
+  const sizeOk = fileSizeBytes <= MAX_FILE_SIZE_BYTES;
   return [
     { label: "檔案格式", value: format, passed: true },
-    { label: "檔案大小", value: size, passed: true },
+    { label: "檔案大小", value: size, passed: sizeOk },
     {
       label: "商品尺寸",
       value: "深度解析即將支援",
@@ -48,7 +54,7 @@ function inspectPdf(file: File): ProUploadInspection {
     name: file.name,
     format,
     size,
-    checks: buildChecks(format, size),
+    checks: buildChecks(format, size, file.size),
   };
 }
 
@@ -61,7 +67,7 @@ function inspectPsd(file: File): ProUploadInspection {
     name: file.name,
     format,
     size,
-    checks: buildChecks(format, size),
+    checks: buildChecks(format, size, file.size),
   };
 }
 
@@ -74,7 +80,7 @@ function inspectAi(file: File): ProUploadInspection {
     name: file.name,
     format,
     size,
-    checks: buildChecks(format, size),
+    checks: buildChecks(format, size, file.size),
   };
 }
 

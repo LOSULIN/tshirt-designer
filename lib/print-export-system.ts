@@ -17,9 +17,10 @@ import {
   mapLayerCmRectToExportPx,
   type ExportLayerRectPx,
 } from "./export-coordinates";
+import { drawImageArtworkOnCanvas } from "./image-artwork-render";
 import { embedPngDpi } from "./png-dpi";
 import { sortLayersByZIndex } from "./layers";
-import { drawRichTextOnCanvas } from "./text-style";
+import { drawRichTextOnCanvas, getRichTextRenderMetrics } from "./text-style";
 import { drawShapeOnCanvas } from "./shape-layer";
 import { ensureTextFontsLoaded } from "./text-layer";
 import type { DesignLayer, ShapeDesignLayer, TextDesignLayer } from "./types";
@@ -94,8 +95,12 @@ function drawImageLayer(
   ctx.save();
   ctx.translate(centerX, centerY);
   ctx.rotate((layer.rotation * Math.PI) / 180);
-  ctx.drawImage(
+  drawImageArtworkOnCanvas(
+    ctx,
     img,
+    layer.image,
+    img.naturalWidth,
+    img.naturalHeight,
     -exportRect.width / 2,
     -exportRect.height / 2,
     exportRect.width,
@@ -138,14 +143,29 @@ export async function renderPrintExportPng(
   const textLayers = visibleLayers.filter(
     (l): l is TextDesignLayer => l.type === "text",
   );
+  const imageCache = new Map<string, HTMLImageElement>();
+  const canvasSize = { widthPx, heightPx };
+
   if (textLayers.length > 0) {
     await ensureTextFontsLoaded(
       textLayers.map((t) => ({ ...t, type: "text" as const })),
+      {
+        getRenderFontSize_cm: (layer) => {
+          const rect = getLayerExportCmRect(layer);
+          const exportRect = mapLayerCmRectToExportPx(
+            rect,
+            printAreaCm,
+            canvasSize,
+          );
+          return getRichTextRenderMetrics(
+            layer,
+            rect,
+            exportRect.pxPerCmX,
+          ).fontSize_cm;
+        },
+      },
     );
   }
-
-  const imageCache = new Map<string, HTMLImageElement>();
-  const canvasSize = { widthPx, heightPx };
 
   for (const layer of visibleLayers) {
     const cmRect = getLayerExportCmRect(layer);
@@ -166,7 +186,13 @@ export async function renderPrintExportPng(
         cmRect,
       );
     } else if (layer.text.trim().length > 0) {
-      drawRichTextOnCanvas(ctx, layer, exportRect.pxPerCmX, cmRect);
+      drawRichTextOnCanvas(
+        ctx,
+        layer,
+        exportRect.pxPerCmX,
+        cmRect,
+        exportRect.pxPerCmY,
+      );
     }
   }
 

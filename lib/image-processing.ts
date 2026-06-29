@@ -10,10 +10,6 @@ import {
   RECOMMENDED_IMAGE_WIDTH,
 } from "./constants";
 
-export type ImageValidationResult =
-  | { ok: true; isPng: boolean; lowResolution: boolean; belowRecommended: boolean }
-  | { ok: false; error: string };
-
 function loadImageFromFile(file: File): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
@@ -30,68 +26,13 @@ function loadImageFromFile(file: File): Promise<HTMLImageElement> {
   });
 }
 
-const ACCEPTED_EXTENSIONS_LIST = [".png", ".jpg", ".jpeg", ".webp"];
-
-function hasAcceptedExtension(fileName: string): boolean {
-  const lower = fileName.toLowerCase();
-  return ACCEPTED_EXTENSIONS_LIST.some((ext) => lower.endsWith(ext));
-}
-
-export function validateImageFile(file: File): ImageValidationResult {
-  const normalizedType = file.type.toLowerCase();
-  const typeOk =
-    normalizedType === "" ||
-    ACCEPTED_IMAGE_TYPES.includes(
-      normalizedType as (typeof ACCEPTED_IMAGE_TYPES)[number],
-    );
-
-  if (!typeOk && !hasAcceptedExtension(file.name)) {
-    return {
-      ok: false,
-      error: "僅支援 PNG、JPG、JPEG、WEBP 格式",
-    };
-  }
-
-  if (file.size > MAX_FILE_SIZE_BYTES) {
-    return { ok: false, error: "檔案大小超過 10MB" };
-  }
-
-  return { ok: true, isPng: false, lowResolution: false, belowRecommended: false };
-}
-
-export async function inspectImageDimensions(
-  file: File,
-): Promise<{ width: number; height: number }> {
-  const img = await loadImageFromFile(file);
-  return { width: img.naturalWidth, height: img.naturalHeight };
-}
-
-export async function validateImageFileFull(
-  file: File,
-): Promise<ImageValidationResult> {
-  const basic = validateImageFile(file);
-  if (!basic.ok) return basic;
-
-  const { width, height } = await inspectImageDimensions(file);
-
-  if (width < MIN_IMAGE_WIDTH || height < MIN_IMAGE_HEIGHT) {
-    return {
-      ok: false,
-      error: `圖片尺寸不可小於 ${MIN_IMAGE_WIDTH}×${MIN_IMAGE_HEIGHT}`,
-    };
-  }
-
-  if (width > MAX_IMAGE_WIDTH || height > MAX_IMAGE_HEIGHT) {
-    return {
-      ok: false,
-      error: `圖片尺寸不可超過 ${MAX_IMAGE_WIDTH}×${MAX_IMAGE_HEIGHT}`,
-    };
-  }
-
+export function assessImageUploadQuality(
+  width: number,
+  height: number,
+  isPng: boolean,
+): { isPng: boolean; belowRecommended: boolean } {
   return {
-    ok: true,
-    isPng: file.type === "image/png",
-    lowResolution: false,
+    isPng,
     belowRecommended:
       width < RECOMMENDED_IMAGE_WIDTH || height < RECOMMENDED_IMAGE_HEIGHT,
   };
@@ -153,4 +94,78 @@ export function isUpscaledBeyondOriginal(
   const scaledW = displayWidth * scale;
   const scaledH = displayHeight * scale;
   return scaledW > naturalWidth || scaledH > naturalHeight;
+}
+
+/** @deprecated 根目錄 components 相容；新程式請用 image-validation */
+export type ImageValidationResult =
+  | { ok: true; isPng: boolean; lowResolution: boolean; belowRecommended: boolean }
+  | { ok: false; error: string };
+
+const LEGACY_ACCEPTED_EXTENSIONS = [".png", ".jpg", ".jpeg", ".webp"];
+
+function hasLegacyAcceptedExtension(fileName: string): boolean {
+  const lower = fileName.toLowerCase();
+  return LEGACY_ACCEPTED_EXTENSIONS.some((ext) => lower.endsWith(ext));
+}
+
+/** @deprecated 根目錄 components 相容；新程式請用 image-validation */
+export function validateImageFile(file: File): ImageValidationResult {
+  const normalizedType = file.type.toLowerCase();
+  const typeOk =
+    normalizedType === "" ||
+    ACCEPTED_IMAGE_TYPES.includes(
+      normalizedType as (typeof ACCEPTED_IMAGE_TYPES)[number],
+    );
+
+  if (!typeOk && !hasLegacyAcceptedExtension(file.name)) {
+    return {
+      ok: false,
+      error: "僅支援 PNG、JPG、JPEG、WEBP 格式",
+    };
+  }
+
+  if (file.size > MAX_FILE_SIZE_BYTES) {
+    return { ok: false, error: "檔案大小超過 10MB" };
+  }
+
+  return { ok: true, isPng: false, lowResolution: false, belowRecommended: false };
+}
+
+export async function inspectImageDimensions(
+  file: File,
+): Promise<{ width: number; height: number }> {
+  const img = await loadImageFromFile(file);
+  return { width: img.naturalWidth, height: img.naturalHeight };
+}
+
+/** @deprecated 根目錄 components 相容；新程式請用 image-validation */
+export async function validateImageFileFull(
+  file: File,
+): Promise<ImageValidationResult> {
+  const basic = validateImageFile(file);
+  if (!basic.ok) return basic;
+
+  const { width, height } = await inspectImageDimensions(file);
+
+  if (width < MIN_IMAGE_WIDTH || height < MIN_IMAGE_HEIGHT) {
+    return {
+      ok: false,
+      error: `圖片尺寸不可小於 ${MIN_IMAGE_WIDTH}×${MIN_IMAGE_HEIGHT}`,
+    };
+  }
+
+  if (width > MAX_IMAGE_WIDTH || height > MAX_IMAGE_HEIGHT) {
+    return {
+      ok: false,
+      error: `圖片尺寸不可超過 ${MAX_IMAGE_WIDTH}×${MAX_IMAGE_HEIGHT}`,
+    };
+  }
+
+  return {
+    ok: true,
+    isPng: file.type === "image/png",
+    lowResolution: false,
+    belowRecommended:
+      width < RECOMMENDED_IMAGE_WIDTH || height < RECOMMENDED_IMAGE_HEIGHT,
+  };
 }

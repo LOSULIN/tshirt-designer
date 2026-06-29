@@ -61,6 +61,15 @@ export interface LiveDesignState {
   reportsById: Record<string, LayerInspectorReport>;
 }
 
+export function getImageLayerFileName(
+  layer: DesignLayer & { fileName?: string },
+): string {
+  if (layer.type !== "image") {
+    return layer.name;
+  }
+  return layer.fileName ?? layer.image?.fileName ?? layer.name;
+}
+
 export function getElementContent(layer: DesignLayer): string {
   if (layer.type === "text") {
     return layer.text;
@@ -68,7 +77,7 @@ export function getElementContent(layer: DesignLayer): string {
   if (layer.type === "shape") {
     return layer.shapeKind;
   }
-  return layer.image.fileName || layer.name;
+  return getImageLayerFileName(layer);
 }
 
 export function layerToDesignStateElement(

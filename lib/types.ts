@@ -11,6 +11,15 @@ export interface DesignConfig {
   rotation: number;
 }
 
+export interface ImageArtworkBoundsPx {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+  visibleWidth: number;
+  visibleHeight: number;
+}
+
 export interface UploadedDesignImage {
   originalBlob: Blob;
   originalUrl: string;
@@ -23,6 +32,8 @@ export interface UploadedDesignImage {
   imagePixelWidth?: number;
   /** 上傳時原始像素高（品質分析；舊草稿可沿用 naturalHeight） */
   imagePixelHeight?: number;
+  /** Alpha 掃描得到的實際圖案範圍（px）；舊草稿缺省時視為整張 canvas */
+  artworkBounds?: ImageArtworkBoundsPx;
   mimeType: string;
   fileName: string;
 }
@@ -82,6 +93,8 @@ export interface ImageDesignLayer extends LayerMeta {
   height_cm: number;
   scale: number;
   rotation: number;
+  /** 手動改寬高時是否維持比例；false 時 width_cm / height_cm 可獨立設定 */
+  keepRatio?: boolean;
   image: UploadedDesignImage;
 }
 
@@ -95,6 +108,8 @@ export interface TextDesignLayer extends LayerMeta {
   rotation: number;
   text: string;
   fontSize_cm: number;
+  /** false 時 width_cm / height_cm 可獨立設定（不依字型外框比例） */
+  keepRatio?: boolean;
   fontFamily: TextFontFamily;
   color: string;
   opacity: number;

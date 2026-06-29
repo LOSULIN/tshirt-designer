@@ -4,6 +4,7 @@ import {
   type DesignerMode,
   type DraftStorageConfig,
 } from "./designer-mode";
+import { DRAFT_DB_VERSION } from "./constants";
 import { DESIGN_GENDERS, DESIGN_SIDES, getLayersForSlot } from "./design-state";
 import type { DesignDraft, DesignLayer, DesignLayersByTemplate } from "./types";
 
@@ -18,19 +19,49 @@ function layerPreviewKey(id: string) {
   return `layer-${id}-preview`;
 }
 
+function ensureObjectStore(db: IDBDatabase, storeName: string) {
+  if (!db.objectStoreNames.contains(storeName)) {
+    db.createObjectStore(storeName);
+  }
+}
+
 function createScopedDraftStorage(config: DraftStorageConfig) {
-  function openDb(): Promise<IDBDatabase> {
+  function openDbAtVersion(version: number): Promise<IDBDatabase> {
     return new Promise((resolve, reject) => {
-      const request = indexedDB.open(config.dbName, 1);
+      const request = indexedDB.open(config.dbName, version);
       request.onerror = () => reject(request.error);
-      request.onsuccess = () => resolve(request.result);
+      request.onblocked = () => {
+        console.warn(
+          `[draft-storage] IndexedDB upgrade blocked for ${config.dbName}`,
+        );
+      };
       request.onupgradeneeded = () => {
+        ensureObjectStore(request.result, config.storeName);
+      };
+      request.onsuccess = () => {
         const db = request.result;
-        if (!db.objectStoreNames.contains(config.storeName)) {
-          db.createObjectStore(config.storeName);
+        if (db.objectStoreNames.contains(config.storeName)) {
+          resolve(db);
+          return;
         }
+
+        db.close();
+        if (version >= DRAFT_DB_VERSION + 1) {
+          reject(
+            new Error(
+              `IndexedDB object store "${config.storeName}" is missing in ${config.dbName}`,
+            ),
+          );
+          return;
+        }
+
+        openDbAtVersion(version + 1).then(resolve, reject);
       };
     });
+  }
+
+  function openDb(): Promise<IDBDatabase> {
+    return openDbAtVersion(DRAFT_DB_VERSION);
   }
 
   async function putBlob(key: string, blob: Blob) {

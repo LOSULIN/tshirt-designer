@@ -4,7 +4,6 @@ import {
   fitShapeLayer,
   fitTextLayer,
 } from "./layer-constraints";
-import { getTextLayerCmRect } from "./text-layer";
 import type { DesignLayer } from "./types";
 import type { Side } from "./constants";
 import { PRINT_AREA_OFFSET_CM } from "./coordinates/print-area-offset";
@@ -16,12 +15,17 @@ import {
 
 export type PlacementPresetId =
   | "left-chest-logo"
+  | "left-chest-logo-6"
+  | "left-chest-logo-8"
+  | "left-chest-text"
+  | "center-chest-text"
   | "center-chest-logo"
   | "center-chest-a4-portrait"
   | "center-chest-a4-landscape"
   | "back-center-text"
-  | "back-center-a3"
-  | "back-collar-tag";
+  | "back-center-a4-portrait"
+  | "back-center-a3-portrait"
+  | "back-center-25";
 
 export type PlacementPresetOrientation = "portrait" | "landscape" | "square";
 
@@ -61,14 +65,39 @@ function presetAnchorYFromCollarTopCm(
 const LEFT_CHEST_OFFSET_FROM_CENTER_CM = 8;
 /** 左胸 Logo：領口下 8~10cm，取中值 */
 const LEFT_CHEST_COLLAR_TO_TOP_CM = 9;
+/** 左胸 Logo 共用錨點（與 10×10 相同中心，6/8/10 僅尺寸不同） */
+const LEFT_CHEST_LOGO_REFERENCE_HEIGHT_CM = 10;
+
+function getLeftChestLogoAnchor(): Pick<
+  PlacementPreset,
+  "anchorX_cm" | "anchorY_cm"
+> {
+  return {
+    anchorX_cm:
+      presetCenterX("front") + LEFT_CHEST_OFFSET_FROM_CENTER_CM,
+    anchorY_cm: presetAnchorYFromCollarTopCm(
+      "front",
+      LEFT_CHEST_COLLAR_TO_TOP_CM,
+      LEFT_CHEST_LOGO_REFERENCE_HEIGHT_CM,
+    ),
+  };
+}
+
+/** 左胸文字：Logo 下方（Logo 上緣 9cm + 高 6cm） */
+const LEFT_CHEST_TEXT_COLLAR_TO_TOP_CM = 15;
+const LEFT_CHEST_TEXT_WIDTH_CM = 10;
+const LEFT_CHEST_TEXT_HEIGHT_CM = 3;
+const CENTER_CHEST_TEXT_WIDTH_CM = 29;
+const CENTER_CHEST_TEXT_HEIGHT_CM = 10;
 
 const FRONT_CENTER_COLLAR_TO_TOP_CM = PRINT_AREA_OFFSET_CM.front;
 const A4_PORTRAIT_WIDTH_CM = 21;
 const A4_PORTRAIT_HEIGHT_CM = 29.7;
-/** 背面 30×12／直式 A3：後領下 6~8cm，取中值（上緣對齊） */
-const BACK_UPPER_DESIGN_COLLAR_TO_TOP_CM = 7;
 const A3_PORTRAIT_WIDTH_CM = 29.7;
 const A3_PORTRAIT_HEIGHT_CM = 42;
+/** 背面大圖／直式 A4／A3：後領下 6~8cm，取中值（上緣對齊） */
+const BACK_UPPER_DESIGN_COLLAR_TO_TOP_CM = 7;
+const BACK_CENTER_SQUARE_CM = 25;
 
 function backUpperDesignAnchorY(heightCm: number): number {
   return presetAnchorYFromCollarTopCm(
@@ -77,26 +106,73 @@ function backUpperDesignAnchorY(heightCm: number): number {
     heightCm,
   );
 }
-/** 後領小標：後領正下方 2~4cm，取中值 */
-const BACK_COLLAR_TAG_COLLAR_TO_TOP_CM = 3;
+
+function backCenterAnchorY(heightCm: number): number {
+  return GARMENT_MAX_PRINT_AREA_CM.back.heightCm / 2;
+}
 
 /** 推薦印刷版型（領口基準 + 設計器印刷區 cm 座標） */
 export const PLACEMENT_PRESETS: readonly PlacementPreset[] = [
   {
     id: "left-chest-logo",
-    label: "左胸 Logo",
+    label: "左胸 LOGO 10×10",
     shortLabel: "左胸 10×10",
     sides: ["front"],
     width_cm: 10,
     height_cm: 10,
+    ...getLeftChestLogoAnchor(),
+    orientation: "square",
+  },
+  {
+    id: "left-chest-logo-6",
+    label: "左胸 LOGO 6×6",
+    shortLabel: "左胸 6×6",
+    sides: ["front"],
+    width_cm: 6,
+    height_cm: 6,
+    ...getLeftChestLogoAnchor(),
+    orientation: "square",
+  },
+  {
+    id: "left-chest-logo-8",
+    label: "左胸 LOGO 8×8",
+    shortLabel: "左胸 8×8",
+    sides: ["front"],
+    width_cm: 8,
+    height_cm: 8,
+    ...getLeftChestLogoAnchor(),
+    orientation: "square",
+  },
+  {
+    id: "left-chest-text",
+    label: "左胸文字",
+    shortLabel: "左胸 10×3",
+    sides: ["front"],
+    width_cm: LEFT_CHEST_TEXT_WIDTH_CM,
+    height_cm: LEFT_CHEST_TEXT_HEIGHT_CM,
     anchorX_cm:
       presetCenterX("front") + LEFT_CHEST_OFFSET_FROM_CENTER_CM,
     anchorY_cm: presetAnchorYFromCollarTopCm(
       "front",
-      LEFT_CHEST_COLLAR_TO_TOP_CM,
-      10,
+      LEFT_CHEST_TEXT_COLLAR_TO_TOP_CM,
+      LEFT_CHEST_TEXT_HEIGHT_CM,
     ),
-    orientation: "square",
+    orientation: "landscape",
+  },
+  {
+    id: "center-chest-text",
+    label: "胸前文字",
+    shortLabel: "胸前 29×10",
+    sides: ["front"],
+    width_cm: CENTER_CHEST_TEXT_WIDTH_CM,
+    height_cm: CENTER_CHEST_TEXT_HEIGHT_CM,
+    anchorX_cm: presetCenterX("front"),
+    anchorY_cm: presetAnchorYFromCollarTopCm(
+      "front",
+      FRONT_CENTER_COLLAR_TO_TOP_CM,
+      CENTER_CHEST_TEXT_HEIGHT_CM,
+    ),
+    orientation: "landscape",
   },
   {
     id: "center-chest-logo",
@@ -155,9 +231,20 @@ export const PLACEMENT_PRESETS: readonly PlacementPreset[] = [
     orientation: "landscape",
   },
   {
-    id: "back-center-a3",
-    label: "背面直式 A3",
-    shortLabel: "背面直式 A3",
+    id: "back-center-a4-portrait",
+    label: "背面直式 A4",
+    shortLabel: "背面 A4 直式",
+    sides: ["back"],
+    width_cm: A4_PORTRAIT_WIDTH_CM,
+    height_cm: A4_PORTRAIT_HEIGHT_CM,
+    anchorX_cm: presetCenterX("back"),
+    anchorY_cm: backUpperDesignAnchorY(A4_PORTRAIT_HEIGHT_CM),
+    orientation: "portrait",
+  },
+  {
+    id: "back-center-a3-portrait",
+    label: "背面 A3 直式",
+    shortLabel: "背面 A3 直式",
     sides: ["back"],
     width_cm: A3_PORTRAIT_WIDTH_CM,
     height_cm: A3_PORTRAIT_HEIGHT_CM,
@@ -166,19 +253,15 @@ export const PLACEMENT_PRESETS: readonly PlacementPreset[] = [
     orientation: "portrait",
   },
   {
-    id: "back-collar-tag",
-    label: "後領小標",
-    shortLabel: "後領 6×4",
+    id: "back-center-25",
+    label: "背面 25×25",
+    shortLabel: "背面 25×25",
     sides: ["back"],
-    width_cm: 6,
-    height_cm: 4,
+    width_cm: BACK_CENTER_SQUARE_CM,
+    height_cm: BACK_CENTER_SQUARE_CM,
     anchorX_cm: presetCenterX("back"),
-    anchorY_cm: presetAnchorYFromCollarTopCm(
-      "back",
-      BACK_COLLAR_TAG_COLLAR_TO_TOP_CM,
-      4,
-    ),
-    orientation: "landscape",
+    anchorY_cm: backCenterAnchorY(BACK_CENTER_SQUARE_CM),
+    orientation: "square",
   },
 ] as const;
 
@@ -228,16 +311,34 @@ function isPlacementPresetPositionOk(preset: PlacementPreset): boolean {
   const collarTop = getPlacementPresetCollarToTopCm(preset);
   switch (preset.id) {
     case "left-chest-logo":
-      return collarTop >= 8 && collarTop <= 10;
+    case "left-chest-logo-6":
+    case "left-chest-logo-8": {
+      const rect = getPlacementPresetTargetRect(preset);
+      const centerY = rect.y_cm + rect.height_cm / 2;
+      const refCenterY = getLeftChestLogoAnchor().anchorY_cm;
+      return (
+        collarTop >= 8 &&
+        collarTop <= 10 &&
+        Math.abs(centerY - refCenterY) < 0.01
+      );
+    }
+    case "left-chest-text":
+      return collarTop >= 14 && collarTop <= 16;
+    case "center-chest-text":
     case "center-chest-logo":
     case "center-chest-a4-portrait":
     case "center-chest-a4-landscape":
       return Math.abs(collarTop - PRINT_AREA_OFFSET_CM.front) < 0.01;
     case "back-center-text":
-    case "back-center-a3":
+    case "back-center-a4-portrait":
+    case "back-center-a3-portrait":
       return collarTop >= 6 && collarTop <= 8;
-    case "back-collar-tag":
-      return collarTop >= 2 && collarTop <= 4;
+    case "back-center-25": {
+      const rect = getPlacementPresetTargetRect(preset);
+      const centerY = rect.y_cm + rect.height_cm / 2;
+      const printCenterY = GARMENT_MAX_PRINT_AREA_CM.back.heightCm / 2;
+      return Math.abs(centerY - printCenterY) < 0.5;
+    }
     default:
       return true;
   }
@@ -328,26 +429,16 @@ export function applyLayerPlacementPreset(
   const target = getPlacementPresetTargetRect(preset);
 
   if (layer.type === "text") {
-    const current = getTextLayerCmRect(layer);
-    if (current.width_cm <= 0 || current.height_cm <= 0) {
-      return layer;
-    }
-    const factor = Math.min(
-      target.width_cm / current.width_cm,
-      target.height_cm / current.height_cm,
-    );
     return fitTextLayer(
       {
         ...layer,
-        scale: layer.scale * factor,
+        keepRatio: false,
+        width_cm: target.width_cm,
+        height_cm: target.height_cm,
+        x_cm: target.x_cm,
+        y_cm: target.y_cm,
       },
       printArea,
-      {
-        anchorCenter: {
-          x_cm: preset.anchorX_cm,
-          y_cm: preset.anchorY_cm,
-        },
-      },
     );
   }
 

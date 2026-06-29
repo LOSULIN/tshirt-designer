@@ -191,6 +191,7 @@ export function createImageLayer(
     height_cm: placement.height_cm,
     scale: 1,
     rotation: 0,
+    keepRatio: true,
     image,
   };
 }
@@ -309,6 +310,9 @@ export function layersToDraftSnapshot(layers: DesignLayer[]): DesignLayer[] {
         previewHeight: layer.image.previewHeight,
         naturalWidth: layer.image.naturalWidth,
         naturalHeight: layer.image.naturalHeight,
+        imagePixelWidth: layer.image.imagePixelWidth,
+        imagePixelHeight: layer.image.imagePixelHeight,
+        artworkBounds: layer.image.artworkBounds,
       },
     };
   });

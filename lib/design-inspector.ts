@@ -11,7 +11,7 @@ import {
 } from "./design-cm";
 import { getPrintSafeAreaCm, PRINT_SAFE_AREA_SPEC } from "./printArea";
 import { getRotatedAabb } from "./geometry";
-import { getTextLayerCmRect } from "./text-layer";
+import { getTextLayerPlacementCmRect } from "./text-layer";
 import type { DesignLayer } from "./types";
 
 export const DESIGN_SAFE_ZONE_SCALE = 1 - PRINT_SAFE_AREA_SPEC.marginRatio * 2;
@@ -50,7 +50,7 @@ export function getDesignSafeZoneCm(
 
 function readLayerModelCmRect(layer: DesignLayer): LayerCmRect {
   if (layer.type === "text") {
-    return getTextLayerCmRect(layer);
+    return getTextLayerPlacementCmRect(layer);
   }
   return getLayerEffectiveCmRect(layer);
 }

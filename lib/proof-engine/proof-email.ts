@@ -5,6 +5,7 @@
 import {
   getProductName,
   GENDER_OPTIONS,
+  resolveMaterialLabelFromDesignMeta,
   type Gender,
 } from "../constants";
 import { getShirtColorName } from "../shirt-template";
@@ -60,6 +61,7 @@ function buildSubmissionAdminEmailHtml(params: {
     <p><strong>商品：</strong>${getProductName()}</p>
     <p><strong>版型／模特：</strong>${formatGenderLabel(order.gender)}</p>
     <p><strong>尺碼：</strong>${order.size}</p>
+    <p><strong>材質 / 克重：</strong>${resolveMaterialLabelFromDesignMeta(order.design_meta)}</p>
     <p><strong>衣服顏色：</strong>${getShirtColorName(order.shirt_color)}</p>
     <p><strong>主設計面向：</strong>${order.active_side === "front" ? "正面" : "背面"}</p>
 

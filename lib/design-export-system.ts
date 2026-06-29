@@ -3,7 +3,7 @@
  * 資料來源：design layers + live designState（cm 為唯一真實資料）。
  */
 
-import type { Gender, ShirtColor, Side } from "./constants";
+import type { Gender, Material, ShirtColor, Side } from "./constants";
 import { hasExportablePrintableDesign } from "./print-export";
 import {
   buildPrintExportFileName,
@@ -39,6 +39,7 @@ export interface DesignExportInput {
   shirtColor: ShirtColor;
   size: string;
   layers: DesignLayer[];
+  material?: Material;
   printFormat?: PrintExportFormat;
 }
 
@@ -65,7 +66,7 @@ export function downloadExportBlob(blob: Blob, filename: string) {
 export async function exportDesignBundle(
   input: DesignExportInput,
 ): Promise<DesignExportBundle> {
-  const { gender, side, shirtColor, size, layers, printFormat = "png" } = input;
+  const { gender, side, shirtColor, size, layers, material, printFormat = "png" } = input;
 
   if (!hasExportableDesign(layers)) {
     throw new Error("此面向尚無可輸出的設計內容");
@@ -77,7 +78,7 @@ export async function exportDesignBundle(
   const [mockupBlob, printResult, proofBlob] = await Promise.all([
     renderMockupPreviewPng({ shirtColor, side, layers }),
     exportPrintableDesign({ gender, side, layers, format: printFormat }),
-    renderProofSheetPdf({ gender, side, shirtColor, size, layers }),
+    renderProofSheetPdf({ gender, side, shirtColor, size, layers, material }),
   ]);
 
   return {

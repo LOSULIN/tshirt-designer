@@ -102,7 +102,7 @@ export function getTextLayerMeasuredCmRect(layer: TextDesignLayer): LayerCmRect 
 
 /** 畫布／Inspector 定位用外框 */
 export function getTextLayerPlacementCmRect(layer: TextDesignLayer): LayerCmRect {
-  if ("keepRatio" in layer && layer.keepRatio === false) {
+  if (layer.keepRatio === false) {
     return {
       x_cm: layer.x_cm,
       y_cm: layer.y_cm,
@@ -118,7 +118,7 @@ export function getTextLayerPlacementCmRect(layer: TextDesignLayer): LayerCmRect
  * keepRatio:false 或 stored 框明顯大於 glyph 量測時，使用 width_cm / height_cm。
  */
 export function getTextLayerExportCmRect(layer: TextDesignLayer): LayerCmRect {
-  if ("keepRatio" in layer && layer.keepRatio === false) {
+  if (layer.keepRatio === false) {
     return {
       x_cm: layer.x_cm,
       y_cm: layer.y_cm,
@@ -208,7 +208,7 @@ export function createDefaultTextLayer(
   };
 }
 
-export function serializeTextLayer(layer: TextLayer) {
+export function serializeTextLayer(layer: TextLayer & { keepRatio?: boolean }) {
   return {
     id: layer.id,
     type: "text" as const,
@@ -224,17 +224,27 @@ export function serializeTextLayer(layer: TextLayer) {
     y_cm: layer.y_cm,
     width_cm: layer.width_cm,
     height_cm: layer.height_cm,
+    keepRatio: layer.keepRatio,
   };
 }
 
-export async function ensureTextFontsLoaded(layers: TextLayer[]) {
+export async function ensureTextFontsLoaded(
+  layers: TextLayer[],
+  options?: {
+    /** Mockup／匯出：依 placement + uniformScale 後的實際字級載入字型 */
+    getRenderFontSize_cm?: (layer: TextDesignLayer) => number;
+  },
+) {
   if (typeof document === "undefined" || !document.fonts) return;
 
   await Promise.all(
     layers.map(async (layer) => {
+      const fontSize_cm =
+        options?.getRenderFontSize_cm?.(layer as TextDesignLayer) ??
+        layer.fontSize_cm * layer.scale;
       const font = buildCanvasFont(
         layer.fontWeight,
-        cmToUiPx(layer.fontSize_cm * layer.scale),
+        cmToUiPx(fontSize_cm),
         layer.fontFamily,
       );
       try {
@@ -242,7 +252,7 @@ export async function ensureTextFontsLoaded(layers: TextLayer[]) {
       } catch {
         const fallback = buildCanvasFont(
           layer.fontWeight,
-          cmToUiPx(layer.fontSize_cm * layer.scale),
+          cmToUiPx(fontSize_cm),
           "Arial",
         );
         try {

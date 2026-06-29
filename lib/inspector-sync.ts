@@ -77,6 +77,26 @@ export function formatInspectorDimensionPrecise(cm: number): string {
   return `${cm} cm`;
 }
 
+/** Inspector 手動改寬高：keepRatio 時依目前顯示尺寸維持比例 */
+export function coupleInspectorDimensions(
+  bounds: { width_cm: number; height_cm: number },
+  patch: { width_cm?: number; height_cm?: number },
+  keepRatio: boolean,
+): { width_cm: number; height_cm: number } {
+  let width_cm = patch.width_cm ?? bounds.width_cm;
+  let height_cm = patch.height_cm ?? bounds.height_cm;
+
+  if (keepRatio && bounds.width_cm > 0 && bounds.height_cm > 0) {
+    if (patch.width_cm !== undefined && patch.height_cm === undefined) {
+      height_cm = bounds.height_cm * (width_cm / bounds.width_cm);
+    } else if (patch.height_cm !== undefined && patch.width_cm === undefined) {
+      width_cm = bounds.width_cm * (height_cm / bounds.height_cm);
+    }
+  }
+
+  return { width_cm, height_cm };
+}
+
 /** 使用者 commit 後，內部微調（fitText 等）若小於此差值則維持顯示 */
 export const INSPECTOR_DIMENSION_STICKY_TOLERANCE_CM = 0.5;
 

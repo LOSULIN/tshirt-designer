@@ -5,7 +5,7 @@
 
 import type { RGB } from "pdf-lib";
 import type { Side } from "../../constants";
-import { getProductName } from "../../constants";
+import { getProductName, resolveMaterialLabelFromDesignMeta } from "../../constants";
 import { getDesignerPrintAreaCmBounds } from "../../design-cm";
 import { formatInspectorCm } from "../../design-inspector";
 import {
@@ -368,6 +368,14 @@ function drawLeftInfoPanel(
     panelMaxW,
   );
   y = drawLabelValue(ctx, x, y, "尺碼", order.size, panelMaxW);
+  y = drawLabelValue(
+    ctx,
+    x,
+    y,
+    "材質 / 克重",
+    resolveMaterialLabelFromDesignMeta(order.design_meta),
+    panelMaxW,
+  );
 
   if (elements.length > 0) {
     y -= 6;
@@ -562,6 +570,7 @@ function drawPageFooter(ctx: PageContext, order: ProofOrder, version: number) {
         `商品：${getProductName()}`,
         `顏色：${getShirtColorName(order.shirt_color)}`,
         `尺碼：${order.size}`,
+        `材質 / 克重：${resolveMaterialLabelFromDesignMeta(order.design_meta)}`,
       ],
     },
     {

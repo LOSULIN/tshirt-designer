@@ -12,6 +12,7 @@ import {
   getPrintExportDimensionsPx,
   getPrintExportSpec,
 } from "../print-export-system";
+import { resolveMaterialLabelFromDesignMeta } from "../constants";
 import type { ProofOrder } from "./types";
 import type { ValidationReport } from "./validation-report";
 
@@ -28,6 +29,7 @@ export interface OrderJsonDocument {
   size: ProofOrder["size"];
   shirt_color: ProofOrder["shirt_color"];
   active_side: ProofOrder["active_side"];
+  material?: string;
   printMethod?: OrderPrintMethod;
   dpi?: number;
   pixelWidth?: number;
@@ -77,6 +79,7 @@ export function buildOrderJson(
     size: order.size,
     shirt_color: order.shirt_color,
     active_side: order.active_side,
+    material: resolveMaterialLabelFromDesignMeta(order.design_meta),
     printMethod: resolveOrderPrintMethod(order),
     dpi: spec.dpi,
     pixelWidth: widthPx,
