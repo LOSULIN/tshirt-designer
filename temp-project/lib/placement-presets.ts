@@ -15,6 +15,8 @@ import {
 
 export type PlacementPresetId =
   | "left-chest-logo"
+  | "left-chest-logo-6"
+  | "left-chest-logo-8"
   | "left-chest-text"
   | "center-chest-text"
   | "center-chest-logo"
@@ -63,6 +65,24 @@ function presetAnchorYFromCollarTopCm(
 const LEFT_CHEST_OFFSET_FROM_CENTER_CM = 8;
 /** 左胸 Logo：領口下 8~10cm，取中值 */
 const LEFT_CHEST_COLLAR_TO_TOP_CM = 9;
+/** 左胸 Logo 共用錨點（與 10×10 相同中心，6/8/10 僅尺寸不同） */
+const LEFT_CHEST_LOGO_REFERENCE_HEIGHT_CM = 10;
+
+function getLeftChestLogoAnchor(): Pick<
+  PlacementPreset,
+  "anchorX_cm" | "anchorY_cm"
+> {
+  return {
+    anchorX_cm:
+      presetCenterX("front") + LEFT_CHEST_OFFSET_FROM_CENTER_CM,
+    anchorY_cm: presetAnchorYFromCollarTopCm(
+      "front",
+      LEFT_CHEST_COLLAR_TO_TOP_CM,
+      LEFT_CHEST_LOGO_REFERENCE_HEIGHT_CM,
+    ),
+  };
+}
+
 /** 左胸文字：Logo 下方（Logo 上緣 9cm + 高 6cm） */
 const LEFT_CHEST_TEXT_COLLAR_TO_TOP_CM = 15;
 const LEFT_CHEST_TEXT_WIDTH_CM = 10;
@@ -95,18 +115,32 @@ function backCenterAnchorY(heightCm: number): number {
 export const PLACEMENT_PRESETS: readonly PlacementPreset[] = [
   {
     id: "left-chest-logo",
-    label: "左胸 LOGO（6×6cm）",
+    label: "左胸 LOGO 10×10",
+    shortLabel: "左胸 10×10",
+    sides: ["front"],
+    width_cm: 10,
+    height_cm: 10,
+    ...getLeftChestLogoAnchor(),
+    orientation: "square",
+  },
+  {
+    id: "left-chest-logo-6",
+    label: "左胸 LOGO 6×6",
     shortLabel: "左胸 6×6",
     sides: ["front"],
     width_cm: 6,
     height_cm: 6,
-    anchorX_cm:
-      presetCenterX("front") + LEFT_CHEST_OFFSET_FROM_CENTER_CM,
-    anchorY_cm: presetAnchorYFromCollarTopCm(
-      "front",
-      LEFT_CHEST_COLLAR_TO_TOP_CM,
-      6,
-    ),
+    ...getLeftChestLogoAnchor(),
+    orientation: "square",
+  },
+  {
+    id: "left-chest-logo-8",
+    label: "左胸 LOGO 8×8",
+    shortLabel: "左胸 8×8",
+    sides: ["front"],
+    width_cm: 8,
+    height_cm: 8,
+    ...getLeftChestLogoAnchor(),
     orientation: "square",
   },
   {
@@ -277,7 +311,17 @@ function isPlacementPresetPositionOk(preset: PlacementPreset): boolean {
   const collarTop = getPlacementPresetCollarToTopCm(preset);
   switch (preset.id) {
     case "left-chest-logo":
-      return collarTop >= 8 && collarTop <= 10;
+    case "left-chest-logo-6":
+    case "left-chest-logo-8": {
+      const rect = getPlacementPresetTargetRect(preset);
+      const centerY = rect.y_cm + rect.height_cm / 2;
+      const refCenterY = getLeftChestLogoAnchor().anchorY_cm;
+      return (
+        collarTop >= 8 &&
+        collarTop <= 10 &&
+        Math.abs(centerY - refCenterY) < 0.01
+      );
+    }
     case "left-chest-text":
       return collarTop >= 14 && collarTop <= 16;
     case "center-chest-text":
