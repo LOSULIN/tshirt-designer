@@ -4,6 +4,7 @@
 
 import type { Side } from "../constants";
 import type { ApparelSize } from "../sizes";
+import { getShirtScale } from "../shirtScale";
 import type { DesignLayer } from "../types";
 import {
   getProductionExportDimensionsPx,
@@ -12,7 +13,6 @@ import {
   type ProductionRectMm,
 } from "./production";
 import {
-  getPreviewGarmentVisualScale,
   getPreviewPrintAreaContainerPct,
   getPreviewPrintAreaContainerStyle,
   getPreviewPrintReference,
@@ -75,7 +75,7 @@ export function buildPrintAreaDebugSnapshot(params: {
       reference: getPreviewPrintReference(side),
       printAreaStyle: getPreviewPrintAreaContainerStyle(side),
       printAreaPct: getPreviewPrintAreaContainerPct(printAreaMm),
-      garmentVisualScale: getPreviewGarmentVisualScale(size),
+      garmentVisualScale: getShirtScale(size),
     },
     mockup: {
       flatContainer: MOCKUP_FLAT_CONTAINER,

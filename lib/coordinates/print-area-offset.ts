@@ -6,7 +6,7 @@
  */
 
 import type { Side } from "../constants";
-import { getTemplatePxPerCm } from "../shirt-template";
+import { ADULT_TSHIRT_TEMPLATE_PX_PER_CM } from "../template-metrics";
 import { getProductionPrintAreaMm } from "./production";
 
 /** 領口下緣至印刷區上緣（cm） */
@@ -49,7 +49,7 @@ export function getPrintAreaOffsetPx(
 
 /** 印刷區高度（px @ preview 比例） */
 export function getPrintAreaHeightPx(previewPxPerCm?: number): number {
-  const pxPerCm = previewPxPerCm ?? getTemplatePxPerCm();
+  const pxPerCm = previewPxPerCm ?? ADULT_TSHIRT_TEMPLATE_PX_PER_CM;
   const printArea = getProductionPrintAreaMm();
   return (printArea.height_mm / 10) * pxPerCm;
 }

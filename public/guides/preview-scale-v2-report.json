@@ -1,0 +1,215 @@
+{
+  "schema": "preview-scale-v2-report/v1",
+  "generatedAt": "2026-07-02T04:59:48.516Z",
+  "side": "front",
+  "formulas": {
+    "shirtScale": "officialChestCm / M baseline chest (getShirtScale)",
+    "v1BlueScale": "max(0.85, shirtScale) — getPreviewPrintAreaScale()",
+    "v2BlueScale": "shirtScale — getPreviewPrintAreaScaleV2()",
+    "blueWidthPx": "1024 × (35×12.24/1024) × blueScale",
+    "blueHeightPx": "1536 × (50×12.24/1536) × blueScale",
+    "shirtArmpitWidthPx": "550 × shirtScale × silhouetteScale(1.1127)",
+    "blueOverShirtWidthPct": "blueWidthPx / shirtArmpitWidthPx × 100"
+  },
+  "constants": {
+    "container": {
+      "width": 1024,
+      "height": 1536
+    },
+    "minPreviewPrintAreaScale": 0.85,
+    "silhouetteScale": 1.1127,
+    "pxPerCm": 12.24,
+    "blueCm": {
+      "width": 35,
+      "height": 50
+    }
+  },
+  "sizes": [
+    {
+      "size": "90",
+      "officialChestCm": 29,
+      "side": "front",
+      "shirtScale": 0.5577,
+      "shirtArmpitWidthPx": 341.3,
+      "v1": {
+        "blueScale": 0.85,
+        "blueWidthPx": 364.1,
+        "blueHeightPx": 520.2,
+        "blueOverShirtWidthPct": 106.7
+      },
+      "v2": {
+        "blueScale": 0.5577,
+        "blueWidthPx": 238.9,
+        "blueHeightPx": 341.3,
+        "blueOverShirtWidthPct": 70
+      },
+      "difference": {
+        "widthPx": -125.2,
+        "heightPx": -178.9,
+        "widthPercent": -34.4,
+        "heightPercent": -34.4,
+        "blueScaleDelta": -0.2923
+      },
+      "blueOverShirtWidthPct": {
+        "v1": 106.7,
+        "v2": 70,
+        "delta": -36.7
+      }
+    },
+    {
+      "size": "130",
+      "officialChestCm": 37,
+      "side": "front",
+      "shirtScale": 0.7115,
+      "shirtArmpitWidthPx": 435.5,
+      "v1": {
+        "blueScale": 0.85,
+        "blueWidthPx": 364.1,
+        "blueHeightPx": 520.2,
+        "blueOverShirtWidthPct": 83.6
+      },
+      "v2": {
+        "blueScale": 0.7115,
+        "blueWidthPx": 304.8,
+        "blueHeightPx": 435.5,
+        "blueOverShirtWidthPct": 70
+      },
+      "difference": {
+        "widthPx": -59.3,
+        "heightPx": -84.7,
+        "widthPercent": -16.3,
+        "heightPercent": -16.3,
+        "blueScaleDelta": -0.1385
+      },
+      "blueOverShirtWidthPct": {
+        "v1": 83.6,
+        "v2": 70,
+        "delta": -13.6
+      }
+    },
+    {
+      "size": "GM",
+      "officialChestCm": 46,
+      "side": "front",
+      "shirtScale": 0.8846,
+      "shirtArmpitWidthPx": 541.4,
+      "v1": {
+        "blueScale": 0.8846,
+        "blueWidthPx": 379,
+        "blueHeightPx": 541.4,
+        "blueOverShirtWidthPct": 70
+      },
+      "v2": {
+        "blueScale": 0.8846,
+        "blueWidthPx": 379,
+        "blueHeightPx": 541.4,
+        "blueOverShirtWidthPct": 70
+      },
+      "difference": {
+        "widthPx": 0,
+        "heightPx": 0,
+        "widthPercent": 0,
+        "heightPercent": 0,
+        "blueScaleDelta": 0
+      },
+      "blueOverShirtWidthPct": {
+        "v1": 70,
+        "v2": 70,
+        "delta": 0
+      }
+    },
+    {
+      "size": "M",
+      "officialChestCm": 52,
+      "side": "front",
+      "shirtScale": 1,
+      "shirtArmpitWidthPx": 612,
+      "v1": {
+        "blueScale": 1,
+        "blueWidthPx": 428.4,
+        "blueHeightPx": 612,
+        "blueOverShirtWidthPct": 70
+      },
+      "v2": {
+        "blueScale": 1,
+        "blueWidthPx": 428.4,
+        "blueHeightPx": 612,
+        "blueOverShirtWidthPct": 70
+      },
+      "difference": {
+        "widthPx": 0,
+        "heightPx": 0,
+        "widthPercent": 0,
+        "heightPercent": 0,
+        "blueScaleDelta": 0
+      },
+      "blueOverShirtWidthPct": {
+        "v1": 70,
+        "v2": 70,
+        "delta": 0
+      }
+    },
+    {
+      "size": "XL",
+      "officialChestCm": 58,
+      "side": "front",
+      "shirtScale": 1.1154,
+      "shirtArmpitWidthPx": 682.6,
+      "v1": {
+        "blueScale": 1.1154,
+        "blueWidthPx": 477.8,
+        "blueHeightPx": 682.6,
+        "blueOverShirtWidthPct": 70
+      },
+      "v2": {
+        "blueScale": 1.1154,
+        "blueWidthPx": 477.8,
+        "blueHeightPx": 682.6,
+        "blueOverShirtWidthPct": 70
+      },
+      "difference": {
+        "widthPx": 0,
+        "heightPx": 0,
+        "widthPercent": 0,
+        "heightPercent": 0,
+        "blueScaleDelta": 0
+      },
+      "blueOverShirtWidthPct": {
+        "v1": 70,
+        "v2": 70,
+        "delta": 0
+      }
+    },
+    {
+      "size": "XXXL",
+      "officialChestCm": 68,
+      "side": "front",
+      "shirtScale": 1.3077,
+      "shirtArmpitWidthPx": 800.3,
+      "v1": {
+        "blueScale": 1.3077,
+        "blueWidthPx": 560.2,
+        "blueHeightPx": 800.3,
+        "blueOverShirtWidthPct": 70
+      },
+      "v2": {
+        "blueScale": 1.3077,
+        "blueWidthPx": 560.2,
+        "blueHeightPx": 800.3,
+        "blueOverShirtWidthPct": 70
+      },
+      "difference": {
+        "widthPx": 0,
+        "heightPx": 0,
+        "widthPercent": 0,
+        "heightPercent": 0,
+        "blueScaleDelta": 0
+      },
+      "blueOverShirtWidthPct": {
+        "v1": 70,
+        "v2": 70,
+        "delta": 0
+      }
+    }
+  ]
+}

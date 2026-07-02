@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 780" font-family="ui-sans-serif, system-ui, sans-serif">
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#334155"/>
+    </marker>
+    <style>
+      .title { font-size: 18px; font-weight: 700; fill: #0f172a; }
+      .subtitle { font-size: 12px; fill: #64748b; }
+      .box { rx: 8; stroke-width: 2; }
+      .label { font-size: 13px; font-weight: 600; fill: #0f172a; }
+      .detail { font-size: 11px; fill: #475569; }
+      .flow { stroke: #334155; stroke-width: 1.5; fill: none; marker-end: url(#arrow); }
+      .warn { stroke: #ea580c; stroke-width: 2; stroke-dasharray: 6 4; fill: none; }
+    </style>
+  </defs>
+
+  <text x="460" y="28" text-anchor="middle" class="title">Preview Scale Architecture Flow</text>
+  <text x="460" y="48" text-anchor="middle" class="subtitle">Step 10.1 — runtime as-is (post silhouetteScale 9.1)</text>
+
+  <!-- Canvas Zoom -->
+  <rect x="330" y="70" width="260" height="72" class="box" fill="#e0f2fe" stroke="#0284c7"/>
+  <text x="460" y="96" text-anchor="middle" class="label">Canvas Zoom</text>
+  <text x="460" y="114" text-anchor="middle" class="detail">DesignCanvas → ZOOM_STEPS</text>
+  <text x="460" y="130" text-anchor="middle" class="detail">ShirtContainerFrame transform: scale(zoom)</text>
+
+  <!-- ShirtContainerFrame -->
+  <rect x="300" y="170" width="320" height="56" class="box" fill="#f1f5f9" stroke="#64748b"/>
+  <text x="460" y="194" text-anchor="middle" class="label">ShirtContainerFrame</text>
+  <text x="460" y="212" text-anchor="middle" class="detail">1024×1536 logical container (inherits zoom)</text>
+
+  <!-- Shirt PNG branch -->
+  <rect x="40" y="270" width="300" height="110" class="box" fill="#dcfce7" stroke="#16a34a"/>
+  <text x="190" y="296" text-anchor="middle" class="label">Shirt PNG</text>
+  <text x="190" y="314" text-anchor="middle" class="detail">ShirtVisualScale.tsx</text>
+  <text x="190" y="332" text-anchor="middle" class="detail">scale = getShirtScale(size)</text>
+  <text x="190" y="350" text-anchor="middle" class="detail">× silhouetteScale (1.1127)</text>
+  <text x="190" y="368" text-anchor="middle" class="detail">CSS transform on PNG wrapper only</text>
+
+  <!-- Blue branch -->
+  <rect x="580" y="270" width="300" height="110" class="box" fill="#dbeafe" stroke="#2563eb"/>
+  <text x="730" y="296" text-anchor="middle" class="label">Blue Print Area</text>
+  <text x="730" y="314" text-anchor="middle" class="detail">preview.ts → getPreviewPrintAreaContainerStyle()</text>
+  <text x="730" y="332" text-anchor="middle" class="detail">scale = max(0.85, getShirtScale(size))</text>
+  <text x="730" y="350" text-anchor="middle" class="detail">width/height % × previewPrintAreaScale</text>
+  <text x="730" y="368" text-anchor="middle" class="detail">anchor: container center + translate(-50%,-50%)</text>
+
+  <!-- Orange -->
+  <rect x="580" y="420" width="300" height="88" class="box" fill="#ffedd5" stroke="#ea580c"/>
+  <text x="730" y="446" text-anchor="middle" class="label">Orange Safe Zone</text>
+  <text x="730" y="464" text-anchor="middle" class="detail">GarmentPrintSafeZoneGuide → garment.ts</text>
+  <text x="730" y="482" text-anchor="middle" class="detail">% inside Blue DOM (collar+offset cm)</text>
+  <text x="730" y="500" text-anchor="middle" class="detail">uses getShirtScale — not previewPrintAreaScale</text>
+
+  <!-- Layer -->
+  <rect x="580" y="540" width="300" height="88" class="box" fill="#ede9fe" stroke="#7c3aed"/>
+  <text x="730" y="566" text-anchor="middle" class="label">Design Layer</text>
+  <text x="730" y="584" text-anchor="middle" class="detail">PrintAreaElement → design-cm cm rect</text>
+  <text x="730" y="602" text-anchor="middle" class="detail">% inside Blue DOM — no extra scale</text>
+  <text x="730" y="620" text-anchor="middle" class="detail">production/export unchanged</text>
+
+  <!-- Divergence note -->
+  <rect x="40" y="420" width="300" height="88" class="box" fill="#fef2f2" stroke="#dc2626"/>
+  <text x="190" y="446" text-anchor="middle" class="label">Scale Divergence (90/130)</text>
+  <text x="190" y="466" text-anchor="middle" class="detail">Shirt: shirtScale × 1.1127</text>
+  <text x="190" y="484" text-anchor="middle" class="detail">Blue: max(0.85, shirtScale)</text>
+  <text x="190" y="502" text-anchor="middle" class="detail">→ Blue wider than shirt body</text>
+
+  <!-- Production -->
+  <rect x="40" y="540" width="300" height="72" class="box" fill="#f8fafc" stroke="#94a3b8"/>
+  <text x="190" y="566" text-anchor="middle" class="label">Production / Export</text>
+  <text x="190" y="584" text-anchor="middle" class="detail">production.ts mm — no preview scale</text>
+  <text x="190" y="602" text-anchor="middle" class="detail">layer _cm fields unchanged</text>
+
+  <!-- Arrows -->
+  <path d="M460 142 L460 170" class="flow"/>
+  <path d="M400 226 L190 270" class="flow"/>
+  <path d="M520 226 L730 270" class="flow"/>
+  <path d="M730 380 L730 420" class="flow"/>
+  <path d="M730 508 L730 540" class="flow"/>
+  <path d="M340 325 L580 325" class="warn"/>
+  <text x="460" y="318" text-anchor="middle" class="detail" fill="#ea580c">sibling DOM — independent scales</text>
+
+  <!-- Legend -->
+  <text x="40" y="660" class="label">Legend</text>
+  <rect x="40" y="672" width="16" height="16" fill="#dcfce7" stroke="#16a34a"/>
+  <text x="64" y="684" class="detail">Garment visual (PNG)</text>
+  <rect x="200" y="672" width="16" height="16" fill="#dbeafe" stroke="#2563eb"/>
+  <text x="224" y="684" class="detail">Print overlay (preview only)</text>
+  <rect x="400" y="672" width="16" height="16" fill="#ede9fe" stroke="#7c3aed"/>
+  <text x="424" y="684" class="detail">Layer state (cm)</text>
+  <line x1="600" y1="680" x2="640" y2="680" class="warn"/>
+  <text x="648" y="684" class="detail">Scale mismatch boundary</text>
+
+  <text x="40" y="720" class="detail">Proposed (Step 10.x): Blue = getShirtScale(); remove 0.85 floor; Canvas Zoom handles operability</text>
+  <text x="40" y="740" class="detail">Shirt PNG keeps silhouetteScale; Blue/Layer/Export production cm unchanged</text>
+</svg>

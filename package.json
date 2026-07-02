@@ -10,6 +10,7 @@
     "lint": "eslint",
     "check:templates": "node scripts/check-templates.mjs",
     "check:template-alignment": "node scripts/check-template-alignment.mjs",
+    "check:template-profile": "node scripts/check-template-profile.mjs",
     "check:coordinate-systems": "node scripts/check-coordinate-systems.mjs",
     "check:supabase": "node scripts/check-supabase.mjs",
     "check:email": "node scripts/check-email.mjs",
@@ -29,6 +30,8 @@
     "check:mockup-calibration": "node scripts/check-mockup-calibration.mjs",
     "check:ui-print-offset": "node scripts/check-ui-print-offset.mjs",
     "check:garment-print-position": "node scripts/check-garment-print-position.mjs",
+    "measure:template-calibration": "node scripts/measure-template-calibration.mjs",
+    "measure:template-calibration:all": "node scripts/measure-template-calibration.mjs --all",
     "generate:mockup-calibration": "node scripts/generate-mockup-calibration-comparison.mjs"
   },
   "dependencies": {

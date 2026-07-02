@@ -1,10 +1,41 @@
 "use client";
 
+import {
+  createContext,
+  useContext,
+  type ReactNode,
+} from "react";
 import type { Side } from "@/lib/constants";
 import {
   getPlacementPresetsForSide,
   type PlacementPresetId,
 } from "@/lib/placement-presets";
+
+const PlacementPresetSizeContext = createContext<string | null>(null);
+
+export function PlacementPresetSizeProvider({
+  size,
+  children,
+}: {
+  size: string;
+  children: ReactNode;
+}) {
+  return (
+    <PlacementPresetSizeContext.Provider value={size}>
+      {children}
+    </PlacementPresetSizeContext.Provider>
+  );
+}
+
+function usePlacementPresetSize(): string {
+  const size = useContext(PlacementPresetSizeContext);
+  if (!size) {
+    throw new Error(
+      "PlacementPresetToolbar must be used within PlacementPresetSizeProvider",
+    );
+  }
+  return size;
+}
 
 const buttonClass =
   "shrink-0 rounded border px-2 py-1 text-[10px] font-medium disabled:cursor-not-allowed disabled:opacity-40";
@@ -20,7 +51,8 @@ export function PlacementPresetToolbar({
   activePresetId?: PlacementPresetId | null;
   onApplyPreset: (presetId: PlacementPresetId) => void;
 }) {
-  const presets = getPlacementPresetsForSide(side);
+  const size = usePlacementPresetSize();
+  const presets = getPlacementPresetsForSide(side, size);
 
   return (
     <div

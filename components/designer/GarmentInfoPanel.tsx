@@ -2,12 +2,24 @@
 
 import { useMemo, useState } from "react";
 import type { Size, SizeSuggestion } from "@/lib/constants";
-import { SIZES } from "@/lib/constants";
 import { formatInspectorCm } from "@/lib/design-inspector";
-import { getGarmentRecommendedPrintDisplayCm } from "@/lib/garment-print-config";
-import { getShirtScale } from "@/lib/shirtScale";
+import {
+  getDesignerBluePrintArea,
+  getDesignerRecommendedPrintArea,
+} from "@/lib/designer-print-area-config";
+import { findProductSizeRow } from "@/lib/product-size-config";
 import { getSizeMeasurement, toApparelSize } from "@/lib/sizes";
+import { ProductSizeSelector } from "./ProductSizeSelector";
 import { TshirtSizeGuideModal } from "./TshirtSizeGuideModal";
+
+function formatSizeCm(value: number): string {
+  return `${formatInspectorCm(value, 0)}`;
+}
+
+function formatRecommendedHeight(value: string | null): string {
+  if (!value) return "—";
+  return value.includes("cm") ? value : `${value} cm`;
+}
 
 function InfoRow({
   label,
@@ -34,19 +46,21 @@ function formatRecommendedPrintLabel(widthCm: number, heightCm: number): string 
   return `${widthCm.toFixed(0)} × ${heightCm.toFixed(0)} cm`;
 }
 
-function RecommendedPrintSideBlock({
-  sideLabel,
+function PrintAreaInfoBlock({
+  title,
+  subtitle,
   widthCm,
   heightCm,
 }: {
-  sideLabel: string;
+  title: string;
+  subtitle: string;
   widthCm: number;
   heightCm: number;
 }) {
   return (
     <div className="space-y-0.5">
-      <p className="text-[11px] font-medium text-zinc-800">{sideLabel}</p>
-      <p className="text-[10px] text-zinc-500">建議印製區域</p>
+      <p className="text-[11px] font-medium text-zinc-800">{title}</p>
+      <p className="text-[10px] text-zinc-500">{subtitle}</p>
       <p className="font-mono text-[11px] font-medium tabular-nums text-zinc-900">
         {formatRecommendedPrintLabel(widthCm, heightCm)}
       </p>
@@ -85,15 +99,37 @@ export function GarmentInfoPanel({
 }) {
   const [showSizeGuide, setShowSizeGuide] = useState(false);
 
-  const apparelSize = toApparelSize(size);
-  const { chestCm, lengthCm } = getSizeMeasurement(apparelSize);
-  const shirtScale = getShirtScale(size);
-  const frontRecommended = useMemo(
-    () => getGarmentRecommendedPrintDisplayCm("front", size),
+  const sizeInfo = useMemo(() => {
+    const productSizeRow = findProductSizeRow(size);
+    const legacyMeasurement = getSizeMeasurement(toApparelSize(size));
+
+    if (productSizeRow) {
+      return {
+        sizeLabel: size,
+        lengthCm: productSizeRow.length,
+        chestCm: productSizeRow.chest,
+        shoulderCm: productSizeRow.shoulder,
+        sleeveCm: productSizeRow.sleeve,
+        recommendedHeight: productSizeRow.height,
+      };
+    }
+
+    return {
+      sizeLabel: size,
+      lengthCm: legacyMeasurement.lengthCm,
+      chestCm: legacyMeasurement.chestCm,
+      shoulderCm: null,
+      sleeveCm: null,
+      recommendedHeight: null,
+    };
+  }, [size]);
+
+  const bluePrintArea = useMemo(
+    () => getDesignerBluePrintArea(size),
     [size],
   );
-  const backRecommended = useMemo(
-    () => getGarmentRecommendedPrintDisplayCm("back", size),
+  const orangePrintArea = useMemo(
+    () => getDesignerRecommendedPrintArea(size),
     [size],
   );
 
@@ -110,50 +146,58 @@ export function GarmentInfoPanel({
               <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-zinc-600">
                 衣服尺寸
               </p>
-              <div className="flex flex-wrap gap-1.5">
-                {SIZES.map((s) => (
-                  <button
-                    key={s}
-                    type="button"
-                    disabled={isBusy}
-                    onClick={() => onSizeChange(s)}
-                    className={`min-w-[2.25rem] rounded-lg border px-2.5 py-1.5 text-sm transition-colors ${
-                      size === s
-                        ? "border-zinc-900 bg-zinc-900 text-white"
-                        : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-400"
-                    }`}
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
+              <ProductSizeSelector
+                size={size}
+                onSizeChange={onSizeChange}
+                disabled={isBusy}
+              />
             </div>
 
-            <dl className="space-y-1.5">
-              <InfoRow
-                label="胸寬"
-                value={`${formatInspectorCm(chestCm, 0)}`}
-              />
+            <dl className="space-y-1.5 border-t border-zinc-200 pt-3">
+              <InfoRow label="尺寸" value={sizeInfo.sizeLabel} mono={false} />
               <InfoRow
                 label="衣長"
-                value={`${formatInspectorCm(lengthCm, 0)}`}
+                value={formatSizeCm(sizeInfo.lengthCm)}
               />
               <InfoRow
-                label="Shirt scale"
-                value={shirtScale.toFixed(3)}
+                label="胸寬"
+                value={formatSizeCm(sizeInfo.chestCm)}
+              />
+              <InfoRow
+                label="肩寬"
+                value={
+                  sizeInfo.shoulderCm != null
+                    ? formatSizeCm(sizeInfo.shoulderCm)
+                    : "—"
+                }
+              />
+              <InfoRow
+                label="袖長"
+                value={
+                  sizeInfo.sleeveCm != null
+                    ? formatSizeCm(sizeInfo.sleeveCm)
+                    : "—"
+                }
+              />
+              <InfoRow
+                label="建議身高"
+                value={formatRecommendedHeight(sizeInfo.recommendedHeight)}
+                mono={false}
               />
             </dl>
 
             <div className="space-y-3 border-t border-zinc-200 pt-3">
-              <RecommendedPrintSideBlock
-                sideLabel="正面"
-                widthCm={frontRecommended.widthCm}
-                heightCm={frontRecommended.heightCm}
+              <PrintAreaInfoBlock
+                title="印刷範圍"
+                subtitle="最大印刷範圍"
+                widthCm={bluePrintArea.widthCm}
+                heightCm={bluePrintArea.heightCm}
               />
-              <RecommendedPrintSideBlock
-                sideLabel="背面"
-                widthCm={backRecommended.widthCm}
-                heightCm={backRecommended.heightCm}
+              <PrintAreaInfoBlock
+                title="建議區域"
+                subtitle="建議印製區域"
+                widthCm={orangePrintArea.widthCm}
+                heightCm={orangePrintArea.heightCm}
               />
             </div>
 

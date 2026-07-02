@@ -8,7 +8,18 @@ export const PRODUCT = {
   name: "TIIIGO 經典純棉短袖 T-Shirt",
   description: "經典純棉圓領短袖",
 } as const;
-export type Size = "XS" | "S" | "M" | "L" | "XL" | "2XL";
+import type {
+  AdultStandardSizeCode,
+  ChildrenSizeCode,
+  FitSizeCode,
+} from "./product-size-config";
+
+export type Size =
+  | ChildrenSizeCode
+  | FitSizeCode
+  | AdultStandardSizeCode
+  | "XS"
+  | "2XL";
 
 export const SIZE_CONTACT_MESSAGE = "請聯繫客服確認尺寸" as const;
 

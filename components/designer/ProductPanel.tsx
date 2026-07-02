@@ -8,8 +8,8 @@ import {
   PRODUCT,
   MATERIAL_OPTIONS,
   SHIRT_COLORS,
-  SIZES,
 } from "@/lib/constants";
+import { ProductSizeSelector } from "./ProductSizeSelector";
 import { TshirtSizeGuideModal } from "./TshirtSizeGuideModal";
 
 export function ProductPanel({
@@ -98,22 +98,7 @@ export function ProductPanel({
 
       <div>
         <h2 className="mb-2 text-sm font-semibold text-zinc-900">尺寸</h2>
-        <div className="flex flex-wrap gap-1.5">
-          {SIZES.map((s) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => onSizeChange(s)}
-              className={`min-w-[2.25rem] rounded-lg border px-2.5 py-1.5 text-sm transition-colors ${
-                size === s
-                  ? "border-zinc-900 bg-zinc-900 text-white"
-                  : "border-zinc-200 text-zinc-700 hover:border-zinc-400"
-              }`}
-            >
-              {s}
-            </button>
-          ))}
-        </div>
+        <ProductSizeSelector size={size} onSizeChange={onSizeChange} />
         <button
           type="button"
           className="mt-2 text-xs text-blue-600 hover:underline"

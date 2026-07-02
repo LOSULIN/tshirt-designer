@@ -7,6 +7,12 @@
 
 import type { Side } from "../constants";
 import type { ApparelSize } from "../sizes";
+import { getDesignerBlueVisualContainerPct } from "../garment-visual-profile";
+import {
+  getRuntimeTemplateCanvas,
+  getRuntimeTemplatePlacement,
+  getRuntimeTemplatePxPerCm,
+} from "../template-profile/runtime";
 import {
   getProductionPrintAreaMm,
   legacyCmFieldToMm,
@@ -19,18 +25,18 @@ import {
   type PreviewPrintPositionOptions,
   resolvePreviewPrintPositionMode,
 } from "./preview-position-mode";
-import { getShirtScale, getShirtScaleTransform } from "../shirtScale";
-import {
-  getDesignerPrintAreaCmBounds,
-  getPrintAreaCmToTemplateContainerPct,
-} from "../design-cm";
-import { ADULT_TSHIRT_TEMPLATE_PX_PER_CM } from "../template-metrics";
+import { getGarmentVisualRenderScale } from "../garment-visual-profile";
+import { getPrintAreaCmToTemplateContainerPct } from "../design-cm";
 import { buildUiPrintAreaContainerStyle } from "./ui-print-offset";
 
 export const PREVIEW_CONTAINER = {
-  width: 1024,
-  height: 1536,
-} as const;
+  get width(): number {
+    return getRuntimeTemplateCanvas().widthPx;
+  },
+  get height(): number {
+    return getRuntimeTemplateCanvas().heightPx;
+  },
+};
 
 export const PREVIEW_SIDES = ["front", "back"] as const;
 export type PreviewSide = (typeof PREVIEW_SIDES)[number];
@@ -40,14 +46,22 @@ export const PREVIEW_REFERENCE_TRANSFORM = "translate(-50%, -50%)" as const;
 const DEFAULT_PREVIEW_SIZE: ApparelSize = "M";
 
 /**
+ * Preview 藍框 DOM 縮放：與 ShirtVisualScale 同源 Garment Visual Render scale。
+ * 不影響 layer cm、export、production。
+ */
+export function getPreviewPrintAreaScale(size: ApparelSize | string): number {
+  return getGarmentVisualRenderScale(size);
+}
+
+/**
  * Preview overlay：1 mm（production）→ UI px。
  * templatePxPerCm / 10 → 12.24 px/cm → 1.224 px/mm。
  */
-export const PREVIEW_UI_UNITS_PER_MM = ADULT_TSHIRT_TEMPLATE_PX_PER_CM / 10;
+export const PREVIEW_UI_UNITS_PER_MM: number = 12.24 / 10;
 
 /** Preview 畫布上 1 cm（物理）對應的 px */
 export function getPreviewPxPerCm(): number {
-  return ADULT_TSHIRT_TEMPLATE_PX_PER_CM;
+  return getRuntimeTemplatePxPerCm();
 }
 
 export type { PreviewPrintPositionMode, PreviewPrintPositionOptions };
@@ -76,44 +90,43 @@ export function getPreviewPrintReference(
   options?: PreviewPrintPositionOptions,
 ) {
   void resolvePreviewPrintPositionMode(options?.mode);
+  const placement = getRuntimeTemplatePlacement();
+  const size = options?.size ?? DEFAULT_PREVIEW_SIZE;
+  if (side === "front" && size === DEFAULT_PREVIEW_SIZE) {
+    return placement.reference;
+  }
   return getGarmentPrintReference({
     side,
-    size: options?.size ?? DEFAULT_PREVIEW_SIZE,
-    containerHeight: PREVIEW_CONTAINER.height,
+    size,
+    containerHeight: placement.containerCenter.y * 2,
   });
 }
-
-/** @deprecated 請用 getPreviewPrintReference(side, options) */
-export const PREVIEW_PRINT_REFERENCE_BY_SIDE = {
-  get front() {
-    return getPreviewPrintReference("front");
-  },
-  get back() {
-    return getPreviewPrintReference("back");
-  },
-} as const;
 
 export function getPreviewPrintAreaContainerPct(
   printArea: ProductionPrintAreaMm = getProductionPrintAreaMm(),
 ): { widthPct: number; heightPct: number } {
+  const canvas = getRuntimeTemplateCanvas();
   return getPrintAreaCmToTemplateContainerPct(
     {
       width: printArea.width_mm / 10,
       height: printArea.height_mm / 10,
     },
-    PREVIEW_CONTAINER.width,
-    PREVIEW_CONTAINER.height,
+    canvas.widthPx,
+    canvas.heightPx,
   );
 }
 
-/** 設計器藍框比例（依面別最大印刷區） */
+/** 設計器藍框比例（Garment Visual Profile × Designer Print Area Config cm） */
 export function getPreviewPrintAreaContainerPctForSide(
   side: PreviewSide = "front",
+  size: ApparelSize | string = DEFAULT_PREVIEW_SIZE,
 ): { widthPct: number; heightPct: number } {
-  return getPrintAreaCmToTemplateContainerPct(
-    getDesignerPrintAreaCmBounds(side),
-    PREVIEW_CONTAINER.width,
-    PREVIEW_CONTAINER.height,
+  void side;
+  const canvas = getRuntimeTemplateCanvas();
+  return getDesignerBlueVisualContainerPct(
+    size,
+    canvas.widthPx,
+    canvas.heightPx,
   );
 }
 
@@ -121,7 +134,11 @@ export function getPreviewPrintAreaContainerStyle(
   side: PreviewSide = "front",
   options?: PreviewPrintPositionOptions,
 ): PreviewContainerStyle {
-  const { widthPct, heightPct } = getPreviewPrintAreaContainerPctForSide(side);
+  const size = options?.size ?? DEFAULT_PREVIEW_SIZE;
+  const { widthPct, heightPct } = getPreviewPrintAreaContainerPctForSide(
+    side,
+    size,
+  );
   const ref = getPreviewPrintReference(side, options);
   return buildUiPrintAreaContainerStyle(
     ref,
@@ -132,11 +149,12 @@ export function getPreviewPrintAreaContainerStyle(
 }
 
 export function getPreviewContainerAspectRatio(): string {
-  return `${PREVIEW_CONTAINER.width} / ${PREVIEW_CONTAINER.height}`;
+  const canvas = getRuntimeTemplateCanvas();
+  return `${canvas.widthPx} / ${canvas.heightPx}`;
 }
 
 export function getPreviewContainerWidthOverHeight(): number {
-  return PREVIEW_CONTAINER.width / PREVIEW_CONTAINER.height;
+  return getRuntimeTemplateCanvas().aspectRatio;
 }
 
 export function productionRectToPreviewPercent(
@@ -149,16 +167,6 @@ export function productionRectToPreviewPercent(
     width: `${(rect.width_mm / printArea.width_mm) * 100}%`,
     height: `${(rect.height_mm / printArea.height_mm) * 100}%`,
   };
-}
-
-export function getPreviewGarmentVisualScale(size: ApparelSize | string): number {
-  return getShirtScale(size);
-}
-
-export function getPreviewGarmentVisualTransform(
-  size: ApparelSize | string,
-): string {
-  return getShirtScaleTransform(size);
 }
 
 export function previewClientPointToProductionMm(

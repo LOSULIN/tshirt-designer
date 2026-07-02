@@ -1,8 +1,8 @@
 "use client";
 
-import { debugGarmentScale, getShirtScaleTransform } from "@/lib/shirtScale";
+import { getGarmentVisualRenderScale } from "@/lib/garment-visual-profile";
+import { debugGarmentScale } from "@/lib/shirtScale";
 import type { ApparelSize } from "@/lib/sizes";
-import { toApparelSize } from "@/lib/sizes";
 import { useEffect, type CSSProperties, type ReactNode } from "react";
 
 /**
@@ -19,19 +19,20 @@ export function ShirtVisualScale({
   className?: string;
   style?: CSSProperties;
 }) {
-  const apparelSize = toApparelSize(size);
+  const garmentScale = getGarmentVisualRenderScale(size);
+  const transform = `scale(${garmentScale})`;
 
   useEffect(() => {
-    debugGarmentScale(apparelSize);
-  }, [apparelSize]);
+    debugGarmentScale(size);
+  }, [size]);
 
   return (
     <div
       data-shirt-visual
-      data-shirt-scale={getShirtScaleTransform(apparelSize)}
+      data-shirt-scale={transform}
       className={className}
       style={{
-        transform: getShirtScaleTransform(apparelSize),
+        transform,
         transformOrigin: "center center",
         ...style,
       }}

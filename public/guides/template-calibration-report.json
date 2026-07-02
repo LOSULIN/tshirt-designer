@@ -1,0 +1,746 @@
+{
+  "schema": "template-calibration/v1",
+  "measuredAt": "2026-07-02T04:36:54.126Z",
+  "mode": "reference",
+  "purpose": "建立設計器模板座標基準；對照印刷座標系與 PNG 剪影量測，供校正決策（不修改 runtime）",
+  "codebase": {
+    "templateSpec": {
+      "widthPx": 1024,
+      "heightPx": 1536
+    },
+    "printCoordinateSystem": {
+      "id": "print-overlay",
+      "label": "印刷／設計座標系（layer cm、藍框、export 契約）",
+      "chestReferencePx": 612,
+      "pxPerCm": 12.24,
+      "uiUnitsPerMm": 1.224,
+      "calibrationLine": {
+        "leftXPct": 0.201,
+        "rightXPct": 0.799,
+        "yPct": 0.251,
+        "leftX": 206,
+        "rightX": 818,
+        "y": 386,
+        "chestPx": 612
+      },
+      "blueBoxCm": {
+        "front": {
+          "widthCm": 35,
+          "heightCm": 50
+        },
+        "back": {
+          "widthCm": 38,
+          "heightCm": 45
+        }
+      },
+      "productionPrintMm": {
+        "width_mm": 350,
+        "height_mm": 500
+      },
+      "collarAnchorYPx": {
+        "front": 386,
+        "back": 386
+      },
+      "printAreaOffsetCm": {
+        "front": 7,
+        "back": 5
+      },
+      "legacyBaselineM": {
+        "chestCm": 50,
+        "lengthCm": 68
+      },
+      "productBaselineM": {
+        "chestCm": 52,
+        "lengthCm": 69
+      },
+      "notes": [
+        "12.24 = 612 / 50（template-metrics 註解基準）",
+        "藍框尺寸來自 garment-print-config；export 固定 production 350×500mm"
+      ]
+    }
+  },
+  "templates": [
+    {
+      "template": "adult-tshirt-white-front.png",
+      "path": "/Users/leo/Desktop/tshirt-designer/public/templates/adult-tshirt-white-front.png",
+      "side": "front",
+      "ok": true,
+      "pngMeasurement": {
+        "ok": true,
+        "file": "adult-tshirt-white-front.png",
+        "side": "front",
+        "canvas": {
+          "width": 1024,
+          "height": 1536
+        },
+        "segmentationMode": "white-shirt",
+        "shirtBBox": {
+          "minX": 28,
+          "minY": 292,
+          "maxX": 996,
+          "maxY": 1215
+        },
+        "containerCenter": {
+          "x": 512,
+          "y": 768
+        },
+        "garmentCenter": {
+          "x": 512,
+          "y": 754
+        },
+        "shoulders": {
+          "left": {
+            "x": 355,
+            "y": 302
+          },
+          "right": {
+            "x": 726,
+            "y": 322
+          }
+        },
+        "hps": {
+          "x": 541,
+          "y": 312
+        },
+        "hem": {
+          "x": 541,
+          "y": 1215
+        },
+        "bodyLengthPx": 903,
+        "collarLowest": {
+          "x": 488,
+          "y": 494
+        },
+        "collarSamples": [
+          {
+            "cx": 488,
+            "y": 494
+          },
+          {
+            "cx": 500,
+            "y": 494
+          },
+          {
+            "cx": 512,
+            "y": 494
+          },
+          {
+            "cx": 524,
+            "y": 494
+          },
+          {
+            "cx": 536,
+            "y": 494
+          }
+        ],
+        "armpit": {
+          "leftArmpit": {
+            "x": 245,
+            "y": 460
+          },
+          "rightArmpit": {
+            "x": 795,
+            "y": 552
+          },
+          "chestY": 506,
+          "chestWidthPx": 550,
+          "yStart": 438,
+          "yEnd": 583,
+          "method": "legacy-concave",
+          "selectedAs": "primary",
+          "allMethods": {
+            "legacyConcave": {
+              "leftArmpit": {
+                "x": 245,
+                "y": 460
+              },
+              "rightArmpit": {
+                "x": 795,
+                "y": 552
+              },
+              "chestY": 506,
+              "chestWidthPx": 550,
+              "yStart": 438,
+              "yEnd": 583,
+              "method": "legacy-concave"
+            },
+            "torsoProfile": null,
+            "boundaryZone": {
+              "leftArmpit": {
+                "x": 192,
+                "y": 552
+              },
+              "rightArmpit": {
+                "x": 892,
+                "y": 439
+              },
+              "chestY": 496,
+              "chestWidthPx": 700,
+              "yStart": 438,
+              "yEnd": 583,
+              "method": "boundary-zone-mode"
+            }
+          }
+        },
+        "armpitMethods": {
+          "legacyConcave": {
+            "leftArmpit": {
+              "x": 245,
+              "y": 460
+            },
+            "rightArmpit": {
+              "x": 795,
+              "y": 552
+            },
+            "chestY": 506,
+            "chestWidthPx": 550,
+            "yStart": 438,
+            "yEnd": 583,
+            "method": "legacy-concave"
+          },
+          "torsoProfile": null,
+          "boundaryZone": {
+            "leftArmpit": {
+              "x": 192,
+              "y": 552
+            },
+            "rightArmpit": {
+              "x": 892,
+              "y": 439
+            },
+            "chestY": 496,
+            "chestWidthPx": 700,
+            "yStart": 438,
+            "yEnd": 583,
+            "method": "boundary-zone-mode"
+          }
+        },
+        "chestWidthPx": 550,
+        "armpitMethod": "legacy-concave"
+      },
+      "garmentCoordinateSystem": {
+        "id": "garment-silhouette",
+        "label": "模板 PNG 成衣剪影（腋下胸寬、HPS→下擺）",
+        "measured": {
+          "armpitChestWidthPx": 550,
+          "armpitMethod": "legacy-concave",
+          "alternateMethods": {
+            "legacyConcave": {
+              "chestWidthPx": 550,
+              "chestY": 506
+            },
+            "boundaryZoneMode": {
+              "chestWidthPx": 700,
+              "chestY": 496
+            }
+          },
+          "bodyLengthPx": 903,
+          "chestY": 506,
+          "leftArmpit": {
+            "x": 245,
+            "y": 460
+          },
+          "rightArmpit": {
+            "x": 795,
+            "y": 552
+          },
+          "collarLowestY": 494,
+          "hps": {
+            "x": 541,
+            "y": 312
+          },
+          "hemY": 1215
+        },
+        "pxPerCm": {
+          "fromLegacyM": {
+            "chest": 11,
+            "length": 13.279,
+            "avg": 12.14
+          },
+          "fromProductM": {
+            "chest": 10.577,
+            "length": 13.087,
+            "avg": 11.832
+          }
+        },
+        "ratio": {
+          "measured": 0.6091,
+          "legacyM": 0.7353,
+          "productM": 0.7536
+        },
+        "notes": [
+          "腋下凹點量測；與 Preview 標定線（20.1%–79.9%）基準不同",
+          "建議視覺基準：550px / 52cm"
+        ]
+      },
+      "printOverlayRects": {
+        "blueBox": {
+          "left": 297.79999999999995,
+          "top": 462,
+          "width": 428.40000000000003,
+          "height": 612,
+          "widthCm": 35,
+          "heightCm": 50
+        },
+        "containerCenter": {
+          "x": 512,
+          "y": 768
+        },
+        "calibrationLine": {
+          "leftXPct": 0.201,
+          "rightXPct": 0.799,
+          "yPct": 0.251,
+          "leftX": 206,
+          "rightX": 818,
+          "y": 386,
+          "chestPx": 612
+        },
+        "collarAnchorY": 386,
+        "printAreaOffsetCm": 7,
+        "printTopY": 471.68,
+        "productionExportMm": {
+          "width_mm": 350,
+          "height_mm": 500
+        }
+      },
+      "comparison": {
+        "comparable": true,
+        "recommendedSilhouetteScale": 1.1127272727272728,
+        "recommendedSilhouetteScaleRounded": 1.1127,
+        "chestWidthPx": {
+          "printReference": 612,
+          "garmentArmpit": 550,
+          "deltaPx": -62,
+          "deltaPct": -10.13,
+          "silhouetteToPrintFactor": 1.1127
+        },
+        "pxPerCm": {
+          "printOverlay": 12.24,
+          "garmentArmpit": 10.577,
+          "delta": -1.663,
+          "deltaPct": -13.59
+        },
+        "blueBoxVsGarmentChest": {
+          "blueBoxWidthPx": 428.4,
+          "garmentChestPx": 550,
+          "blueBoxToGarmentRatio": 0.7789
+        },
+        "collarAnchor": {
+          "codebaseY": 386,
+          "measuredY": 494,
+          "deltaPx": 108
+        },
+        "containerVsGarmentCenter": {
+          "container": {
+            "x": 512,
+            "y": 768
+          },
+          "garmentBBoxCenter": {
+            "x": 512,
+            "y": 754
+          },
+          "deltaX": 0,
+          "deltaY": -14
+        },
+        "decisionHints": [
+          {
+            "id": "keep-print-px-per-cm",
+            "when": "layer _cm、藍框 %、export 已上線且有設計資料",
+            "action": "維持 print pxPerCm = 12.24（設計座標契約）"
+          },
+          {
+            "id": "garment-visual-calibration",
+            "when": "僅 Preview 衣服剪影與印刷參考線視覺對齊",
+            "action": "考慮 ShirtVisualScale 補償 ×1.1127（不動 12.24）"
+          },
+          {
+            "id": "retemplate-metrics",
+            "when": "決定以 PNG 腋下為唯一真相且可接受遷移設計座標",
+            "action": "將 template-metrics 改為 10.577 — 高風險，需資料遷移"
+          },
+          {
+            "id": "collar-anchor",
+            "when": true,
+            "action": "量測領口 Y=494 vs codebase 386（僅影響橘框／debug）"
+          },
+          {
+            "id": "recommended-silhouette-scale",
+            "when": "Template Profile measurement.silhouetteScale 建議值（僅報告，不自動寫入）",
+            "action": "建議 silhouetteScale = 1.1127（612 / 550）",
+            "recommendedSilhouetteScale": 1.1127
+          }
+        ]
+      }
+    },
+    {
+      "template": "adult-tshirt-white-back.png",
+      "path": "/Users/leo/Desktop/tshirt-designer/public/templates/adult-tshirt-white-back.png",
+      "side": "back",
+      "ok": true,
+      "pngMeasurement": {
+        "ok": true,
+        "file": "adult-tshirt-white-back.png",
+        "side": "back",
+        "canvas": {
+          "width": 1024,
+          "height": 1536
+        },
+        "segmentationMode": "white-shirt",
+        "shirtBBox": {
+          "minX": 30,
+          "minY": 291,
+          "maxX": 995,
+          "maxY": 1216
+        },
+        "containerCenter": {
+          "x": 512,
+          "y": 768
+        },
+        "garmentCenter": {
+          "x": 513,
+          "y": 754
+        },
+        "shoulders": {
+          "left": {
+            "x": 358,
+            "y": 301
+          },
+          "right": {
+            "x": 727,
+            "y": 323
+          }
+        },
+        "hps": {
+          "x": 543,
+          "y": 312
+        },
+        "hem": {
+          "x": 543,
+          "y": 1216
+        },
+        "bodyLengthPx": 904,
+        "collarLowest": {
+          "x": 489,
+          "y": 494
+        },
+        "collarSamples": [
+          {
+            "cx": 489,
+            "y": 494
+          },
+          {
+            "cx": 501,
+            "y": 494
+          },
+          {
+            "cx": 513,
+            "y": 494
+          },
+          {
+            "cx": 525,
+            "y": 494
+          },
+          {
+            "cx": 537,
+            "y": 494
+          }
+        ],
+        "armpit": {
+          "leftArmpit": {
+            "x": 192,
+            "y": 543
+          },
+          "rightArmpit": {
+            "x": 795,
+            "y": 543
+          },
+          "chestY": 543,
+          "chestWidthPx": 603,
+          "yStart": 439,
+          "yEnd": 583,
+          "method": "legacy-concave",
+          "selectedAs": "primary",
+          "allMethods": {
+            "legacyConcave": {
+              "leftArmpit": {
+                "x": 192,
+                "y": 543
+              },
+              "rightArmpit": {
+                "x": 795,
+                "y": 543
+              },
+              "chestY": 543,
+              "chestWidthPx": 603,
+              "yStart": 439,
+              "yEnd": 583,
+              "method": "legacy-concave"
+            },
+            "torsoProfile": null,
+            "boundaryZone": null
+          }
+        },
+        "armpitMethods": {
+          "legacyConcave": {
+            "leftArmpit": {
+              "x": 192,
+              "y": 543
+            },
+            "rightArmpit": {
+              "x": 795,
+              "y": 543
+            },
+            "chestY": 543,
+            "chestWidthPx": 603,
+            "yStart": 439,
+            "yEnd": 583,
+            "method": "legacy-concave"
+          },
+          "torsoProfile": null,
+          "boundaryZone": null
+        },
+        "chestWidthPx": 603,
+        "armpitMethod": "legacy-concave"
+      },
+      "garmentCoordinateSystem": {
+        "id": "garment-silhouette",
+        "label": "模板 PNG 成衣剪影（腋下胸寬、HPS→下擺）",
+        "measured": {
+          "armpitChestWidthPx": 603,
+          "armpitMethod": "legacy-concave",
+          "alternateMethods": {
+            "legacyConcave": {
+              "chestWidthPx": 603,
+              "chestY": 543
+            }
+          },
+          "bodyLengthPx": 904,
+          "chestY": 543,
+          "leftArmpit": {
+            "x": 192,
+            "y": 543
+          },
+          "rightArmpit": {
+            "x": 795,
+            "y": 543
+          },
+          "collarLowestY": 494,
+          "hps": {
+            "x": 543,
+            "y": 312
+          },
+          "hemY": 1216
+        },
+        "pxPerCm": {
+          "fromLegacyM": {
+            "chest": 12.06,
+            "length": 13.294,
+            "avg": 12.677
+          },
+          "fromProductM": {
+            "chest": 11.596,
+            "length": 13.101,
+            "avg": 12.349
+          }
+        },
+        "ratio": {
+          "measured": 0.667,
+          "legacyM": 0.7353,
+          "productM": 0.7536
+        },
+        "notes": [
+          "腋下凹點量測；與 Preview 標定線（20.1%–79.9%）基準不同",
+          "建議視覺基準：603px / 52cm"
+        ]
+      },
+      "printOverlayRects": {
+        "blueBox": {
+          "left": 279.44,
+          "top": 492.6,
+          "width": 465.12,
+          "height": 550.8,
+          "widthCm": 38,
+          "heightCm": 45
+        },
+        "containerCenter": {
+          "x": 512,
+          "y": 768
+        },
+        "calibrationLine": {
+          "leftXPct": 0.201,
+          "rightXPct": 0.799,
+          "yPct": 0.251,
+          "leftX": 206,
+          "rightX": 818,
+          "y": 386,
+          "chestPx": 612
+        },
+        "collarAnchorY": 386,
+        "printAreaOffsetCm": 5,
+        "printTopY": 447.2,
+        "productionExportMm": {
+          "width_mm": 350,
+          "height_mm": 500
+        }
+      },
+      "comparison": {
+        "comparable": true,
+        "recommendedSilhouetteScale": 1.0149253731343284,
+        "recommendedSilhouetteScaleRounded": 1.0149,
+        "chestWidthPx": {
+          "printReference": 612,
+          "garmentArmpit": 603,
+          "deltaPx": -9,
+          "deltaPct": -1.47,
+          "silhouetteToPrintFactor": 1.0149
+        },
+        "pxPerCm": {
+          "printOverlay": 12.24,
+          "garmentArmpit": 11.596,
+          "delta": -0.644,
+          "deltaPct": -5.26
+        },
+        "blueBoxVsGarmentChest": {
+          "blueBoxWidthPx": 465.1,
+          "garmentChestPx": 603,
+          "blueBoxToGarmentRatio": 0.7713
+        },
+        "collarAnchor": {
+          "codebaseY": 386,
+          "measuredY": 494,
+          "deltaPx": 108
+        },
+        "containerVsGarmentCenter": {
+          "container": {
+            "x": 512,
+            "y": 768
+          },
+          "garmentBBoxCenter": {
+            "x": 513,
+            "y": 754
+          },
+          "deltaX": 1,
+          "deltaY": -14
+        },
+        "decisionHints": [
+          {
+            "id": "keep-print-px-per-cm",
+            "when": "layer _cm、藍框 %、export 已上線且有設計資料",
+            "action": "維持 print pxPerCm = 12.24（設計座標契約）"
+          },
+          {
+            "id": "garment-visual-calibration",
+            "when": "僅 Preview 衣服剪影與印刷參考線視覺對齊",
+            "action": "考慮 ShirtVisualScale 補償 ×1.0149（不動 12.24）"
+          },
+          {
+            "id": "retemplate-metrics",
+            "when": "決定以 PNG 腋下為唯一真相且可接受遷移設計座標",
+            "action": "將 template-metrics 改為 11.596 — 高風險，需資料遷移"
+          },
+          {
+            "id": "collar-anchor",
+            "when": true,
+            "action": "量測領口 Y=494 vs codebase 386（僅影響橘框／debug）"
+          },
+          {
+            "id": "recommended-silhouette-scale",
+            "when": "Template Profile measurement.silhouetteScale 建議值（僅報告，不自動寫入）",
+            "action": "建議 silhouetteScale = 1.0149（612 / 603）",
+            "recommendedSilhouetteScale": 1.0149
+          }
+        ]
+      }
+    }
+  ],
+  "summary": {
+    "referenceTemplate": "adult-tshirt-white-front.png",
+    "printPxPerCm": 12.24,
+    "garmentPxPerCm": 10.577,
+    "comparison": {
+      "comparable": true,
+      "recommendedSilhouetteScale": 1.1127272727272728,
+      "recommendedSilhouetteScaleRounded": 1.1127,
+      "chestWidthPx": {
+        "printReference": 612,
+        "garmentArmpit": 550,
+        "deltaPx": -62,
+        "deltaPct": -10.13,
+        "silhouetteToPrintFactor": 1.1127
+      },
+      "pxPerCm": {
+        "printOverlay": 12.24,
+        "garmentArmpit": 10.577,
+        "delta": -1.663,
+        "deltaPct": -13.59
+      },
+      "blueBoxVsGarmentChest": {
+        "blueBoxWidthPx": 428.4,
+        "garmentChestPx": 550,
+        "blueBoxToGarmentRatio": 0.7789
+      },
+      "collarAnchor": {
+        "codebaseY": 386,
+        "measuredY": 494,
+        "deltaPx": 108
+      },
+      "containerVsGarmentCenter": {
+        "container": {
+          "x": 512,
+          "y": 768
+        },
+        "garmentBBoxCenter": {
+          "x": 512,
+          "y": 754
+        },
+        "deltaX": 0,
+        "deltaY": -14
+      },
+      "decisionHints": [
+        {
+          "id": "keep-print-px-per-cm",
+          "when": "layer _cm、藍框 %、export 已上線且有設計資料",
+          "action": "維持 print pxPerCm = 12.24（設計座標契約）"
+        },
+        {
+          "id": "garment-visual-calibration",
+          "when": "僅 Preview 衣服剪影與印刷參考線視覺對齊",
+          "action": "考慮 ShirtVisualScale 補償 ×1.1127（不動 12.24）"
+        },
+        {
+          "id": "retemplate-metrics",
+          "when": "決定以 PNG 腋下為唯一真相且可接受遷移設計座標",
+          "action": "將 template-metrics 改為 10.577 — 高風險，需資料遷移"
+        },
+        {
+          "id": "collar-anchor",
+          "when": true,
+          "action": "量測領口 Y=494 vs codebase 386（僅影響橘框／debug）"
+        },
+        {
+          "id": "recommended-silhouette-scale",
+          "when": "Template Profile measurement.silhouetteScale 建議值（僅報告，不自動寫入）",
+          "action": "建議 silhouetteScale = 1.1127（612 / 550）",
+          "recommendedSilhouetteScale": 1.1127
+        }
+      ]
+    },
+    "recommendedNextSteps": [
+      "檢視 public/guides/*-calibration.svg 視覺對照",
+      "閱讀 comparison.decisionHints，決定是否動 ShirtVisualScale / template-metrics / 兩者都不動",
+      "若僅視覺校正：優先調 GARMENT_TEMPLATE_OFFSET_PX 與領口錨點，再考慮 PNG scale"
+    ]
+  },
+  "artifacts": [
+    {
+      "template": "adult-tshirt-white-front.png",
+      "svg": "/Users/leo/Desktop/tshirt-designer/public/guides/adult-tshirt-white-front-calibration.svg",
+      "png": "/Users/leo/Desktop/tshirt-designer/public/guides/adult-tshirt-white-front-calibration.png"
+    },
+    {
+      "template": "adult-tshirt-white-back.png",
+      "svg": "/Users/leo/Desktop/tshirt-designer/public/guides/adult-tshirt-white-back-calibration.svg",
+      "png": "/Users/leo/Desktop/tshirt-designer/public/guides/adult-tshirt-white-back-calibration.png"
+    }
+  ]
+}

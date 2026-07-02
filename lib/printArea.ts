@@ -22,7 +22,6 @@ import {
   getPreviewPrintAreaContainerPctForSide,
   getPreviewPrintAreaContainerStyle,
   getPreviewPrintReference,
-  PREVIEW_CONTAINER,
   PREVIEW_REFERENCE_TRANSFORM,
   PREVIEW_SIDES,
   PREVIEW_UI_UNITS_PER_MM,
@@ -140,8 +139,8 @@ export const PRINT_REFERENCE_TRANSFORM = PREVIEW_REFERENCE_TRANSFORM;
 /** @deprecated 請用 production 的 PRODUCTION_LEGACY_UI_UNITS_PER_CM */
 export const UI_SCALE = PRODUCTION_LEGACY_UI_UNITS_PER_CM;
 
-export const SHIRT_CONTAINER_WIDTH = PREVIEW_CONTAINER.width;
-export const SHIRT_CONTAINER_HEIGHT = PREVIEW_CONTAINER.height;
+export const SHIRT_CONTAINER_WIDTH = 1024;
+export const SHIRT_CONTAINER_HEIGHT = 1536;
 
 export interface PrintAreaContainerStyle {
   left: string;

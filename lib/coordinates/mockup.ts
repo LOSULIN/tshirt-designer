@@ -6,10 +6,8 @@
  */
 
 import type { Side } from "../constants";
-import {
-  getDesignerPrintAreaCmBounds,
-  getPrintAreaCmToTemplateContainerPct,
-} from "../design-cm";
+import { getPrintAreaCmToTemplateContainerPct } from "../design-cm";
+import { getDesignerBlueVisualContainerPct } from "../garment-visual-profile";
 import type { ApparelSize } from "../sizes";
 import { getGarmentPrintReference } from "./garment";
 import {
@@ -22,18 +20,27 @@ import {
   resolvePreviewPrintPositionMode,
 } from "./preview-position-mode";
 import { buildUiPrintAreaContainerStyle } from "./ui-print-offset";
+import { getRuntimeTemplateCanvas } from "../template-profile/runtime";
 
 export const MOCKUP_EXPORT_SCALE = 2;
 
 export const MOCKUP_FLAT_CONTAINER = {
-  width: 1024,
-  height: 1536,
-} as const;
+  get width(): number {
+    return getRuntimeTemplateCanvas().widthPx;
+  },
+  get height(): number {
+    return getRuntimeTemplateCanvas().heightPx;
+  },
+};
 
 export const MOCKUP_MODEL_CONTAINER = {
-  width: 1024,
-  height: 1536,
-} as const;
+  get width(): number {
+    return getRuntimeTemplateCanvas().widthPx;
+  },
+  get height(): number {
+    return getRuntimeTemplateCanvas().heightPx;
+  },
+};
 
 /** @deprecated 模特預覽已改為 garment 基準；保留常數供舊校準腳本參考 */
 export const MOCKUP_MODEL_PRINT_REF_BASE_Y_BY_SIDE = {
@@ -136,12 +143,10 @@ function getDesignerMockupPrintAreaContainerPct(
   side: MockupSide,
   containerWidth: number,
   containerHeight: number,
+  size: ApparelSize | string = DEFAULT_MOCKUP_SIZE,
 ): { widthPct: number; heightPct: number } {
-  return getPrintAreaCmToTemplateContainerPct(
-    getDesignerPrintAreaCmBounds(side),
-    containerWidth,
-    containerHeight,
-  );
+  void side;
+  return getDesignerBlueVisualContainerPct(size, containerWidth, containerHeight);
 }
 
 function buildMockupContainerStyle(
@@ -150,10 +155,12 @@ function buildMockupContainerStyle(
   options?: PreviewPrintPositionOptions,
 ): MockupContainerStyle {
   const container = getMockupContainer(mode);
+  const size = options?.size ?? DEFAULT_MOCKUP_SIZE;
   const { widthPct, heightPct } = getDesignerMockupPrintAreaContainerPct(
     side,
     container.width,
     container.height,
+    size,
   );
   const ref = resolveGarmentPrintReference(side, mode, options);
   return buildUiPrintAreaContainerStyle(
@@ -190,6 +197,7 @@ export function getFlatMockupPrintAreaRectPx(
     side,
     containerWidth,
     containerHeight,
+    size,
   );
   const ref = getGarmentPrintReference({
     side,

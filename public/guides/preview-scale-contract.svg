@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 920" font-family="ui-sans-serif, system-ui, sans-serif">
+  <defs>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#475569"/>
+    </marker>
+    <marker id="arr-red" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#dc2626"/>
+    </marker>
+    <style>
+      .h1 { font-size: 20px; font-weight: 700; fill: #0f172a; }
+      .h2 { font-size: 13px; font-weight: 700; fill: #334155; }
+      .t  { font-size: 11px; fill: #475569; }
+      .tn { font-size: 10px; fill: #64748b; }
+      .box { rx: 6; stroke-width: 1.5; }
+      .flow { stroke: #475569; stroke-width: 1.2; fill: none; marker-end: url(#arr); }
+      .dup  { stroke: #dc2626; stroke-width: 1.5; stroke-dasharray: 5 3; fill: none; marker-end: url(#arr-red); }
+      .leg  { font-size: 10px; fill: #334155; }
+    </style>
+  </defs>
+
+  <text x="500" y="30" text-anchor="middle" class="h1">Preview Scale Contract</text>
+  <text x="500" y="50" text-anchor="middle" class="tn">Step 10.2A — ownership &amp; boundaries (architecture only)</text>
+
+  <!-- Legend -->
+  <rect x="24" y="64" width="952" height="52" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>
+  <text x="40" y="84" class="h2">Legend</text>
+  <rect x="40" y="92" width="12" height="12" fill="#e0f2fe" stroke="#0284c7"/>
+  <text x="58" y="102" class="leg">Viewport / UI only</text>
+  <rect x="180" y="92" width="12" height="12" fill="#dcfce7" stroke="#16a34a"/>
+  <text x="198" y="102" class="leg">Garment visual (PNG)</text>
+  <rect x="360" y="92" width="12" height="12" fill="#dbeafe" stroke="#2563eb"/>
+  <text x="378" y="102" class="leg">Print overlay (Blue)</text>
+  <rect x="540" y="92" width="12" height="12" fill="#ffedd5" stroke="#ea580c"/>
+  <text x="558" y="102" class="leg">Guide (Orange %)</text>
+  <rect x="700" y="92" width="12" height="12" fill="#ede9fe" stroke="#7c3aed"/>
+  <text x="718" y="102" class="leg">Production truth (Layer cm)</text>
+  <line x1="860" y1="98" x2="890" y2="98" class="dup"/>
+  <text x="898" y="102" class="leg">Duplicate / conflict</text>
+
+  <!-- Shared source -->
+  <rect x="360" y="140" width="280" height="56" class="box" fill="#fef9c3" stroke="#ca8a04"/>
+  <text x="500" y="162" text-anchor="middle" class="h2">Garment Scale</text>
+  <text x="500" y="178" text-anchor="middle" class="t">Owner: lib/shirtScale.ts → getShirtScale(size)</text>
+  <text x="500" y="192" text-anchor="middle" class="tn">chest / M baseline — shared input</text>
+
+  <!-- Row 1: viewport -->
+  <rect x="24" y="230" width="200" height="72" class="box" fill="#e0f2fe" stroke="#0284c7"/>
+  <text x="124" y="252" text-anchor="middle" class="h2">Container Fit</text>
+  <text x="124" y="268" text-anchor="middle" class="t">Owner: DesignCanvas</text>
+  <text x="124" y="282" text-anchor="middle" class="tn">fitRatio 0.9 — viewport only</text>
+  <text x="124" y="296" text-anchor="middle" class="tn">✗ layer / export / production</text>
+
+  <rect x="244" y="230" width="200" height="72" class="box" fill="#e0f2fe" stroke="#0284c7"/>
+  <text x="344" y="252" text-anchor="middle" class="h2">Canvas Zoom</text>
+  <text x="344" y="268" text-anchor="middle" class="t">Owner: DesignCanvas</text>
+  <text x="344" y="282" text-anchor="middle" class="tn">ZOOM_STEPS × ShirtContainerFrame</text>
+  <text x="344" y="296" text-anchor="middle" class="tn">✗ layer cm / export / production</text>
+
+  <!-- Row 2: shirt -->
+  <rect x="24" y="330" width="200" height="88" class="box" fill="#fef08a" stroke="#ca8a04"/>
+  <text x="124" y="352" text-anchor="middle" class="h2">Silhouette Scale</text>
+  <text x="124" y="368" text-anchor="middle" class="t">Owner: template-profile</text>
+  <text x="124" y="382" text-anchor="middle" class="tn">1.1127 — PNG calibration</text>
+  <text x="124" y="396" text-anchor="middle" class="tn">✗ Blue / Orange / layer</text>
+  <text x="124" y="410" text-anchor="middle" class="tn">✗ export / production</text>
+
+  <rect x="244" y="330" width="200" height="88" class="box" fill="#dcfce7" stroke="#16a34a"/>
+  <text x="344" y="352" text-anchor="middle" class="h2">Shirt Visual Scale</text>
+  <text x="344" y="368" text-anchor="middle" class="t">Owner: ShirtVisualScale</text>
+  <text x="344" y="382" text-anchor="middle" class="tn">garment × silhouette → PNG</text>
+  <text x="344" y="396" text-anchor="middle" class="tn">✗ Blue / Orange / layer</text>
+  <text x="344" y="410" text-anchor="middle" class="tn">✗ export / production</text>
+
+  <!-- Row 2: blue -->
+  <rect x="480" y="330" width="220" height="88" class="box" fill="#dbeafe" stroke="#2563eb"/>
+  <text x="590" y="352" text-anchor="middle" class="h2">Print Area Scale</text>
+  <text x="590" y="368" text-anchor="middle" class="t">Owner: preview.ts</text>
+  <text x="590" y="382" text-anchor="middle" class="tn">max(0.85, shirtScale) × basePct</text>
+  <text x="590" y="396" text-anchor="middle" class="tn">→ Blue DOM only</text>
+  <text x="590" y="410" text-anchor="middle" class="tn">✗ production / layer cm</text>
+
+  <rect x="720" y="330" width="256" height="88" class="box" fill="#f1f5f9" stroke="#64748b"/>
+  <text x="848" y="352" text-anchor="middle" class="h2">Print Base Pct + 12.24 px/cm</text>
+  <text x="848" y="368" text-anchor="middle" class="t">Owner: design-cm / template-metrics</text>
+  <text x="848" y="382" text-anchor="middle" class="tn">35×50cm → container % @ M</text>
+  <text x="848" y="396" text-anchor="middle" class="tn">constant — not size-dependent</text>
+  <text x="848" y="410" text-anchor="middle" class="tn">✗ does not replace garment scale</text>
+
+  <!-- Row 3: orange + layer -->
+  <rect x="244" y="450" width="220" height="80" class="box" fill="#ffedd5" stroke="#ea580c"/>
+  <text x="354" y="472" text-anchor="middle" class="h2">Orange Safe Zone</text>
+  <text x="354" y="488" text-anchor="middle" class="t">Owner: GarmentPrintSafeZoneGuide</text>
+  <text x="354" y="502" text-anchor="middle" class="tn">% inside Blue — NO own scale</text>
+  <text x="354" y="516" text-anchor="middle" class="tn">✗ layer bounds / export</text>
+
+  <rect x="500" y="450" width="220" height="80" class="box" fill="#ede9fe" stroke="#7c3aed"/>
+  <text x="610" y="472" text-anchor="middle" class="h2">Layer Layout</text>
+  <text x="610" y="488" text-anchor="middle" class="t">Owner: PrintAreaElement</text>
+  <text x="610" y="502" text-anchor="middle" class="tn">cm → % of Blue — production truth</text>
+  <text x="610" y="516" text-anchor="middle" class="tn">✗ not modified by preview scales</text>
+
+  <rect x="740" y="450" width="236" height="80" class="box" fill="#faf5ff" stroke="#9333ea"/>
+  <text x="858" y="472" text-anchor="middle" class="h2">Layer Content Scale</text>
+  <text x="858" y="488" text-anchor="middle" class="t">Owner: layer.scale (image/shape)</text>
+  <text x="858" y="502" text-anchor="middle" class="tn">design state — NOT preview UI</text>
+  <text x="858" y="516" text-anchor="middle" class="tn">✓ enters export / production</text>
+
+  <!-- DOM stack -->
+  <rect x="24" y="560" width="952" height="120" rx="8" fill="#f8fafc" stroke="#94a3b8"/>
+  <text x="40" y="582" class="h2">DOM Stack (contract boundary)</text>
+  <text x="40" y="602" class="t">ShirtContainerFrame [Fit + Zoom]</text>
+  <text x="60" y="620" class="t">└─ data-shirt-container 1024×1536</text>
+  <text x="80" y="638" class="t">├─ ShirtVisualScale → PNG only</text>
+  <text x="80" y="656" class="t">└─ div[data-print-area] Blue ← Print Area Scale</text>
+  <text x="100" y="674" class="t">├─ Orange (%) ├─ Grid └─ Layer (cm %)</text>
+
+  <!-- Duplicate callouts -->
+  <rect x="24" y="700" width="952" height="200" rx="8" fill="#fff1f2" stroke="#fecaca"/>
+  <text x="40" y="724" class="h2">Duplicates &amp; Contract Decisions</text>
+
+  <text x="40" y="748" class="t">🔴 Duplicate: previewPrintAreaScale floor (0.85) vs getShirtScale @ 90/130 → Blue wider than shirt</text>
+  <text x="40" y="766" class="t">🔴 Overlap: previewPrintAreaScale floor + Canvas Zoom default both compensate small sizes</text>
+  <text x="40" y="784" class="t">🟡 Redundant API: getPreviewGarmentVisualScale() = alias of getShirtScale()</text>
+  <text x="40" y="802" class="t">🟡 Split: Editor applies Print Area Scale; Mockup does not</text>
+
+  <text x="40" y="830" class="h2">Keep</text>
+  <text x="40" y="848" class="t">✓ getShirtScale — single garment ratio source</text>
+  <text x="40" y="864" class="t">✓ silhouetteScale — PNG calibration only (Step 9)</text>
+  <text x="320" y="848" class="t">✓ Canvas Zoom — pure UI magnification</text>
+  <text x="320" y="864" class="t">✓ Layer cm — production / export truth</text>
+
+  <text x="560" y="830" class="h2">Remove (future)</text>
+  <text x="560" y="848" class="t">✗ previewPrintAreaScale 0.85 floor → use getShirtScale for Blue</text>
+  <text x="560" y="864" class="t">✗ redundant garment visual aliases (optional)</text>
+
+  <!-- Arrows from garment scale -->
+  <path d="M440 168 L344 230" class="flow"/>
+  <path d="M500 196 L500 230" class="flow"/>
+  <path d="M560 196 L590 330" class="flow"/>
+  <path d="M420 196 L124 330" class="flow"/>
+  <path d="M590 418 L354 450" class="flow"/>
+  <path d="M590 418 L610 450" class="flow"/>
+
+  <!-- Duplicate line -->
+  <path d="M344 302 L590 330" class="dup"/>
+  <text x="460" y="318" text-anchor="middle" class="tn" fill="#dc2626">floor diverges @ child sizes</text>
+
+  <text x="500" y="905" text-anchor="middle" class="tn">See docs/architecture/preview-scale-contract.md</text>
+</svg>

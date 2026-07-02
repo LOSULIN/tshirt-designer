@@ -1,22 +1,29 @@
 /**
  * Garment-Relative Print Positioning
  * ──────────────────────────────────
- * UI 專用：印刷區上緣 = 領口下緣（隨尺碼 scale）+ PRINT_AREA_OFFSET_CM（隨尺碼 scale）。
- * 常數與公式單一來源：`print-area-offset.ts`
+ * UI 專用：
+ * - `printTopPx`：領口錨點 + PRINT_AREA_OFFSET_CM（供 debug／安全區驗證）
+ * - `ref` / `printCenterPx`：模板畫布中心 + 視覺校正（Preview overlay 定位）
  * 不寫入 layer state、不影響 Production / 工廠匯出。
  */
 
 import type { Side } from "../constants";
 import type { ApparelSize } from "../sizes";
 import { getShirtScale } from "../shirtScale";
-import { getTemplatePxPerCm } from "../shirt-template";
 import {
-  getDesignerPrintAreaCmBounds,
-} from "../design-cm";
+  getRuntimeTemplateCanvas,
+  getRuntimeTemplatePxPerCm,
+} from "../template-profile/runtime";
+import {
+  getDesignerBlueVisualRenderSizePx,
+  getDesignerOrangeVisualRenderSizePx,
+} from "../garment-visual-profile";
 import {
   getGarmentMaxPrintAreaCm,
-  getGarmentPrintSafeZoneCmForSize,
 } from "../garment-print-config";
+import {
+  getGarmentTemplateCalibrationOffsetPx,
+} from "../garment-template-calibration";
 import {
   COLLAR_ANCHOR_Y_PX_BY_SIDE,
   getPrintAreaOffsetCm,
@@ -27,9 +34,13 @@ import type { UiPrintReference } from "./ui-print-offset";
 
 /** 與 Preview 畫布一致（僅用於 UI 換算） */
 export const GARMENT_UI_CONTAINER = {
-  width: 1024,
-  height: 1536,
-} as const;
+  get width(): number {
+    return getRuntimeTemplateCanvas().widthPx;
+  },
+  get height(): number {
+    return getRuntimeTemplateCanvas().heightPx;
+  },
+};
 
 /** @deprecated 請用 COLLAR_ANCHOR_Y_PX_BY_SIDE */
 export const GARMENT_COLLAR_LOW_Y_PX_BY_SIDE = COLLAR_ANCHOR_Y_PX_BY_SIDE;
@@ -54,12 +65,12 @@ export interface GarmentPrintMetrics {
 /** Preview overlay 高度（px @ M）：面別最大印刷區高度 × templatePxPerCm */
 export function getGarmentPrintHeightPx(side: Side): number {
   const maxPrint = getGarmentMaxPrintAreaCm(side);
-  return maxPrint.heightCm * getTemplatePxPerCm();
+  return maxPrint.heightCm * getRuntimeTemplatePxPerCm();
 }
 
 /** Preview 模板視覺比例（與 adult-tshirt 胸寬校準一致） */
 export function getGarmentUiPxPerCm(): number {
-  return getTemplatePxPerCm();
+  return getRuntimeTemplatePxPerCm();
 }
 
 /**
@@ -100,6 +111,12 @@ export function getGarmentPrintMetrics(params: {
   const scaledPrintTopOffsetPx =
     printTopOffsetCm * pxPerCm * garmentScale;
 
+  const containerWidth = GARMENT_UI_CONTAINER.width;
+  const templateOffset = getGarmentTemplateCalibrationOffsetPx(params.side);
+  /** Preview 藍框錨點：模板 container 中心 + 視覺校正（不依 collar 推算，避免尺碼 scale 漂移） */
+  const printCenterPx = containerHeight / 2 + templateOffset.y;
+  const printCenterXPx = containerWidth / 2 + templateOffset.x;
+
   return {
     side: params.side,
     size: params.size,
@@ -109,11 +126,11 @@ export function getGarmentPrintMetrics(params: {
     printTopOffsetCm,
     scaledPrintTopOffsetPx,
     printTopPx,
-    printCenterPx: printTopPx + printHeightPx / 2,
+    printCenterPx,
     printHeightPx,
     ref: {
-      x: 0.5,
-      y: (printTopPx + printHeightPx / 2) / containerHeight,
+      x: printCenterXPx / containerWidth,
+      y: printCenterPx / containerHeight,
     },
   };
 }
@@ -154,17 +171,12 @@ export function getGarmentPrintSafeZonePctInPrintArea(params: {
     size: params.size,
     containerHeight,
   });
-  const printArea = getDesignerPrintAreaCmBounds(params.side);
-  const safe = getGarmentPrintSafeZoneCmForSize(params.side, params.size);
-  const pxPerCm = getGarmentUiPxPerCm();
-
-  const printWidthPx = printArea.width * pxPerCm;
-  const printHeightPx = printArea.height * pxPerCm;
+  const { widthPx: printWidthPx, heightPx: printHeightPx } =
+    getDesignerBlueVisualRenderSizePx(params.size);
+  const { widthPx: safeWidthPx, heightPx: safeHeightPx } =
+    getDesignerOrangeVisualRenderSizePx(params.size);
   const printLeftPx = (containerWidth - printWidthPx) / 2;
   const printTopPx = metrics.printTopPx;
-
-  const safeWidthPx = safe.safeWidthCm * pxPerCm;
-  const safeHeightPx = safe.safeHeightCm * pxPerCm;
   const safeLeftPx = (containerWidth - safeWidthPx) / 2;
   const safeTopPx = metrics.printTopPx;
 

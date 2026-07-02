@@ -1,0 +1,88 @@
+{
+  "schema": "size-calibration-report/v1",
+  "side": "front",
+  "templateProfile": "adult-white-front",
+  "assumptions": {
+    "baselineArmpitChestPx": 550,
+    "silhouetteScale": 1,
+    "printPxPerCm": 12.24,
+    "blueBoxCm": 35,
+    "safeZoneBaselineMFrontCm": 26,
+    "minPreviewPrintAreaScale": 0.85,
+    "formulas": {
+      "pngChestPx": "baselineArmpitChestPx × shirtScale × silhouetteScale",
+      "blueBoxPx": "blueBoxCm × pxPerCm × previewPrintAreaScale",
+      "orangeBoxPx": "safeWidthCm × pxPerCm × previewPrintAreaScale",
+      "previewPrintAreaScale": "max(0.85, shirtScale)",
+      "shirtScale": "officialChestCm / baselineChestCm (52)"
+    }
+  },
+  "rows": [
+    {
+      "size": "90",
+      "officialChestCm": 29,
+      "shirtScale": 0.5577,
+      "previewPrintAreaScale": 0.85,
+      "pngChestPx": 306.7,
+      "blueBoxPx": 364.1,
+      "orangeBoxPx": 150.9,
+      "orangeOverChestPct": 49.2,
+      "blueOverChestPct": 118.7
+    },
+    {
+      "size": "130",
+      "officialChestCm": 37,
+      "shirtScale": 0.7115,
+      "previewPrintAreaScale": 0.85,
+      "pngChestPx": 391.3,
+      "blueBoxPx": 364.1,
+      "orangeBoxPx": 192.5,
+      "orangeOverChestPct": 49.2,
+      "blueOverChestPct": 93
+    },
+    {
+      "size": "GM",
+      "officialChestCm": 46,
+      "shirtScale": 0.8846,
+      "previewPrintAreaScale": 0.8846,
+      "pngChestPx": 486.5,
+      "blueBoxPx": 379,
+      "orangeBoxPx": 249,
+      "orangeOverChestPct": 51.2,
+      "blueOverChestPct": 77.9
+    },
+    {
+      "size": "M",
+      "officialChestCm": 52,
+      "shirtScale": 1,
+      "previewPrintAreaScale": 1,
+      "pngChestPx": 550,
+      "blueBoxPx": 428.4,
+      "orangeBoxPx": 318.2,
+      "orangeOverChestPct": 57.9,
+      "blueOverChestPct": 77.9
+    },
+    {
+      "size": "XL",
+      "officialChestCm": 58,
+      "shirtScale": 1.1154,
+      "previewPrintAreaScale": 1.1154,
+      "pngChestPx": 613.5,
+      "blueBoxPx": 477.8,
+      "orangeBoxPx": 395.9,
+      "orangeOverChestPct": 64.5,
+      "blueOverChestPct": 77.9
+    },
+    {
+      "size": "XXXL",
+      "officialChestCm": 68,
+      "shirtScale": 1.3077,
+      "previewPrintAreaScale": 1.3077,
+      "pngChestPx": 719.2,
+      "blueBoxPx": 560.2,
+      "orangeBoxPx": 544.2,
+      "orangeOverChestPct": 75.7,
+      "blueOverChestPct": 77.9
+    }
+  ]
+}

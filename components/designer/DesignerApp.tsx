@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DesignCanvas } from "./DesignCanvas";
+import { PlacementPresetSizeProvider } from "./PlacementPresetToolbar";
 import { DesignPanel } from "./DesignPanel";
 import { LiveDesignStateProvider } from "./LiveDesignStateContext";
 import { IconNav } from "./IconNav";
@@ -75,6 +76,7 @@ import {
   migrateDesignLayersToCm,
   type PrintAreaCmBounds,
 } from "@/lib/design-cm";
+import { getDesignerBluePrintArea } from "@/lib/designer-print-area-config";
 import {
   getExportDimensions,
   migrateLayersFromLegacyCanvasUnits,
@@ -379,6 +381,10 @@ export function DesignerApp({
     () => getDesignerPrintAreaCmBounds(side),
     [side],
   );
+  const bluePrintArea = useMemo((): PrintAreaCmBounds => {
+    const { widthCm, heightCm } = getDesignerBluePrintArea(size);
+    return { width: widthCm, height: heightCm };
+  }, [size]);
   const exportDims = useMemo(() => getExportDimensions(), []);
 
   const setLayers = useCallback(
@@ -1060,7 +1066,7 @@ export function DesignerApp({
 
       const preview = await createPreviewFromFile(file);
       const pendingPreset = pendingPlacementPresetId
-        ? getPlacementPresetById(pendingPlacementPresetId)
+        ? getPlacementPresetById(pendingPlacementPresetId, size)
         : null;
       const presetActive =
         pendingPreset != null && pendingPreset.sides.includes(side);
@@ -1201,7 +1207,7 @@ export function DesignerApp({
     }
 
     const pendingPreset = pendingPlacementPresetId
-      ? getPlacementPresetById(pendingPlacementPresetId)
+      ? getPlacementPresetById(pendingPlacementPresetId, size)
       : null;
     const presetActive =
       pendingPreset != null && pendingPreset.sides.includes(side);
@@ -1232,7 +1238,7 @@ export function DesignerApp({
     }
 
     const pendingPreset = pendingPlacementPresetId
-      ? getPlacementPresetById(pendingPlacementPresetId)
+      ? getPlacementPresetById(pendingPlacementPresetId, size)
       : null;
     const presetActive =
       pendingPreset != null && pendingPreset.sides.includes(side);
@@ -1306,7 +1312,7 @@ export function DesignerApp({
   const handleApplyPlacementPreset = useCallback(
     (presetId: PlacementPresetId) => {
       if (!guardEditable()) return;
-      const preset = getPlacementPresetById(presetId);
+      const preset = getPlacementPresetById(presetId, size);
       if (!preset || !preset.sides.includes(side)) return;
 
       setPendingPlacementPresetId(presetId);
@@ -1339,6 +1345,7 @@ export function DesignerApp({
     [
       guardEditable,
       side,
+      size,
       selectedIds,
       layers,
       prepareDiscreteMutation,
@@ -1650,6 +1657,7 @@ export function DesignerApp({
       layers={layers}
       selectedLayerId={primaryId}
     >
+    <PlacementPresetSizeProvider size={size}>
     <div className="flex h-full flex-col bg-zinc-50 text-zinc-900">
       <div className="flex min-h-0 flex-1">
         <IconNav active={activeTab} onChange={setActiveTab} />
@@ -1710,6 +1718,7 @@ export function DesignerApp({
           shirtColor={shirtColor}
           size={size}
           side={side}
+          bluePrintArea={bluePrintArea}
           layers={layers}
           layersByTemplate={layersByTemplate}
           selectedIds={selectedIds}
@@ -1868,6 +1877,7 @@ export function DesignerApp({
         />
       )}
     </div>
+    </PlacementPresetSizeProvider>
     </LiveDesignStateProvider>
   );
 }

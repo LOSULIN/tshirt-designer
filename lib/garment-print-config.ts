@@ -6,8 +6,12 @@
  */
 
 import type { Side } from "./constants";
+import { findProductSizeRow } from "./product-size-config";
 import type { ApparelSize } from "./sizes";
 import { APPAREL_SIZES, toApparelSize } from "./sizes";
+
+/** 官方成人 M 胸寬；橘框比例縮放基準 */
+const BASELINE_CHEST_CM = findProductSizeRow("M")?.chest ?? 52;
 
 /** 最大可印刷區（cm）— 設計器藍框；匯出仍走 production 35×50 */
 export interface GarmentMaxPrintAreaCm {
@@ -71,11 +75,34 @@ export function getGarmentPrintSafeZoneCm(
   return GARMENT_PRINT_SAFE_ZONE_CM[side][size];
 }
 
+function findProductSizeRowForSafeZone(size: string) {
+  const direct = findProductSizeRow(size);
+  if (direct) return direct;
+  if (size === "2XL") return findProductSizeRow("XXL");
+  return null;
+}
+
+function scaleSafeZoneFromOfficialChest(
+  side: Side,
+  chestCm: number,
+): GarmentPrintSafeZoneCm {
+  const base = GARMENT_PRINT_SAFE_ZONE_CM[side].M;
+  const ratio = chestCm / BASELINE_CHEST_CM;
+  return {
+    safeWidthCm: base.safeWidthCm * ratio,
+    safeHeightCm: base.safeHeightCm * ratio,
+  };
+}
+
 /** 接受 UI `Size` 或 `2XL` 別名 */
 export function getGarmentPrintSafeZoneCmForSize(
   side: Side,
   size: ApparelSize | string,
 ): GarmentPrintSafeZoneCm {
+  const productRow = findProductSizeRowForSafeZone(size);
+  if (productRow) {
+    return scaleSafeZoneFromOfficialChest(side, productRow.chest);
+  }
   return getGarmentPrintSafeZoneCm(side, toApparelSize(size));
 }
 

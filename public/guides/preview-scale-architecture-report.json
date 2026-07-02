@@ -1,0 +1,428 @@
+{
+  "schema": "preview-scale-architecture-report/v1",
+  "generatedAt": "2026-07-02T04:50:55.717Z",
+  "purpose": "Analyze preview scale data flow after Step 9.1 silhouetteScale; identify shirt vs blue divergence from previewPrintAreaScale floor",
+  "problem": {
+    "summary": "Shirt PNG scales with getShirtScale() × silhouetteScale; Blue scales with max(0.85, getShirtScale()). At child sizes 90/130, blue DOM exceeds shirt garment scale → blue wider than shirt body.",
+    "rootCause": "MIN_PREVIEW_PRINT_AREA_SCALE = 0.85 floor in getPreviewPrintAreaScale()"
+  },
+  "coordinateSystems": [
+    {
+      "id": "print-overlay",
+      "label": "Print overlay (layer cm, blue box, export)",
+      "pxPerCm": 12.24,
+      "scalesWithSize": "previewPrintAreaScale in preview only; production fixed"
+    },
+    {
+      "id": "garment-silhouette",
+      "label": "Garment silhouette (shirt PNG)",
+      "pxPerCm": "~10.58 (550px armpit @ M)",
+      "scalesWithSize": "getShirtScale() × silhouetteScale via ShirtVisualScale"
+    }
+  ],
+  "dataFlows": {
+    "shirtPng": {
+      "entry": "components/designer/ShirtVisualScale.tsx",
+      "chain": [
+        "getCurrentTemplateProfile()",
+        "getTemplateSilhouetteScale(profile) → 1.1127",
+        "getShirtScale(size) from lib/shirtScale.ts (chest / M baseline)",
+        "garmentScale = getShirtScale(size) × silhouetteScale",
+        "CSS: transform scale(garmentScale); transform-origin center center"
+      ],
+      "appliesTo": "ProcessedTemplateImage only — sibling to blue print area",
+      "doesNotAffect": [
+        "layer cm state",
+        "export",
+        "production mm",
+        "blue DOM size"
+      ]
+    },
+    "bluePrintArea": {
+      "entry": "lib/coordinates/preview.ts → getPreviewPrintAreaContainerStyle()",
+      "chain": [
+        "getShirtScale(size)",
+        "getPreviewPrintAreaScale(size) = max(0.85, getShirtScale(size))",
+        "getPreviewPrintAreaContainerPctForSide(side) → 35×50cm × 12.24 / container",
+        "widthPct × previewPrintAreaScale, heightPct × previewPrintAreaScale",
+        "getPreviewPrintReference() → getGarmentPrintReference() → container center anchor",
+        "buildUiPrintAreaContainerStyle(ref, wPct, hPct, translate(-50%,-50%))",
+        "Consumed via lib/printArea.ts getPrintAreaContainerStyle() → ui-print-area editor view"
+      ],
+      "domOutput": "absolute div[data-print-area] width/height % + center anchor",
+      "doesNotAffect": [
+        "layer cm",
+        "export",
+        "production"
+      ]
+    },
+    "orangeSafeZone": {
+      "entry": "components/designer/PrintAreaGrid.tsx → GarmentPrintSafeZoneGuide",
+      "chain": [
+        "getGarmentPrintSafeZonePctInPrintArea({ side, size }) in lib/coordinates/garment.ts",
+        "getGarmentPrintMetrics() → collar anchor, printTopPx via getShirtScale",
+        "getGarmentPrintSafeZoneCmForSize() → safe cm scaled by official chest",
+        "Convert safe rect vs print rect → left/top/width/height % inside blue DOM"
+      ],
+      "note": "Orange % math uses pxPerCm × cm without previewPrintAreaScale; positioned as child of blue — inherits blue DOM dimensions"
+    },
+    "canvasZoom": {
+      "entry": "components/designer/DesignCanvas.tsx",
+      "chain": [
+        "ZOOM_STEPS = [0.75, 0.9, 1, 1.1, 1.25, 1.5, 1.75]",
+        "getDefaultZoomIndexForSize(size) → targetZoom = clamp(1 / getShirtScale(size), 0.75, 1.75)",
+        "pick closest ZOOM_STEPS index",
+        "ShirtContainerFrame fitRatio=0.9, zoom={zoom} → CSS scale on frame"
+      ],
+      "scope": "Uniform scale on entire shirt container (shirt + blue + layers + guides)",
+      "purpose": "Compensate small garment scale for viewport operability — separate from previewPrintAreaScale floor"
+    },
+    "designLayer": {
+      "entry": "components/designer/PrintAreaElement.tsx",
+      "chain": [
+        "Layer state: x_cm, y_cm, width_cm, height_cm (design-cm / production bridge)",
+        "Position: left/top/width/height % of printArea cm bounds inside blue DOM",
+        "Drag/resize: clientPointToPrintCm relative to blue getBoundingClientRect()"
+      ],
+      "scale": "None — follows blue DOM size; cm values are production truth"
+    }
+  },
+  "domHierarchy": {
+    "structure": [
+      "ShirtContainerFrame (zoom transform)",
+      "  └─ data-shirt-container 1024×1536",
+      "       ├─ ShirtVisualScale → shirt PNG (garmentScale transform)",
+      "       └─ div[data-print-area] blue (absolute %, NOT inside ShirtVisualScale)",
+      "            ├─ GarmentPrintSafeZoneGuide orange (%)",
+      "            ├─ PrintAreaGrid",
+      "            └─ PrintAreaElement layers (%)"
+    ],
+    "keyInsight": "Shirt and Blue are siblings; shirt CSS transform does not affect blue/layer geometry"
+  },
+  "scaleFlowSummary": [
+    {
+      "stage": "Canvas Zoom",
+      "multiplier": "ZOOM_STEPS[i]",
+      "affects": "entire ShirtContainerFrame"
+    },
+    {
+      "stage": "Shirt PNG",
+      "multiplier": "getShirtScale × silhouetteScale",
+      "affects": "template image only"
+    },
+    {
+      "stage": "Blue",
+      "multiplier": "max(0.85, getShirtScale)",
+      "affects": "print area DOM %"
+    },
+    {
+      "stage": "Orange",
+      "multiplier": "% of blue (cm via getShirtScale)",
+      "affects": "guide overlay"
+    },
+    {
+      "stage": "Layer",
+      "multiplier": "none (cm % of blue)",
+      "affects": "design state display"
+    }
+  ],
+  "perSize": [
+    {
+      "size": "M",
+      "officialChestCm": 52,
+      "scales": {
+        "shirtScale": 1,
+        "silhouetteScale": 1.1127,
+        "shirtVisualScale": 1.1127,
+        "previewPrintAreaScale": 1,
+        "scaleDivergence": 0,
+        "blueOverShirtGarmentRatio": 1,
+        "shirtVisualOverBlueRatio": 1.1127,
+        "canvasZoomDefault": 1,
+        "canvasZoomTarget": 1,
+        "effectiveBlueOnScreenPx": 428.4
+      },
+      "domPx": {
+        "blueWidthPx": 428.4,
+        "blueHeightPx": 612,
+        "shirtArmpitWidthPx": 612,
+        "blueOverArmpitWidthPct": 70
+      },
+      "issue": "silhouetteScale on shirt only — intentional post-9.1"
+    },
+    {
+      "size": "90",
+      "officialChestCm": 29,
+      "scales": {
+        "shirtScale": 0.5576923076923077,
+        "silhouetteScale": 1.1127,
+        "shirtVisualScale": 0.6205,
+        "previewPrintAreaScale": 0.85,
+        "scaleDivergence": 0.2923,
+        "blueOverShirtGarmentRatio": 1.5241,
+        "shirtVisualOverBlueRatio": 0.7301,
+        "canvasZoomDefault": 1.75,
+        "canvasZoomTarget": 1.75,
+        "effectiveBlueOnScreenPx": 637.2
+      },
+      "domPx": {
+        "blueWidthPx": 364.1,
+        "blueHeightPx": 520.2,
+        "shirtArmpitWidthPx": 341.3,
+        "blueOverArmpitWidthPct": 106.7
+      },
+      "issue": "previewPrintAreaScale floor causes blue to outscale shirt garment scale"
+    },
+    {
+      "size": "130",
+      "officialChestCm": 37,
+      "scales": {
+        "shirtScale": 0.7115384615384616,
+        "silhouetteScale": 1.1127,
+        "shirtVisualScale": 0.7917,
+        "previewPrintAreaScale": 0.85,
+        "scaleDivergence": 0.1385,
+        "blueOverShirtGarmentRatio": 1.1946,
+        "shirtVisualOverBlueRatio": 0.9314,
+        "canvasZoomDefault": 1.5,
+        "canvasZoomTarget": 1.4054,
+        "effectiveBlueOnScreenPx": 546.2
+      },
+      "domPx": {
+        "blueWidthPx": 364.1,
+        "blueHeightPx": 520.2,
+        "shirtArmpitWidthPx": 435.5,
+        "blueOverArmpitWidthPct": 83.6
+      },
+      "issue": "previewPrintAreaScale floor causes blue to outscale shirt garment scale"
+    },
+    {
+      "size": "GM",
+      "officialChestCm": 46,
+      "scales": {
+        "shirtScale": 0.8846153846153846,
+        "silhouetteScale": 1.1127,
+        "shirtVisualScale": 0.9843,
+        "previewPrintAreaScale": 0.8846,
+        "scaleDivergence": 0,
+        "blueOverShirtGarmentRatio": 1,
+        "shirtVisualOverBlueRatio": 1.1127,
+        "canvasZoomDefault": 1.1,
+        "canvasZoomTarget": 1.1304,
+        "effectiveBlueOnScreenPx": 416.9
+      },
+      "domPx": {
+        "blueWidthPx": 379,
+        "blueHeightPx": 541.4,
+        "shirtArmpitWidthPx": 541.4,
+        "blueOverArmpitWidthPct": 70
+      },
+      "issue": "silhouetteScale on shirt only — intentional post-9.1"
+    },
+    {
+      "size": "XL",
+      "officialChestCm": 58,
+      "scales": {
+        "shirtScale": 1.1153846153846154,
+        "silhouetteScale": 1.1127,
+        "shirtVisualScale": 1.2411,
+        "previewPrintAreaScale": 1.1154,
+        "scaleDivergence": 0,
+        "blueOverShirtGarmentRatio": 1,
+        "shirtVisualOverBlueRatio": 1.1127,
+        "canvasZoomDefault": 0.9,
+        "canvasZoomTarget": 0.8966,
+        "effectiveBlueOnScreenPx": 430
+      },
+      "domPx": {
+        "blueWidthPx": 477.8,
+        "blueHeightPx": 682.6,
+        "shirtArmpitWidthPx": 682.6,
+        "blueOverArmpitWidthPct": 70
+      },
+      "issue": "silhouetteScale on shirt only — intentional post-9.1"
+    },
+    {
+      "size": "XXXL",
+      "officialChestCm": 68,
+      "scales": {
+        "shirtScale": 1.3076923076923077,
+        "silhouetteScale": 1.1127,
+        "shirtVisualScale": 1.4551,
+        "previewPrintAreaScale": 1.3077,
+        "scaleDivergence": 0,
+        "blueOverShirtGarmentRatio": 1,
+        "shirtVisualOverBlueRatio": 1.1127,
+        "canvasZoomDefault": 0.75,
+        "canvasZoomTarget": 0.7647,
+        "effectiveBlueOnScreenPx": 420.2
+      },
+      "domPx": {
+        "blueWidthPx": 560.2,
+        "blueHeightPx": 800.3,
+        "shirtArmpitWidthPx": 800.3,
+        "blueOverArmpitWidthPct": 70
+      },
+      "issue": "silhouetteScale on shirt only — intentional post-9.1"
+    }
+  ],
+  "childSizeIssue": {
+    "sizes": [
+      "90",
+      "130"
+    ],
+    "shirtScale90": 0.5576923076923077,
+    "previewFloor": 0.85,
+    "blueOverShirtRatio90": 1.5241,
+    "explanation": "At 90: shirtScale≈0.558 but previewPrintAreaScale=0.85 → blue scales 52% larger than shirt garment scale; blue width 106.7% of armpit reference (Step 9.2 QA)"
+  },
+  "hypotheticalRefactor": {
+    "proposal": "Remove previewPrintAreaScale(); Blue width/height % multiplier = getShirtScale(size); rely on Canvas Zoom for small-size operability",
+    "fileImpact": {
+      "mustChange": [
+        {
+          "path": "lib/coordinates/preview.ts",
+          "reason": "Remove getPreviewPrintAreaScale() floor; apply getShirtScale(size) directly in getPreviewPrintAreaContainerStyle() widthPct/heightPct multiplier"
+        },
+        {
+          "path": "lib/coordinates/garment.ts",
+          "reason": "getGarmentPrintSafeZonePctInPrintArea() computes printWidthPx without previewPrintAreaScale; if blue DOM scale changes, orange % math must use the same effective print rect as blue"
+        }
+      ],
+      "optionalChange": [
+        {
+          "path": "components/designer/DesignCanvas.tsx",
+          "reason": "getDefaultZoomIndexForSize() currently compensates 1/shirtScale for small sizes; after blue follows shirtScale, zoom strategy and ZOOM_STEPS may need retuning"
+        },
+        {
+          "path": "lib/printArea.ts",
+          "reason": "Facade docs / deprecated helpers referencing preview scale behavior"
+        },
+        {
+          "path": "lib/coordinates/ui-print-area.ts",
+          "reason": "Passthrough only; verify editor/flat/model views stay consistent"
+        },
+        {
+          "path": "lib/coordinates/mockup.ts",
+          "reason": "Mockup paths use raw widthPct without previewPrintAreaScale — already diverges from editor; unify if single scale model"
+        },
+        {
+          "path": "lib/coordinates/debug-print-area.ts",
+          "reason": "Debug overlays mirror preview formulas"
+        },
+        {
+          "path": "components/designer/FlatShirtDesignView.tsx",
+          "reason": "Consumes getPrintAreaContainerStyle(); visual QA after scale unification"
+        },
+        {
+          "path": "components/designer/PrintAreaPreviewPanel.tsx",
+          "reason": "Standalone preview panel with own ZOOM_STEPS"
+        },
+        {
+          "path": "components/designer/ModelDesignPreview.tsx",
+          "reason": "Model preview print area via ui-print-area"
+        },
+        {
+          "path": "components/designer/CanvasCenterDebugOverlay.tsx",
+          "reason": "Uses getShirtScale for debug markers"
+        },
+        {
+          "path": "components/designer/PrintAreaDebugOverlay.tsx",
+          "reason": "Print area debug visualization"
+        },
+        {
+          "path": "scripts/report-*.mjs",
+          "reason": "Calibration / visual QA scripts duplicate previewPrintAreaScale formula"
+        },
+        {
+          "path": "public/guides/*.json",
+          "reason": "Regenerate calibration reports after scale change"
+        }
+      ],
+      "noChange": [
+        {
+          "path": "lib/shirtScale.ts",
+          "reason": "Source of truth for chest-based garment scale; proposed blue scale = getShirtScale()"
+        },
+        {
+          "path": "lib/design-cm.ts",
+          "reason": "Layer cm, production contract, overlay px/cm — independent of preview DOM scale"
+        },
+        {
+          "path": "lib/coordinates/production.ts",
+          "reason": "Export / factory mm truth"
+        },
+        {
+          "path": "components/designer/ShirtVisualScale.tsx",
+          "reason": "Shirt PNG only; silhouetteScale intentionally separate from print overlay"
+        },
+        {
+          "path": "components/designer/PrintAreaElement.tsx",
+          "reason": "Layer % inside blue DOM — auto-follows blue size"
+        },
+        {
+          "path": "components/designer/PrintAreaGrid.tsx",
+          "reason": "Grid % inside blue; GarmentPrintSafeZoneGuide unchanged structurally"
+        },
+        {
+          "path": "lib/template-profile/*",
+          "reason": "silhouetteScale profile — shirt visual only"
+        },
+        {
+          "path": "lib/export/*, lib/proof-engine/*",
+          "reason": "Production / export pipelines confirmed correct in Step 9.2"
+        }
+      ]
+    }
+  },
+  "calibration": {
+    "id": "print-overlay",
+    "label": "印刷／設計座標系（layer cm、藍框、export 契約）",
+    "chestReferencePx": 612,
+    "pxPerCm": 12.24,
+    "uiUnitsPerMm": 1.224,
+    "calibrationLine": {
+      "leftXPct": 0.201,
+      "rightXPct": 0.799,
+      "yPct": 0.251,
+      "leftX": 206,
+      "rightX": 818,
+      "y": 386,
+      "chestPx": 612
+    },
+    "blueBoxCm": {
+      "front": {
+        "widthCm": 35,
+        "heightCm": 50
+      },
+      "back": {
+        "widthCm": 38,
+        "heightCm": 45
+      }
+    },
+    "productionPrintMm": {
+      "width_mm": 350,
+      "height_mm": 500
+    },
+    "collarAnchorYPx": {
+      "front": 386,
+      "back": 386
+    },
+    "printAreaOffsetCm": {
+      "front": 7,
+      "back": 5
+    },
+    "legacyBaselineM": {
+      "chestCm": 50,
+      "lengthCm": 68
+    },
+    "productBaselineM": {
+      "chestCm": 52,
+      "lengthCm": 69
+    },
+    "notes": [
+      "12.24 = 612 / 50（template-metrics 註解基準）",
+      "藍框尺寸來自 garment-print-config；export 固定 production 350×500mm"
+    ]
+  }
+}

@@ -7,13 +7,19 @@ import { PlacementPresetToolbar } from "./PlacementPresetToolbar";
 import { CanvasInlineTextEditor } from "./CanvasInlineTextEditor";
 import { LayerFloatingControls } from "./LayerFloatingControls";
 import { getAdultTshirtTemplateSrc } from "@/lib/constants";
-import { getLayerEffectiveCmRect } from "@/lib/design-cm";
+import {
+  getDesignerPrintAreaCmBounds,
+  getLayerEffectiveCmRect,
+  type PrintAreaCmBounds,
+} from "@/lib/design-cm";
 import { getTextLayerCmRect } from "@/lib/text-layer";
-import { getDesignerPrintAreaCmBounds } from "@/lib/design-cm";
+import { getDesignerBluePrintArea } from "@/lib/designer-print-area-config";
+import {
+  getPreviewPrintAreaContainerPctForSide,
+  getPreviewPrintAreaContainerStyle,
+} from "@/lib/coordinates/preview";
 import {
   DEFAULT_PRINT_MODE,
-  getFixedPrintAreaContainerPct,
-  getPrintAreaContainerStyle,
   PRINT_AREA,
   resolvePreviewPrintPositionMode,
   type PreviewPrintPositionMode,
@@ -31,6 +37,7 @@ import {
 } from "@/lib/layer-alignment";
 import { getLayersForCanvasRender } from "@/lib/layer-system";
 import { isHistoryShortcutTarget } from "@/lib/design-history";
+import { getShirtScale } from "@/lib/shirtScale";
 import { getRasterMaxPrintSizeCm } from "@/lib/image-print-quality";
 import type { PlacementPresetId } from "@/lib/placement-presets";
 import { buildSnapTargetsFromLayers } from "@/lib/snap-targets";
@@ -55,6 +62,7 @@ import {
   GarmentPrintSafeZoneGuide,
 } from "./PrintAreaGrid";
 import { PrintAreaDebugOverlay } from "./PrintAreaDebugOverlay";
+import { CanvasCenterDebugOverlay } from "./CanvasCenterDebugOverlay";
 import {
   PrintAreaElement,
   type SnapGuidesState,
@@ -67,7 +75,28 @@ const EMPTY_GUIDES: SnapGuidesState = {
   elementHorizontal: [],
 };
 
-const ZOOM_STEPS = [0.75, 0.9, 1, 1.1, 1.25];
+/** @temporary 畫布中心點十字線 debug；對位完成後移除 */
+const SHOW_CENTER_DEBUG_MARKERS = true;
+
+const ZOOM_STEPS = [0.75, 0.9, 1, 1.1, 1.25, 1.5, 1.75];
+const MIN_CANVAS_ZOOM = 0.75;
+const MAX_CANVAS_ZOOM = 1.75;
+
+/** 依尺碼 garment scale 反補 canvas zoom，僅影響預覽顯示 */
+function getDefaultZoomIndexForSize(size: Size): number {
+  const targetZoom = Math.min(
+    MAX_CANVAS_ZOOM,
+    Math.max(MIN_CANVAS_ZOOM, 1 / getShirtScale(size)),
+  );
+  return ZOOM_STEPS.reduce(
+    (bestIndex, step, index) =>
+      Math.abs(step - targetZoom) < Math.abs(ZOOM_STEPS[bestIndex] - targetZoom)
+        ? index
+        : bestIndex,
+    0,
+  );
+}
+
 /** 預覽區留白比例，避免寬螢幕下模特頭頂／底部被裁切 */
 const PREVIEW_FIT_RATIO = 0.9;
 
@@ -118,6 +147,7 @@ export function DesignCanvas({
   onAlignLayers,
   onApplyPlacementPreset,
   activePlacementPresetId = null,
+  bluePrintArea: bluePrintAreaProp,
 }: {
   gender: Gender;
   shirtColor: ShirtColor;
@@ -188,11 +218,17 @@ export function DesignCanvas({
   onAlignLayers: (axis: LayerAlignmentAxis) => void;
   onApplyPlacementPreset: (presetId: PlacementPresetId) => void;
   activePlacementPresetId?: PlacementPresetId | null;
+  /** 尺碼藍框（Designer Config）；圖層座標仍用 production / export 邊界 */
+  bluePrintArea?: PrintAreaCmBounds;
 }) {
   const [snapGuides, setSnapGuides] = useState<SnapGuidesState>(EMPTY_GUIDES);
   const alignGuideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
-  const [zoomIndex, setZoomIndex] = useState(0); // 預設 75%
+  const [zoomIndex, setZoomIndex] = useState(() => getDefaultZoomIndexForSize(size));
+
+  useEffect(() => {
+    setZoomIndex(getDefaultZoomIndexForSize(size));
+  }, [size]);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [showDesignReview, setShowDesignReview] = useState(false);
   const [showClothingBrowse, setShowClothingBrowse] = useState(false);
@@ -208,15 +244,23 @@ export function DesignCanvas({
   );
 
   const templateSrc = getAdultTshirtTemplateSrc(shirtColor, side);
+  const bluePrintArea = useMemo((): PrintAreaCmBounds => {
+    if (bluePrintAreaProp) return bluePrintAreaProp;
+    const { widthCm, heightCm } = getDesignerBluePrintArea(size);
+    return { width: widthCm, height: heightCm };
+  }, [bluePrintAreaProp, size]);
   const printArea = useMemo(
     () => getDesignerPrintAreaCmBounds(side),
     [side],
   );
   const printAreaStyle = useMemo(() => {
     const mode = resolvePreviewPrintPositionMode(previewPrintPositionMode);
-    return getPrintAreaContainerStyle(side, { mode, size });
+    return getPreviewPrintAreaContainerStyle(side, { mode, size });
   }, [side, size, previewPrintPositionMode]);
-  const { widthPct, heightPct } = getFixedPrintAreaContainerPct(side);
+  const { widthPct, heightPct } = getPreviewPrintAreaContainerPctForSide(
+    side,
+    size,
+  );
   const visibleLayers = useMemo(
     () => getLayersForCanvasRender(layers).filter((l) => l.visible),
     [layers],
@@ -422,7 +466,7 @@ export function DesignCanvas({
           />
         )}
 
-        <div className="flex min-h-0 flex-1 overflow-hidden bg-zinc-100">
+        <div className="relative flex min-h-0 flex-1 overflow-hidden bg-zinc-100">
           {UI_VISIBILITY.showCanvasInfoPanel && (
             <CanvasInfoPanel
               layers={layers}
@@ -439,12 +483,12 @@ export function DesignCanvas({
             />
           )}
 
-          <div className="@container relative flex min-h-0 min-w-0 flex-1 items-center justify-center p-2">
+          <div className="@container relative z-0 flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden p-2">
             <ShirtContainerFrame
               canvasRoot
               fitRatio={PREVIEW_FIT_RATIO}
               zoom={zoom}
-              className="transition-transform duration-200"
+              className="relative z-0 transition-transform duration-200"
               onPointerDown={() => onClearSelection()}
             >
               <ShirtVisualScale size={size}>
@@ -461,6 +505,13 @@ export function DesignCanvas({
                   side={side}
                   size={size}
                   selectedLayer={primaryLayer}
+                />
+              )}
+              {SHOW_CENTER_DEBUG_MARKERS && (
+                <CanvasCenterDebugOverlay
+                  side={side}
+                  size={size}
+                  previewPrintPositionMode={previewPrintPositionMode}
                 />
               )}
               <div
@@ -484,7 +535,7 @@ export function DesignCanvas({
                 }}
               >
               <GarmentPrintSafeZoneGuide side={side} size={size} />
-              <PrintAreaGrid visible={showGrid} printArea={printArea} />
+              <PrintAreaGrid visible={showGrid} printArea={bluePrintArea} />
 
               {visibleLayers.map((layer) => {
                 const isActive = selectedIds.includes(layer.id);

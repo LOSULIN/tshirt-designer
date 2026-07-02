@@ -12,11 +12,11 @@ import {
   type ProductionRectMm,
 } from "./coordinates/production";
 import type { Side } from "./constants";
-import { getGarmentMaxPrintAreaCm } from "./garment-print-config";
 import {
-  ADULT_TSHIRT_TEMPLATE_SPEC,
-  getTemplatePxPerCm,
-} from "./shirt-template";
+  getRuntimeTemplateCanvas,
+  getRuntimeTemplatePrintArea,
+  getRuntimeTemplatePxPerCm,
+} from "./template-profile/runtime";
 import { ADULT_TSHIRT_SIZE_MEASUREMENTS } from "./sizes";
 
 const UI_SCALE = PRODUCTION_LEGACY_UI_UNITS_PER_CM;
@@ -59,8 +59,8 @@ export function getPrintAreaCmBounds(): PrintAreaCmBounds {
 
 /** 設計器預覽藍框（正面 35×50、背面 38×45） */
 export function getDesignerPrintAreaCmBounds(side: Side): PrintAreaCmBounds {
-  const max = getGarmentMaxPrintAreaCm(side);
-  return { width: max.widthCm, height: max.heightCm };
+  const { widthCm, heightCm } = getRuntimeTemplatePrintArea(side);
+  return { width: widthCm, height: heightCm };
 }
 
 /**
@@ -68,14 +68,14 @@ export function getDesignerPrintAreaCmBounds(side: Side): PrintAreaCmBounds {
  * Designer / Preview / Mockup 圖層渲染共用。
  */
 export function getOverlayPxPerCm(): number {
-  return getTemplatePxPerCm();
+  return getRuntimeTemplatePxPerCm();
 }
 
 /** 印刷區（cm）→ 模板畫布上的寬高比例 */
 export function getPrintAreaCmToTemplateContainerPct(
   printArea: PrintAreaCmBounds = getPrintAreaCmBounds(),
-  containerWidth: number = ADULT_TSHIRT_TEMPLATE_SPEC.widthPx,
-  containerHeight: number = ADULT_TSHIRT_TEMPLATE_SPEC.heightPx,
+  containerWidth: number = getRuntimeTemplateCanvas().widthPx,
+  containerHeight: number = getRuntimeTemplateCanvas().heightPx,
 ): { widthPct: number; heightPct: number } {
   const pxPerCm = getOverlayPxPerCm();
   return {
@@ -121,8 +121,9 @@ export function debugLayerRenderScale(
   const printArea = getPrintAreaCmBounds();
   const templatePxPerCm = getOverlayPxPerCm();
   const { widthPct } = getPrintAreaCmToTemplateContainerPct(printArea);
+  const canvas = getRuntimeTemplateCanvas();
   const printAreaWidthPx =
-    ADULT_TSHIRT_TEMPLATE_SPEC.widthPx * widthPct;
+    canvas.widthPx * widthPct;
   const layerWidthPx = cmToOverlayPx(layerWidthCm, {
     printRectWidthPx: printAreaWidthPx,
   });

@@ -33,7 +33,7 @@ export function ClothingBrowsePanel({
 
   return (
     <aside
-      className="flex h-full min-h-0 w-44 shrink-0 flex-col overflow-hidden border-l border-zinc-200 bg-white sm:w-48"
+      className="relative z-30 flex h-full min-h-0 w-44 shrink-0 flex-col overflow-hidden border-l border-zinc-200 bg-white sm:w-48"
       aria-label="T-shirt Preview"
     >
       <div className="shrink-0 border-b border-zinc-100 px-2.5 py-2">

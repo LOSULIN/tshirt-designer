@@ -1,0 +1,468 @@
+{
+  "schema": "template-visual-final-report/v1",
+  "generatedAt": "2026-07-02T04:47:11.197Z",
+  "side": "front",
+  "templateProfile": "adult-white-front",
+  "silhouetteScale": 1.1127,
+  "templateCenter": {
+    "x": 512,
+    "y": 768,
+    "offsetPx": {
+      "x": 0,
+      "y": 0
+    }
+  },
+  "assumptions": {
+    "shirtVisualScale": "getShirtScale(size) × silhouetteScale @ transform-origin center",
+    "blueAnchor": "container center + GARMENT_TEMPLATE_OFFSET_PX; translate(-50%,-50%)",
+    "blueSize": "35×50cm × 12.24 × previewPrintAreaScale",
+    "orangeLayout": "getGarmentPrintSafeZonePctInPrintArea（領口+7cm 基準 % 於藍框內）",
+    "baseShirtBBox": {
+      "minX": 28,
+      "minY": 292,
+      "maxX": 996,
+      "maxY": 1215
+    }
+  },
+  "sizes": [
+    {
+      "size": "M",
+      "officialChestCm": 52,
+      "shirtVisualScale": 1.1127,
+      "shirtScale": 1,
+      "previewPrintAreaScale": 1,
+      "shirtArmpitWidthPx": 612,
+      "shirtBodyLengthPx": 1004.8,
+      "shirtBounds": {
+        "left": -26.5,
+        "top": 238.4,
+        "right": 1050.5,
+        "bottom": 1265.4,
+        "width": 1077.1,
+        "height": 1027
+      },
+      "blueBounds": {
+        "left": 297.8,
+        "top": 462,
+        "right": 726.2,
+        "bottom": 1074,
+        "width": 428.4,
+        "height": 612
+      },
+      "orangeBounds": {
+        "left": 352.9,
+        "top": 462,
+        "right": 671.1,
+        "bottom": 951.6,
+        "width": 318.2,
+        "height": 489.6
+      },
+      "blueMargins": {
+        "left": 324.3,
+        "right": 324.3,
+        "top": 223.6,
+        "bottom": 191.4
+      },
+      "orangeMargins": {
+        "left": 379.4,
+        "right": 379.4,
+        "top": 223.6,
+        "bottom": 313.8
+      },
+      "proportions": {
+        "blueOverShirtWidthPct": 70,
+        "orangeOverShirtWidthPct": 52,
+        "orangeOverBlueWidthPct": 74.3,
+        "blueInsideShirt": true,
+        "orangeInsideBlue": true,
+        "proportionsReasonable": true,
+        "notes": []
+      },
+      "positionAnalysis": {
+        "vertical": "centered",
+        "horizontal": "centered",
+        "reasons": [
+          "領口基準起印線 Y≈471.7px；藍框上緣 Y=462px（Δ-9.7px）",
+          "GARMENT_TEMPLATE_OFFSET_PX = (0, 0)"
+        ]
+      },
+      "metrics": {
+        "collarBasedPrintTopPx": 471.7,
+        "scaledCollarYPx": 386,
+        "blueAnchor": {
+          "x": 512,
+          "y": 768
+        }
+      }
+    },
+    {
+      "size": "90",
+      "officialChestCm": 29,
+      "shirtVisualScale": 0.6205,
+      "shirtScale": 0.5577,
+      "previewPrintAreaScale": 0.85,
+      "shirtArmpitWidthPx": 341.3,
+      "shirtBodyLengthPx": 560.4,
+      "shirtBounds": {
+        "left": 211.7,
+        "top": 472.6,
+        "right": 812.3,
+        "bottom": 1045.4,
+        "width": 600.7,
+        "height": 572.8
+      },
+      "blueBounds": {
+        "left": 329.9,
+        "top": 507.9,
+        "right": 694.1,
+        "bottom": 1028.1,
+        "width": 364.1,
+        "height": 520.2
+      },
+      "orangeBounds": {
+        "left": 436.6,
+        "top": 507.9,
+        "right": 587.4,
+        "bottom": 740,
+        "width": 150.9,
+        "height": 232.1
+      },
+      "blueMargins": {
+        "left": 118.3,
+        "right": 118.3,
+        "top": 35.3,
+        "bottom": 17.3
+      },
+      "orangeMargins": {
+        "left": 224.9,
+        "right": 224.9,
+        "top": 35.3,
+        "bottom": 305.4
+      },
+      "proportions": {
+        "blueOverShirtWidthPct": 106.7,
+        "orangeOverShirtWidthPct": 44.2,
+        "orangeOverBlueWidthPct": 41.4,
+        "blueInsideShirt": true,
+        "orangeInsideBlue": true,
+        "proportionsReasonable": false,
+        "notes": [
+          "藍框寬度超出腋下胸寬參考",
+          "藍框/衣寬 106.7% 偏離典型 70–80% 區間"
+        ]
+      },
+      "positionAnalysis": {
+        "vertical": "偏高",
+        "horizontal": "centered",
+        "reasons": [
+          "藍框以 container 中心定位（translate -50%,-50%），非領口+7cm 起印線",
+          "領口基準起印線 Y≈602.7px；藍框上緣 Y=507.9px（Δ-94.8px）",
+          "GARMENT_TEMPLATE_OFFSET_PX = (0, 0)"
+        ]
+      },
+      "metrics": {
+        "collarBasedPrintTopPx": 602.7,
+        "scaledCollarYPx": 555,
+        "blueAnchor": {
+          "x": 512,
+          "y": 768
+        }
+      }
+    },
+    {
+      "size": "130",
+      "officialChestCm": 37,
+      "shirtVisualScale": 0.7917,
+      "shirtScale": 0.7115,
+      "previewPrintAreaScale": 0.85,
+      "shirtArmpitWidthPx": 435.5,
+      "shirtBodyLengthPx": 714.9,
+      "shirtBounds": {
+        "left": 128.8,
+        "top": 391.1,
+        "right": 895.2,
+        "bottom": 1121.9,
+        "width": 766.4,
+        "height": 730.8
+      },
+      "blueBounds": {
+        "left": 329.9,
+        "top": 507.9,
+        "right": 694.1,
+        "bottom": 1028.1,
+        "width": 364.1,
+        "height": 520.2
+      },
+      "orangeBounds": {
+        "left": 415.8,
+        "top": 507.9,
+        "right": 608.2,
+        "bottom": 804,
+        "width": 192.5,
+        "height": 296.1
+      },
+      "blueMargins": {
+        "left": 201.1,
+        "right": 201.1,
+        "top": 116.8,
+        "bottom": 93.8
+      },
+      "orangeMargins": {
+        "left": 287,
+        "right": 287,
+        "top": 116.8,
+        "bottom": 317.9
+      },
+      "proportions": {
+        "blueOverShirtWidthPct": 83.6,
+        "orangeOverShirtWidthPct": 44.2,
+        "orangeOverBlueWidthPct": 52.9,
+        "blueInsideShirt": true,
+        "orangeInsideBlue": true,
+        "proportionsReasonable": true,
+        "notes": []
+      },
+      "positionAnalysis": {
+        "vertical": "偏高",
+        "horizontal": "centered",
+        "reasons": [
+          "藍框以 container 中心定位（translate -50%,-50%），非領口+7cm 起印線",
+          "領口基準起印線 Y≈557.2px；藍框上緣 Y=507.9px（Δ-49.3px）",
+          "GARMENT_TEMPLATE_OFFSET_PX = (0, 0)"
+        ]
+      },
+      "metrics": {
+        "collarBasedPrintTopPx": 557.2,
+        "scaledCollarYPx": 496.2,
+        "blueAnchor": {
+          "x": 512,
+          "y": 768
+        }
+      }
+    },
+    {
+      "size": "GM",
+      "officialChestCm": 46,
+      "shirtVisualScale": 0.9843,
+      "shirtScale": 0.8846,
+      "previewPrintAreaScale": 0.8846153846153846,
+      "shirtArmpitWidthPx": 541.4,
+      "shirtBodyLengthPx": 888.8,
+      "shirtBounds": {
+        "left": 35.6,
+        "top": 299.5,
+        "right": 988.4,
+        "bottom": 1208,
+        "width": 952.8,
+        "height": 908.5
+      },
+      "blueBounds": {
+        "left": 322.5,
+        "top": 497.3,
+        "right": 701.5,
+        "bottom": 1038.7,
+        "width": 379,
+        "height": 541.4
+      },
+      "orangeBounds": {
+        "left": 387.5,
+        "top": 497.3,
+        "right": 636.5,
+        "bottom": 880.4,
+        "width": 249,
+        "height": 383.1
+      },
+      "blueMargins": {
+        "left": 286.9,
+        "right": 286.9,
+        "top": 197.8,
+        "bottom": 169.3
+      },
+      "orangeMargins": {
+        "left": 351.9,
+        "right": 351.9,
+        "top": 197.8,
+        "bottom": 327.5
+      },
+      "proportions": {
+        "blueOverShirtWidthPct": 70,
+        "orangeOverShirtWidthPct": 46,
+        "orangeOverBlueWidthPct": 65.7,
+        "blueInsideShirt": true,
+        "orangeInsideBlue": true,
+        "proportionsReasonable": true,
+        "notes": []
+      },
+      "positionAnalysis": {
+        "vertical": "centered",
+        "horizontal": "centered",
+        "reasons": [
+          "領口基準起印線 Y≈505.9px；藍框上緣 Y=497.3px（Δ-8.6px）",
+          "GARMENT_TEMPLATE_OFFSET_PX = (0, 0)"
+        ]
+      },
+      "metrics": {
+        "collarBasedPrintTopPx": 505.9,
+        "scaledCollarYPx": 430.1,
+        "blueAnchor": {
+          "x": 512,
+          "y": 768
+        }
+      }
+    },
+    {
+      "size": "XL",
+      "officialChestCm": 58,
+      "shirtVisualScale": 1.2411,
+      "shirtScale": 1.1154,
+      "previewPrintAreaScale": 1.1153846153846154,
+      "shirtArmpitWidthPx": 682.6,
+      "shirtBodyLengthPx": 1120.7,
+      "shirtBounds": {
+        "left": -88.7,
+        "top": 177.2,
+        "right": 1112.7,
+        "bottom": 1322.8,
+        "width": 1201.4,
+        "height": 1145.5
+      },
+      "blueBounds": {
+        "left": 273.1,
+        "top": 426.7,
+        "right": 750.9,
+        "bottom": 1109.3,
+        "width": 477.8,
+        "height": 682.6
+      },
+      "orangeBounds": {
+        "left": 314,
+        "top": 426.7,
+        "right": 710,
+        "bottom": 1035.8,
+        "width": 395.9,
+        "height": 609.1
+      },
+      "blueMargins": {
+        "left": 361.8,
+        "right": 361.8,
+        "top": 249.5,
+        "bottom": 213.5
+      },
+      "orangeMargins": {
+        "left": 402.7,
+        "right": 402.7,
+        "top": 249.5,
+        "bottom": 287
+      },
+      "proportions": {
+        "blueOverShirtWidthPct": 70,
+        "orangeOverShirtWidthPct": 58,
+        "orangeOverBlueWidthPct": 82.9,
+        "blueInsideShirt": true,
+        "orangeInsideBlue": true,
+        "proportionsReasonable": true,
+        "notes": []
+      },
+      "positionAnalysis": {
+        "vertical": "centered",
+        "horizontal": "centered",
+        "reasons": [
+          "領口基準起印線 Y≈437.5px；藍框上緣 Y=426.7px（Δ-10.8px）",
+          "GARMENT_TEMPLATE_OFFSET_PX = (0, 0)"
+        ]
+      },
+      "metrics": {
+        "collarBasedPrintTopPx": 437.5,
+        "scaledCollarYPx": 341.9,
+        "blueAnchor": {
+          "x": 512,
+          "y": 768
+        }
+      }
+    },
+    {
+      "size": "XXXL",
+      "officialChestCm": 68,
+      "shirtVisualScale": 1.4551,
+      "shirtScale": 1.3077,
+      "previewPrintAreaScale": 1.3076923076923077,
+      "shirtArmpitWidthPx": 800.3,
+      "shirtBodyLengthPx": 1313.9,
+      "shirtBounds": {
+        "left": -192.3,
+        "top": 75.4,
+        "right": 1216.3,
+        "bottom": 1418.4,
+        "width": 1408.5,
+        "height": 1343
+      },
+      "blueBounds": {
+        "left": 231.9,
+        "top": 367.8,
+        "right": 792.1,
+        "bottom": 1168.2,
+        "width": 560.2,
+        "height": 800.3
+      },
+      "orangeBounds": {
+        "left": 239.9,
+        "top": 367.8,
+        "right": 784.1,
+        "bottom": 1205.1,
+        "width": 544.2,
+        "height": 837.2
+      },
+      "blueMargins": {
+        "left": 424.1,
+        "right": 424.1,
+        "top": 292.5,
+        "bottom": 250.3
+      },
+      "orangeMargins": {
+        "left": 432.1,
+        "right": 432.1,
+        "top": 292.5,
+        "bottom": 213.3
+      },
+      "proportions": {
+        "blueOverShirtWidthPct": 70,
+        "orangeOverShirtWidthPct": 68,
+        "orangeOverBlueWidthPct": 97.1,
+        "blueInsideShirt": true,
+        "orangeInsideBlue": false,
+        "proportionsReasonable": false,
+        "notes": [
+          "橘框下緣超出藍框（高度裁切風險）"
+        ]
+      },
+      "positionAnalysis": {
+        "vertical": "centered",
+        "horizontal": "centered",
+        "reasons": [
+          "領口基準起印線 Y≈380.5px；藍框上緣 Y=367.8px（Δ-12.7px）",
+          "GARMENT_TEMPLATE_OFFSET_PX = (0, 0)"
+        ]
+      },
+      "metrics": {
+        "collarBasedPrintTopPx": 380.5,
+        "scaledCollarYPx": 268.5,
+        "blueAnchor": {
+          "x": 512,
+          "y": 768
+        }
+      }
+    }
+  ],
+  "recommendation": {
+    "choice": "C",
+    "label": "完全不用修改",
+    "rationale": [
+      "90/130 藍框寬度仍大於縮放後衣身（preview 0.85 floor），屬既有 preview 策略非 offset 可解",
+      "XXXL 橘框高度超出藍框為尺碼安全區 cm 設計問題，非 silhouette 或 offset 單獨可解"
+    ],
+    "childBlueWiderThanShirt": [
+      "90"
+    ],
+    "xxxlOrangeClipped": true
+  }
+}

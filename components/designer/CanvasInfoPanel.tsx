@@ -54,7 +54,7 @@ export function CanvasInfoPanel({
 
   return (
     <aside
-      className="flex h-full w-auto max-w-[15rem] shrink-0 flex-col self-start overflow-y-auto border-r border-zinc-200 bg-white px-1.5 py-1"
+      className="relative z-20 flex h-full w-auto max-w-[15rem] shrink-0 flex-col self-start overflow-y-auto border-r border-zinc-200 bg-white px-1.5 py-1"
       aria-label="Object manager"
     >
       <StackedInspectorPanel

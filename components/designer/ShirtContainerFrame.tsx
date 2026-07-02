@@ -54,7 +54,7 @@ export function ShirtContainerFrame({
   return (
     <div
       {...(canvasRoot ? { "data-canvas-root": true } : {})}
-      className={`relative shrink-0 ${className}`}
+      className={`relative z-0 shrink-0 ${className}`}
       style={sizeStyle}
       onPointerDown={onPointerDown}
     >
