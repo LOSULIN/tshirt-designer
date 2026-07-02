@@ -1,9 +1,13 @@
 "use client";
 
-import type { ReactNode } from "react";
 import { useMemo } from "react";
+import type { ReactNode } from "react";
 import { formatInspectorCm } from "@/lib/design-inspector";
-import type { Size } from "@/lib/constants";
+import {
+  createDesignerDisplayContext,
+  getDesignerPrintableArea,
+} from "@/lib/designer-display-projection";
+import type { Side, Size } from "@/lib/constants";
 import { buildLiveDesignState } from "@/lib/live-design-state";
 import type { DesignLayer } from "@/lib/types";
 import { LayerInspectorEditor } from "./LayerInspectorEditor";
@@ -48,6 +52,7 @@ function InfoSection({
 
 export function PreviewInfoPanel({
   size,
+  side = "front",
   layers,
   selectedLayerId,
   readOnly = false,
@@ -61,6 +66,7 @@ export function PreviewInfoPanel({
   className = "",
 }: {
   size: Size;
+  side?: Side;
   layers: DesignLayer[];
   selectedLayerId: string | null;
   readOnly?: boolean;
@@ -88,16 +94,24 @@ export function PreviewInfoPanel({
   onRotationChange: (id: string, rotation: number) => void;
   className?: string;
 }) {
+  const designerContext = useMemo(
+    () => createDesignerDisplayContext(side, size),
+    [side, size],
+  );
+  const printableArea = useMemo(
+    () => getDesignerPrintableArea(designerContext),
+    [designerContext],
+  );
   const designState = useMemo(
-    () => buildLiveDesignState(layers, size, selectedLayerId),
-    [layers, size, selectedLayerId],
+    () => buildLiveDesignState(layers, size, side, selectedLayerId),
+    [layers, size, side, selectedLayerId],
   );
   const { garment } = designState;
   const selectedLayer = selectedLayerId
     ? (layers.find((layer) => layer.id === selectedLayerId) ?? null)
     : null;
 
-  const printAreaLabel = `${formatInspectorCm(garment.printArea.width_cm, 0)} × ${formatInspectorCm(garment.printArea.height_cm, 0)}`;
+  const printAreaLabel = `${formatInspectorCm(printableArea.width, 0)} × ${formatInspectorCm(printableArea.height, 0)}`;
   const inspectorDisabled = readOnly || isBusy;
 
   return (
@@ -136,6 +150,8 @@ export function PreviewInfoPanel({
             </p>
             <LayerInspectorEditor
               layer={selectedLayer}
+              side={side}
+              size={size}
               disabled={inspectorDisabled}
               onTextPatch={onTextPatch}
               onImageTransform={onImageTransform}

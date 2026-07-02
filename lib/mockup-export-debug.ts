@@ -111,10 +111,11 @@ export function buildMockupOverlayDebugReport(
   layers: DesignLayer[],
   side: Side,
   exportScale: number,
+  size: string = "M",
 ): MockupOverlayDebugReport {
   const canvasWidthPx = MOCKUP_FLAT_CONTAINER.width * exportScale;
   const canvasHeightPx = MOCKUP_FLAT_CONTAINER.height * exportScale;
-  const printAreaCm = getDesignerPrintAreaCmBounds(side);
+  const printAreaCm = getDesignerPrintAreaCmBounds(side, size);
   const designerPrintArea = getDesignerPreviewPrintAreaRectPx(side);
   const mockupExportPrintArea = getMockupExportPrintAreaRectPx(side, exportScale);
 

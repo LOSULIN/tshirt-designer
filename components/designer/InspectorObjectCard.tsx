@@ -1,11 +1,17 @@
 "use client";
 
-import { useState } from "react";
-import { getLayerInspectorCmRect } from "@/lib/design-inspector";
+import { useMemo, useState } from "react";
+import type { Side } from "@/lib/constants";
+import {
+  createDesignerDisplayContext,
+  getLayerDesignerDisplayRect,
+} from "@/lib/designer-display-projection";
+import { resizeLayerDesigner } from "@/lib/designer-coordinate-controller";
 import {
   formatInspectorDimensionDisplay,
   formatInspectorDimensionPrecise,
 } from "@/lib/inspector-sync";
+import { getLayerOverflowStateForSize } from "@/lib/layer-overflow";
 import { getLayerTypeLabel } from "@/lib/layer-system";
 import { sortLayersForPanel } from "@/lib/layers";
 import type { DesignLayer } from "@/lib/types";
@@ -47,6 +53,8 @@ function CompactSizeRow({
 export function InspectorObjectCard({
   layer,
   allLayers,
+  side,
+  size,
   disabled,
   isSelected = false,
   onSelect,
@@ -55,6 +63,8 @@ export function InspectorObjectCard({
 }: {
   layer: DesignLayer;
   allLayers: DesignLayer[];
+  side: Side;
+  size: string;
   disabled: boolean;
   isSelected?: boolean;
   onSelect: (id: string) => void;
@@ -66,7 +76,18 @@ export function InspectorObjectCard({
   ) => void;
 }) {
   const [lockAspect, setLockAspect] = useState(true);
-  const bounds = getLayerInspectorCmRect(layer);
+  const designerContext = useMemo(
+    () => createDesignerDisplayContext(side, size),
+    [side, size],
+  );
+  const bounds = useMemo(
+    () => getLayerDesignerDisplayRect(layer, designerContext),
+    [layer, designerContext],
+  );
+  const overflow = useMemo(
+    () => getLayerOverflowStateForSize(layer, size),
+    [layer, size],
+  );
   const displayName = getObjectDisplayName(layer, allLayers);
   const typeLabel = getLayerTypeLabel(layer.type);
 
@@ -86,16 +107,18 @@ export function InspectorObjectCard({
       }
     }
 
-    const centerX = bounds.x_cm + bounds.width_cm / 2;
-    const centerY = bounds.y_cm + bounds.height_cm / 2;
+    const workspaceRect = resizeLayerDesigner(layer, designerContext, {
+      width_cm,
+      height_cm,
+    });
 
     onResize(
       layer.id,
       {
-        x_cm: centerX - width_cm / 2,
-        y_cm: centerY - height_cm / 2,
-        width_cm,
-        height_cm,
+        x_cm: workspaceRect.x_cm!,
+        y_cm: workspaceRect.y_cm!,
+        width_cm: workspaceRect.width_cm!,
+        height_cm: workspaceRect.height_cm!,
       },
       lockAspect,
     );
@@ -153,6 +176,25 @@ export function InspectorObjectCard({
         onKeyDown={(e) => e.stopPropagation()}
       >
         <p className="text-[9px] font-semibold uppercase tracking-wide text-zinc-500">
+          位置
+        </p>
+        <CompactSizeRow label="X">
+          <span
+            className="font-mono text-[10px] tabular-nums text-zinc-800"
+            title={formatInspectorDimensionPrecise(bounds.x_cm)}
+          >
+            {formatInspectorDimensionDisplay(bounds.x_cm)} cm
+          </span>
+        </CompactSizeRow>
+        <CompactSizeRow label="Y">
+          <span
+            className="font-mono text-[10px] tabular-nums text-zinc-800"
+            title={formatInspectorDimensionPrecise(bounds.y_cm)}
+          >
+            {formatInspectorDimensionDisplay(bounds.y_cm)} cm
+          </span>
+        </CompactSizeRow>
+        <p className="text-[9px] font-semibold uppercase tracking-wide text-zinc-500">
           尺寸
         </p>
         <CompactSizeRow label="寬度">
@@ -189,7 +231,38 @@ export function InspectorObjectCard({
           />
           保持比例
         </label>
-        <InspectorProofDetails layer={layer} />
+        <InspectorProofDetails layer={layer} side={side} size={size} />
+        {overflow.exceedsPrintArea && (
+          <div
+            className="mt-1 space-y-0.5 rounded border border-red-200 bg-red-50 px-1.5 py-1"
+            role="status"
+          >
+            <p className="text-[10px] font-medium text-red-700">
+              ⚠ 已超出可印刷範圍
+            </p>
+            <p className="text-[9px] font-medium text-red-600">超出：</p>
+            {overflow.exceedsLeft && (
+              <p className="text-[9px] leading-tight text-red-700">
+                Left：{formatInspectorDimensionDisplay(overflow.overflowAmountCm.left)} cm
+              </p>
+            )}
+            {overflow.exceedsRight && (
+              <p className="text-[9px] leading-tight text-red-700">
+                Right：{formatInspectorDimensionDisplay(overflow.overflowAmountCm.right)} cm
+              </p>
+            )}
+            {overflow.exceedsTop && (
+              <p className="text-[9px] leading-tight text-red-700">
+                Top：{formatInspectorDimensionDisplay(overflow.overflowAmountCm.top)} cm
+              </p>
+            )}
+            {overflow.exceedsBottom && (
+              <p className="text-[9px] leading-tight text-red-700">
+                Bottom：{formatInspectorDimensionDisplay(overflow.overflowAmountCm.bottom)} cm
+              </p>
+            )}
+          </div>
+        )}
       </div>
     </article>
   );

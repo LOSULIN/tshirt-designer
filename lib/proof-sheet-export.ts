@@ -37,7 +37,7 @@ export async function renderProofSheetPdf(params: {
   material?: Material;
 }): Promise<Blob> {
   const { gender, side, shirtColor, size, layers, material } = params;
-  const designState = buildLiveDesignState(layers, size);
+  const designState = buildLiveDesignState(layers, size, side);
   const { garment, elements } = designState;
 
   const { PDFDocument, rgb } = await import("pdf-lib");

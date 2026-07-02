@@ -155,9 +155,10 @@ function drawLabelValue(
 function resolvePositionLabel(
   elements: LiveDesignStateElement[],
   side: Side,
+  size: string,
 ): string {
   if (elements.length === 0) return "—";
-  const printArea = getDesignerPrintAreaCmBounds(side);
+  const printArea = getDesignerPrintAreaCmBounds(side, size);
   const primary = [...elements].sort(
     (a, b) => b.width_cm * b.height_cm - a.width_cm * a.height_cm,
   )[0]!;
@@ -270,7 +271,7 @@ function drawLeftInfoPanel(
   y -= 20;
 
   const printArea = getGarmentMaxPrintAreaCm(side);
-  const printSpec = getExportCanvasSpec(side);
+  const printSpec = getExportCanvasSpec(side, order.size);
 
   y = drawLabelValue(ctx, x, y, "品牌", "TIIIGO", panelMaxW, accent);
   y = drawLabelValue(ctx, x, y, "商品", getProductName(), panelMaxW);
@@ -296,7 +297,7 @@ function drawLeftInfoPanel(
     x,
     y,
     "位置",
-    resolvePositionLabel(elements, side),
+    resolvePositionLabel(elements, side, order.size),
     panelMaxW,
   );
   y = drawLabelValue(
@@ -631,7 +632,7 @@ async function drawSideProofPage(
     order.gender,
     side,
   );
-  const sideState = buildLiveDesignState(sideLayers, order.size);
+  const sideState = buildLiveDesignState(sideLayers, order.size, side);
 
   drawLeftInfoPanel(ctx, order, side, sideState.elements, printBytes);
 
@@ -643,12 +644,12 @@ async function drawSideProofPage(
     const placement = computePdfMockupPlacement(side, contentArea, {
       width: image.width,
       height: image.height,
-    });
+    }, order.size);
     logPdfMockupPlacementDebug(side, placement);
     drawMockupImage(ctx.page, image, placement);
     await drawMockupAnnotations(ctx, side, placement);
   } else {
-    const placement = computePdfMockupPlacement(side, contentArea);
+    const placement = computePdfMockupPlacement(side, contentArea, undefined, order.size);
     logPdfMockupPlacementDebug(side, placement);
     ctx.page.drawRectangle({
       x: placement.x,

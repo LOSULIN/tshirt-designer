@@ -4,12 +4,17 @@ import { useMemo } from "react";
 import { cmToUiPx } from "@/lib/design-cm";
 import { inspectDesignLayer } from "@/lib/design-inspector";
 import {
+  createDesignerDisplayContext,
+  projectWorkspaceRectToDesignerDisplay,
+} from "@/lib/designer-display-projection";
+import {
   formatInspectorDimensionDisplay,
   formatInspectorDimensionPrecise,
   getImageInspectorValues,
   getTextInspectorValues,
 } from "@/lib/inspector-sync";
 import { cmToExportPx, PRINT_EXPORT_DPI } from "@/lib/print-export-system";
+import type { Side } from "@/lib/constants";
 import type { DesignLayer } from "@/lib/types";
 
 function DetailLine({
@@ -46,17 +51,45 @@ function formatPxPair(width: number, height: number): string {
   return `${Math.round(width)} × ${Math.round(height)} px`;
 }
 
-/** 校稿／匯出用尺寸明細（僅 UI 顯示，不修改 production 邏輯） */
-export function InspectorProofDetails({ layer }: { layer: DesignLayer }) {
-  const report = useMemo(() => inspectDesignLayer(layer), [layer]);
+/** 校稿／匯出用尺寸明細（Display：Designer Coordinate；Export px 仍為 Production） */
+export function InspectorProofDetails({
+  layer,
+  side = "front",
+  size = "M",
+}: {
+  layer: DesignLayer;
+  side?: Side;
+  size?: string;
+}) {
+  const designerContext = useMemo(
+    () => createDesignerDisplayContext(side, size),
+    [side, size],
+  );
+  const report = useMemo(
+    () => inspectDesignLayer(layer, { side, size }),
+    [layer, side, size],
+  );
+  const designerRect = useMemo(
+    () =>
+      projectWorkspaceRectToDesignerDisplay(
+        {
+          x_cm: report.x_cm,
+          y_cm: report.y_cm,
+          width_cm: report.width_cm,
+          height_cm: report.height_cm,
+        },
+        designerContext,
+      ),
+    [report, designerContext],
+  );
   const { aabb } = report;
 
   const uiSize = useMemo(
     () => ({
-      w: cmToUiPx(report.width_cm),
-      h: cmToUiPx(report.height_cm),
+      w: cmToUiPx(designerRect.width_cm),
+      h: cmToUiPx(designerRect.height_cm),
     }),
-    [report.width_cm, report.height_cm],
+    [designerRect.width_cm, designerRect.height_cm],
   );
 
   const exportSize = useMemo(
@@ -76,8 +109,8 @@ export function InspectorProofDetails({ layer }: { layer: DesignLayer }) {
   );
 
   const aabbDiffers =
-    Math.abs(aabb.width_cm - report.width_cm) > 0.05 ||
-    Math.abs(aabb.height_cm - report.height_cm) > 0.05;
+    Math.abs(aabb.width_cm - designerRect.width_cm) > 0.05 ||
+    Math.abs(aabb.height_cm - designerRect.height_cm) > 0.05;
 
   const textValues =
     layer.type === "text" ? getTextInspectorValues(layer) : null;
@@ -86,7 +119,6 @@ export function InspectorProofDetails({ layer }: { layer: DesignLayer }) {
 
   return (
     <div className="space-y-0.5">
-      {/* 第二行：常駐校稿摘要（不需展開即可查看 export / bbox） */}
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0 text-[9px] leading-tight text-zinc-500">
         <span className="font-mono tabular-nums text-zinc-600">
           Export: {exportSize.w}×{exportSize.h}px
@@ -107,8 +139,11 @@ export function InspectorProofDetails({ layer }: { layer: DesignLayer }) {
         <div className="mt-0.5 space-y-0.5 border-t border-zinc-100 pt-0.5">
           <DetailLine
             label="Size"
-            value={formatCmPair(report.width_cm, report.height_cm)}
-            title={formatCmPairPrecise(report.width_cm, report.height_cm)}
+            value={formatCmPair(designerRect.width_cm, designerRect.height_cm)}
+            title={formatCmPairPrecise(
+              designerRect.width_cm,
+              designerRect.height_cm,
+            )}
           />
           <DetailLine
             label="BBox"
@@ -126,7 +161,7 @@ export function InspectorProofDetails({ layer }: { layer: DesignLayer }) {
           />
           <DetailLine
             label="Pos"
-            value={`${report.x_cm.toFixed(1)}, ${report.y_cm.toFixed(1)} cm`}
+            value={`${designerRect.x_cm.toFixed(1)}, ${designerRect.y_cm.toFixed(1)} cm`}
           />
           {textValues && (
             <DetailLine

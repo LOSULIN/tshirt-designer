@@ -13,10 +13,14 @@ import {
 } from "./coordinates/production";
 import {
   getExportCanvasSpec,
-  getLayerExportCmRect,
-  mapLayerCmRectToExportPx,
   type ExportLayerRectPx,
 } from "./export-coordinates";
+import {
+  exportCanvasSizeToTargetRect,
+  mapLayerCmRect,
+  resolveLayerCmRect,
+} from "./coordinate-runtime";
+import type { LayerCmRect, PrintAreaCmBounds } from "./design-cm";
 import { drawImageArtworkOnCanvas } from "./image-artwork-render";
 import { embedPngDpi } from "./png-dpi";
 import { sortLayersByZIndex } from "./layers";
@@ -55,13 +59,17 @@ export interface PrintExportSpec {
 
 export function getPrintExportDimensionsPx(
   side: Side = "front",
+  size: string = "M",
 ): PrintExportDimensionsPx {
-  const spec = getExportCanvasSpec(side);
+  const spec = getExportCanvasSpec(side, size);
   return { widthPx: spec.widthPx, heightPx: spec.heightPx };
 }
 
-export function getPrintExportSpec(side: Side = "front"): PrintExportSpec {
-  const canvasSpec = getExportCanvasSpec(side);
+export function getPrintExportSpec(
+  side: Side = "front",
+  size: string = "M",
+): PrintExportSpec {
+  const canvasSpec = getExportCanvasSpec(side, size);
   return {
     widthCm: canvasSpec.printAreaCm.width,
     heightCm: canvasSpec.printAreaCm.height,
@@ -70,6 +78,27 @@ export function getPrintExportSpec(side: Side = "front"): PrintExportSpec {
     heightPx: canvasSpec.heightPx,
     cmToPx: canvasSpec.widthPx / canvasSpec.printAreaCm.width,
     background: "transparent",
+  };
+}
+
+function mapLayerRectToExportPx(
+  cmRect: LayerCmRect,
+  printAreaCm: PrintAreaCmBounds,
+  canvasSize: { widthPx: number; heightPx: number },
+): ExportLayerRectPx {
+  const mapped = mapLayerCmRect({
+    layerRect: cmRect,
+    printArea: printAreaCm,
+    targetRect: exportCanvasSizeToTargetRect(canvasSize),
+  });
+
+  return {
+    x: mapped.x,
+    y: mapped.y,
+    width: mapped.width,
+    height: mapped.height,
+    pxPerCmX: mapped.pxPerCmX,
+    pxPerCmY: mapped.pxPerCmY,
   };
 }
 
@@ -110,8 +139,9 @@ function drawImageLayer(
 }
 
 export interface RenderPrintExportOptions {
-  /** 與 Designer / Preview 一致之印刷區（正面 35×50、背面 38×45） */
+  /** 與 Designer / Preview 一致之 Garment 印刷區 */
   side?: Side;
+  size?: string;
 }
 
 /**
@@ -122,7 +152,8 @@ export async function renderPrintExportPng(
   options?: RenderPrintExportOptions,
 ): Promise<Blob> {
   const side = options?.side ?? "front";
-  const canvasSpec = getExportCanvasSpec(side);
+  const size = options?.size ?? "M";
+  const canvasSpec = getExportCanvasSpec(side, size);
   const { widthPx, heightPx } = canvasSpec;
   const printAreaCm = canvasSpec.printAreaCm;
 
@@ -151,8 +182,8 @@ export async function renderPrintExportPng(
       textLayers.map((t) => ({ ...t, type: "text" as const })),
       {
         getRenderFontSize_cm: (layer) => {
-          const rect = getLayerExportCmRect(layer);
-          const exportRect = mapLayerCmRectToExportPx(
+          const rect = resolveLayerCmRect(layer, { purpose: "export" });
+          const exportRect = mapLayerRectToExportPx(
             rect,
             printAreaCm,
             canvasSize,
@@ -168,8 +199,8 @@ export async function renderPrintExportPng(
   }
 
   for (const layer of visibleLayers) {
-    const cmRect = getLayerExportCmRect(layer);
-    const exportRect = mapLayerCmRectToExportPx(cmRect, printAreaCm, canvasSize);
+    const cmRect = resolveLayerCmRect(layer, { purpose: "export" });
+    const exportRect = mapLayerRectToExportPx(cmRect, printAreaCm, canvasSize);
 
     if (layer.type === "image") {
       let img = imageCache.get(layer.id);

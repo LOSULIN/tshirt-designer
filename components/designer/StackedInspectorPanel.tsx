@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { sortLayersForPanel } from "@/lib/layers";
+import type { Side } from "@/lib/constants";
 import type { DesignLayer } from "@/lib/types";
 import { InspectorObjectCard } from "./InspectorObjectCard";
 
@@ -9,6 +10,8 @@ import { InspectorObjectCard } from "./InspectorObjectCard";
 export function StackedInspectorPanel({
   layers,
   selectedLayerIds,
+  side,
+  size,
   readOnly = false,
   isBusy = false,
   onSelectLayer,
@@ -18,6 +21,8 @@ export function StackedInspectorPanel({
 }: {
   layers: DesignLayer[];
   selectedLayerIds: string[];
+  side: Side;
+  size: string;
   readOnly?: boolean;
   isBusy?: boolean;
   onSelectLayer: (id: string) => void;
@@ -63,6 +68,8 @@ export function StackedInspectorPanel({
           key={layer.id}
           layer={layer}
           allLayers={layers}
+          side={side}
+          size={size}
           disabled={inspectorDisabled}
           isSelected={selectedSet.has(layer.id)}
           onSelect={onSelectLayer}

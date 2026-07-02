@@ -12,10 +12,12 @@ import {
   MOCKUP_FLAT_CONTAINER,
 } from "./coordinates/mockup";
 import {
-  getLayerExportCmRect,
-  mapLayerCmRectToMockupPx,
-  resolveExportPrintAreaCm,
-} from "./export-coordinates";
+  mapLayerCmRect,
+  mockupPrintRectToTargetRect,
+  resolveLayerCmRect,
+  resolvePrintAreaCm,
+} from "./coordinate-runtime";
+import type { LayerCmRect, PrintAreaCmBounds } from "./design-cm";
 import {
   buildMockupOverlayDebugReport,
   getMockupExportPrintAreaRectPx,
@@ -54,14 +56,27 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   });
 }
 
+function mapLayerRectToMockupPx(
+  cmRect: LayerCmRect,
+  printAreaCm: PrintAreaCmBounds,
+  printRect: MockupContainerRect,
+) {
+  return mapLayerCmRect({
+    layerRect: cmRect,
+    printArea: printAreaCm,
+    targetRect: mockupPrintRectToTargetRect(printRect),
+  });
+}
+
 function logAndMapLayerToMockupPx(
   layer: DesignLayer,
   side: Side,
   printRect: MockupContainerRect,
+  size: string,
 ) {
-  const printAreaCm = resolveExportPrintAreaCm(side);
-  const cmRect = getLayerExportCmRect(layer);
-  const mapped = mapLayerCmRectToMockupPx(cmRect, printAreaCm, printRect);
+  const printAreaCm = resolvePrintAreaCm({ runtime: "mockup", side, size });
+  const cmRect = resolveLayerCmRect(layer, { purpose: "mockup" });
+  const mapped = mapLayerRectToMockupPx(cmRect, printAreaCm, printRect);
 
   logMockupLayerCmPxMapping({
     layerType: layer.type,
@@ -91,8 +106,9 @@ function drawImageLayerOnMockup(
   img: HTMLImageElement,
   printRect: MockupContainerRect,
   side: Side,
+  size: string,
 ) {
-  const { mapped } = logAndMapLayerToMockupPx(layer, side, printRect);
+  const { mapped } = logAndMapLayerToMockupPx(layer, side, printRect, size);
 
   ctx.save();
   ctx.translate(mapped.centerX, mapped.centerY);
@@ -116,8 +132,14 @@ function drawTextLayerOnMockup(
   layer: TextDesignLayer,
   printRect: MockupContainerRect,
   side: Side,
+  size: string,
 ) {
-  const { cmRect, mapped } = logAndMapLayerToMockupPx(layer, side, printRect);
+  const { cmRect, mapped } = logAndMapLayerToMockupPx(
+    layer,
+    side,
+    printRect,
+    size,
+  );
 
   const localRect = {
     x_cm: -cmRect.width_cm / 2,
@@ -172,9 +194,15 @@ function drawDesignLayerOnMockup(
   layer: DesignLayer,
   printRect: MockupContainerRect,
   side: Side,
+  size: string,
 ) {
   if (layer.type === "shape") {
-    const { cmRect, mapped } = logAndMapLayerToMockupPx(layer, side, printRect);
+    const { cmRect, mapped } = logAndMapLayerToMockupPx(
+      layer,
+      side,
+      printRect,
+      size,
+    );
     ctx.save();
     ctx.translate(printRect.left, printRect.top);
     drawShapeOnCanvas(ctx, layer as ShapeDesignLayer, mapped.pxPerCmX, cmRect);
@@ -183,7 +211,7 @@ function drawDesignLayerOnMockup(
   }
 
   if (layer.type === "text" && layer.text.trim().length > 0) {
-    drawTextLayerOnMockup(ctx, layer, printRect, side);
+    drawTextLayerOnMockup(ctx, layer, printRect, side, size);
   }
 }
 
@@ -199,8 +227,10 @@ export async function renderMockupPreviewPng(params: {
   side: Side;
   layers: DesignLayer[];
   scale?: number;
+  size?: string;
 }): Promise<Blob> {
-  const { shirtColor, side, layers, scale = MOCKUP_EXPORT_SCALE } = params;
+  const { shirtColor, side, layers, scale = MOCKUP_EXPORT_SCALE, size = "M" } =
+    params;
   const canvasWidth = MOCKUP_FLAT_CONTAINER.width * scale;
   const canvasHeight = MOCKUP_FLAT_CONTAINER.height * scale;
 
@@ -222,10 +252,15 @@ export async function renderMockupPreviewPng(params: {
 
   // 模板隨 exportScale 放大；印刷區須同比例放大（非 getPrintAreaCmToTemplateContainerPct 的固定 px）
   const printRect = getMockupExportPrintAreaRectPx(side, scale);
-  const printAreaCm = resolveExportPrintAreaCm(side);
+  const printAreaCm = resolvePrintAreaCm({ runtime: "mockup", side, size });
   const visibleLayers = getLayersForCanvasRender(layers).filter((l) => l.visible);
 
-  const overlayDebug = buildMockupOverlayDebugReport(visibleLayers, side, scale);
+  const overlayDebug = buildMockupOverlayDebugReport(
+    visibleLayers,
+    side,
+    scale,
+    size,
+  );
   logMockupOverlayDebugReport(overlayDebug);
 
   const textLayers = visibleLayers.filter(
@@ -236,8 +271,8 @@ export async function renderMockupPreviewPng(params: {
       textLayers.map((t) => ({ ...t, type: "text" as const })),
       {
         getRenderFontSize_cm: (layer) => {
-          const rect = getLayerExportCmRect(layer);
-          const mapped = mapLayerCmRectToMockupPx(rect, printAreaCm, printRect);
+          const rect = resolveLayerCmRect(layer, { purpose: "mockup" });
+          const mapped = mapLayerRectToMockupPx(rect, printAreaCm, printRect);
           return getRichTextRenderMetrics(
             layer,
             rect,
@@ -256,9 +291,9 @@ export async function renderMockupPreviewPng(params: {
         img = await loadImage(layer.image.previewUrl || layer.image.originalUrl);
         imageCache.set(layer.id, img);
       }
-      drawImageLayerOnMockup(ctx, layer, img, printRect, side);
+      drawImageLayerOnMockup(ctx, layer, img, printRect, side, size);
     } else if (layer.type === "text" || layer.type === "shape") {
-      drawDesignLayerOnMockup(ctx, layer, printRect, side);
+      drawDesignLayerOnMockup(ctx, layer, printRect, side, size);
     }
   }
 

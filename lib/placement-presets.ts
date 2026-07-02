@@ -1,4 +1,6 @@
 import { type LayerCmRect, type PrintAreaCmBounds } from "./design-cm";
+import { DESIGNER_WORKSPACE_REFERENCE_SIZE } from "./designer-workspace";
+import { resolveGarmentPrintAreaCm } from "./garment-anchor-runtime";
 import {
   fitImageLayer,
   fitShapeLayer,
@@ -7,7 +9,14 @@ import {
 import type { DesignLayer } from "./types";
 import type { Side } from "./constants";
 import { PRINT_AREA_OFFSET_CM } from "./coordinates/print-area-offset";
-import { getDesignerBluePrintArea } from "./designer-print-area-config";
+import {
+  GARMENT_FRONT_CENTER_COLLAR_TO_TOP_CM,
+  resolveFactoryLeftChestAnchorCm,
+  resolveGarmentAnchorYFromCollarCm,
+  resolveGarmentBackUpperAnchorYCm,
+  resolveGarmentCenterAnchorXCm,
+  resolveGarmentLeftChestLogoAnchorCm,
+} from "./garment-anchor-runtime";
 import {
   ADULT_TSHIRT_TEMPLATE_SPEC,
   getTemplatePxPerCm,
@@ -37,168 +46,96 @@ export interface PlacementPreset {
   width_cm: number;
   height_cm: number;
   orientation: PlacementPresetOrientation;
-  /** 版型錨點（設計中心）於印刷區 cm 座標 */
+  /** 版型錨點（設計中心）於 Garment Blue 印刷區 cm 座標 */
   anchorX_cm: number;
   anchorY_cm: number;
 }
 
-/** 印刷區水平中心（Designer Blue widthCm / 2） */
+/** @deprecated 內部用；請用 resolveGarmentCenterAnchorXCm */
 function presetCenterX(size: string): number {
-  return getDesignerBluePrintArea(size).widthCm / 2;
+  return resolveGarmentCenterAnchorXCm(size);
 }
 
-/**
- * 領口下緣至設計上緣 (cm) → 印刷區內 anchorY（設計中心）。
- * 印刷區上緣 = 領口 + PRINT_AREA_OFFSET_CM[side]。
- */
+/** @deprecated 內部用；請用 resolveGarmentAnchorYFromCollarCm */
 function presetAnchorYFromCollarTopCm(
   side: Side,
   collarToDesignTopCm: number,
   heightCm: number,
 ): number {
-  const yTopInPrintArea =
-    collarToDesignTopCm - PRINT_AREA_OFFSET_CM[side];
-  return yTopInPrintArea + heightCm / 2;
+  return resolveGarmentAnchorYFromCollarCm(
+    side,
+    collarToDesignTopCm,
+    heightCm,
+  );
 }
 
-/** 左胸錨點 X：Designer Blue 寬度比例（平面視圖著用者左胸偏右） */
-const LEFT_CHEST_ANCHOR_X_RATIO = 0.72;
-
-function presetLeftChestAnchorX(size: string): number {
-  return getDesignerBluePrintArea(size).widthCm * LEFT_CHEST_ANCHOR_X_RATIO;
+function presetLeftChestAnchor(size: string): Pick<
+  PlacementPreset,
+  "anchorX_cm" | "anchorY_cm"
+> {
+  return resolveFactoryLeftChestAnchorCm(size);
 }
 
-/** 左胸 Logo：領口下 8~10cm，取中值 */
-const LEFT_CHEST_COLLAR_TO_TOP_CM = 9;
 /** 左胸 Logo 共用錨點（與 10×10 相同中心，6/8/10 僅尺寸不同） */
-const LEFT_CHEST_LOGO_REFERENCE_HEIGHT_CM = 10;
-
 function getLeftChestLogoAnchor(
   size: string,
 ): Pick<PlacementPreset, "anchorX_cm" | "anchorY_cm"> {
-  return {
-    anchorX_cm: presetLeftChestAnchorX(size),
-    anchorY_cm: presetAnchorYFromCollarTopCm(
-      "front",
-      LEFT_CHEST_COLLAR_TO_TOP_CM,
-      LEFT_CHEST_LOGO_REFERENCE_HEIGHT_CM,
-    ),
-  };
+  return resolveGarmentLeftChestLogoAnchorCm(size);
 }
 
-/** 左胸文字：Logo 下方（Logo 上緣 9cm + 高 6cm） */
-const LEFT_CHEST_TEXT_COLLAR_TO_TOP_CM = 15;
+/** 左胸文字：與 Logo 共用工廠錨點中心 */
 const LEFT_CHEST_TEXT_WIDTH_CM = 10;
 const LEFT_CHEST_TEXT_HEIGHT_CM = 3;
 const CENTER_CHEST_TEXT_WIDTH_CM = 29;
 const CENTER_CHEST_TEXT_HEIGHT_CM = 10;
 
-const FRONT_CENTER_COLLAR_TO_TOP_CM = PRINT_AREA_OFFSET_CM.front;
+const FRONT_CENTER_COLLAR_TO_TOP_CM = GARMENT_FRONT_CENTER_COLLAR_TO_TOP_CM;
 const A4_PORTRAIT_WIDTH_CM = 21;
 const A4_PORTRAIT_HEIGHT_CM = 29.7;
-const A4_PORTRAIT_ASPECT = A4_PORTRAIT_WIDTH_CM / A4_PORTRAIT_HEIGHT_CM;
 const A3_PORTRAIT_WIDTH_CM = 29.7;
 const A3_PORTRAIT_HEIGHT_CM = 42;
-const A3_PORTRAIT_ASPECT = A3_PORTRAIT_WIDTH_CM / A3_PORTRAIT_HEIGHT_CM;
-const A4_BLUE_HEIGHT_RATIO = 0.6;
-const A3_BLUE_HEIGHT_RATIO = 0.85;
-/** 背面大圖／直式 A4／A3：後領下 6~8cm，取中值（上緣對齊） */
-const BACK_UPPER_DESIGN_COLLAR_TO_TOP_CM = 7;
-const CENTER_LOGO_MAX_CM = 25;
-const CENTER_LOGO_BLUE_WIDTH_RATIO = 0.71;
-const CENTER_LOGO_BLUE_HEIGHT_RATIO = 0.5;
-const CENTER_TEXT_MAX_WIDTH_CM = 29;
-const CENTER_TEXT_BLUE_WIDTH_RATIO = 0.83;
-const BACK_TEXT_MAX_WIDTH_CM = 30;
-const BACK_TEXT_BLUE_WIDTH_RATIO = 0.85;
+const CENTER_LOGO_CM = 25;
+const BACK_TEXT_WIDTH_CM = 30;
+const BACK_TEXT_HEIGHT_CM = 12;
+const BACK_CENTER_CM = 25;
 
-function presetCenterLogoSizeCm(size: string): {
-  widthCm: number;
-  heightCm: number;
-} {
-  const blue = getDesignerBluePrintArea(size);
+/** Placement 錨點一律以固定 Design Workspace（M）為基準，不依商品尺碼漂移 */
+const PLACEMENT_WORKSPACE_SIZE = DESIGNER_WORKSPACE_REFERENCE_SIZE;
+
+function placementWorkspacePrintArea(side: Side): PrintAreaCmBounds {
+  return resolveGarmentPrintAreaCm(PLACEMENT_WORKSPACE_SIZE, side);
+}
+
+/**
+ * Workspace 儲存座標 → 各尺碼 Garment 印刷區 cm（Preview 等 size-aware Runtime 用）。
+ * 線性比例映射；Placement 錨點已凍結在 M workspace。
+ */
+export function mapWorkspaceLayerCmRectToGarmentPrintArea(
+  rect: LayerCmRect,
+  side: Side,
+  size: string,
+): LayerCmRect {
+  if (size === PLACEMENT_WORKSPACE_SIZE) return rect;
+  const workspace = placementWorkspacePrintArea(side);
+  const garment = resolveGarmentPrintAreaCm(size, side);
+  const scaleX = garment.width / workspace.width;
+  const scaleY = garment.height / workspace.height;
   return {
-    widthCm: Math.min(
-      CENTER_LOGO_MAX_CM,
-      blue.widthCm * CENTER_LOGO_BLUE_WIDTH_RATIO,
-    ),
-    heightCm: Math.min(
-      CENTER_LOGO_MAX_CM,
-      blue.heightCm * CENTER_LOGO_BLUE_HEIGHT_RATIO,
-    ),
-  };
-}
-
-function presetCenterTextWidthCm(size: string): number {
-  const blue = getDesignerBluePrintArea(size);
-  return Math.min(
-    CENTER_TEXT_MAX_WIDTH_CM,
-    blue.widthCm * CENTER_TEXT_BLUE_WIDTH_RATIO,
-  );
-}
-
-function presetBackTextWidthCm(size: string): number {
-  const blue = getDesignerBluePrintArea(size);
-  return Math.min(
-    BACK_TEXT_MAX_WIDTH_CM,
-    blue.widthCm * BACK_TEXT_BLUE_WIDTH_RATIO,
-  );
-}
-
-function presetBackCenterSizeCm(size: string): {
-  widthCm: number;
-  heightCm: number;
-} {
-  return presetCenterLogoSizeCm(size);
-}
-
-function presetA4PortraitSizeCm(size: string): {
-  widthCm: number;
-  heightCm: number;
-} {
-  const blue = getDesignerBluePrintArea(size);
-  const heightCm = Math.min(
-    A4_PORTRAIT_HEIGHT_CM,
-    blue.heightCm * A4_BLUE_HEIGHT_RATIO,
-  );
-  return {
-    widthCm: heightCm * A4_PORTRAIT_ASPECT,
-    heightCm,
-  };
-}
-
-function presetA3PortraitSizeCm(size: string): {
-  widthCm: number;
-  heightCm: number;
-} {
-  const blue = getDesignerBluePrintArea(size);
-  const heightCm = Math.min(
-    A3_PORTRAIT_HEIGHT_CM,
-    blue.heightCm * A3_BLUE_HEIGHT_RATIO,
-  );
-  return {
-    widthCm: heightCm * A3_PORTRAIT_ASPECT,
-    heightCm,
+    x_cm: rect.x_cm * scaleX,
+    y_cm: rect.y_cm * scaleY,
+    width_cm: rect.width_cm * scaleX,
+    height_cm: rect.height_cm * scaleY,
   };
 }
 
 function backUpperDesignAnchorY(heightCm: number): number {
-  return presetAnchorYFromCollarTopCm(
-    "back",
-    BACK_UPPER_DESIGN_COLLAR_TO_TOP_CM,
-    heightCm,
-  );
+  return resolveGarmentBackUpperAnchorYCm(heightCm);
 }
 
-/** 推薦印刷版型（領口基準 + Designer Blue 印刷區 cm 座標） */
+/** 推薦印刷版型（固定 Workspace 錨點；size 僅保留 API 相容） */
 export function buildPlacementPresets(size: string): PlacementPreset[] {
-  const centerTextWidthCm = presetCenterTextWidthCm(size);
-  const centerLogoSizeCm = presetCenterLogoSizeCm(size);
-  const backTextWidthCm = presetBackTextWidthCm(size);
-  const backCenterSizeCm = presetBackCenterSizeCm(size);
-  const a4PortraitSizeCm = presetA4PortraitSizeCm(size);
-  const a3PortraitSizeCm = presetA3PortraitSizeCm(size);
-
+  void size;
+  const ws = PLACEMENT_WORKSPACE_SIZE;
   return [
     {
       id: "left-chest-logo",
@@ -207,7 +144,7 @@ export function buildPlacementPresets(size: string): PlacementPreset[] {
       sides: ["front"],
       width_cm: 10,
       height_cm: 10,
-      ...getLeftChestLogoAnchor(size),
+      ...getLeftChestLogoAnchor(ws),
       orientation: "square",
     },
     {
@@ -217,7 +154,7 @@ export function buildPlacementPresets(size: string): PlacementPreset[] {
       sides: ["front"],
       width_cm: 6,
       height_cm: 6,
-      ...getLeftChestLogoAnchor(size),
+      ...getLeftChestLogoAnchor(ws),
       orientation: "square",
     },
     {
@@ -227,7 +164,7 @@ export function buildPlacementPresets(size: string): PlacementPreset[] {
       sides: ["front"],
       width_cm: 8,
       height_cm: 8,
-      ...getLeftChestLogoAnchor(size),
+      ...getLeftChestLogoAnchor(ws),
       orientation: "square",
     },
     {
@@ -237,12 +174,7 @@ export function buildPlacementPresets(size: string): PlacementPreset[] {
       sides: ["front"],
       width_cm: LEFT_CHEST_TEXT_WIDTH_CM,
       height_cm: LEFT_CHEST_TEXT_HEIGHT_CM,
-      anchorX_cm: presetLeftChestAnchorX(size),
-      anchorY_cm: presetAnchorYFromCollarTopCm(
-        "front",
-        LEFT_CHEST_TEXT_COLLAR_TO_TOP_CM,
-        LEFT_CHEST_TEXT_HEIGHT_CM,
-      ),
+      ...presetLeftChestAnchor(ws),
       orientation: "landscape",
     },
     {
@@ -250,9 +182,9 @@ export function buildPlacementPresets(size: string): PlacementPreset[] {
       label: "胸前文字",
       shortLabel: "胸前 29×10",
       sides: ["front"],
-      width_cm: centerTextWidthCm,
+      width_cm: CENTER_CHEST_TEXT_WIDTH_CM,
       height_cm: CENTER_CHEST_TEXT_HEIGHT_CM,
-      anchorX_cm: presetCenterX(size),
+      anchorX_cm: presetCenterX(ws),
       anchorY_cm: presetAnchorYFromCollarTopCm(
         "front",
         FRONT_CENTER_COLLAR_TO_TOP_CM,
@@ -265,13 +197,13 @@ export function buildPlacementPresets(size: string): PlacementPreset[] {
       label: "胸前 Logo",
       shortLabel: "胸前 25×25",
       sides: ["front"],
-      width_cm: centerLogoSizeCm.widthCm,
-      height_cm: centerLogoSizeCm.heightCm,
-      anchorX_cm: presetCenterX(size),
+      width_cm: CENTER_LOGO_CM,
+      height_cm: CENTER_LOGO_CM,
+      anchorX_cm: presetCenterX(ws),
       anchorY_cm: presetAnchorYFromCollarTopCm(
         "front",
         FRONT_CENTER_COLLAR_TO_TOP_CM,
-        centerLogoSizeCm.heightCm,
+        CENTER_LOGO_CM,
       ),
       orientation: "square",
     },
@@ -280,13 +212,13 @@ export function buildPlacementPresets(size: string): PlacementPreset[] {
       label: "胸前 A4 直式",
       shortLabel: "A4 直式",
       sides: ["front"],
-      width_cm: a4PortraitSizeCm.widthCm,
-      height_cm: a4PortraitSizeCm.heightCm,
-      anchorX_cm: presetCenterX(size),
+      width_cm: A4_PORTRAIT_WIDTH_CM,
+      height_cm: A4_PORTRAIT_HEIGHT_CM,
+      anchorX_cm: presetCenterX(ws),
       anchorY_cm: presetAnchorYFromCollarTopCm(
         "front",
         FRONT_CENTER_COLLAR_TO_TOP_CM,
-        a4PortraitSizeCm.heightCm,
+        A4_PORTRAIT_HEIGHT_CM,
       ),
       orientation: "portrait",
     },
@@ -295,13 +227,13 @@ export function buildPlacementPresets(size: string): PlacementPreset[] {
       label: "胸前 A4 橫式",
       shortLabel: "A4 橫式",
       sides: ["front"],
-      width_cm: a4PortraitSizeCm.heightCm,
-      height_cm: a4PortraitSizeCm.widthCm,
-      anchorX_cm: presetCenterX(size),
+      width_cm: A4_PORTRAIT_HEIGHT_CM,
+      height_cm: A4_PORTRAIT_WIDTH_CM,
+      anchorX_cm: presetCenterX(ws),
       anchorY_cm: presetAnchorYFromCollarTopCm(
         "front",
         FRONT_CENTER_COLLAR_TO_TOP_CM,
-        a4PortraitSizeCm.widthCm,
+        A4_PORTRAIT_WIDTH_CM,
       ),
       orientation: "landscape",
     },
@@ -310,10 +242,10 @@ export function buildPlacementPresets(size: string): PlacementPreset[] {
       label: "背面文字",
       shortLabel: "背面 30×12",
       sides: ["back"],
-      width_cm: backTextWidthCm,
-      height_cm: 12,
-      anchorX_cm: presetCenterX(size),
-      anchorY_cm: backUpperDesignAnchorY(12),
+      width_cm: BACK_TEXT_WIDTH_CM,
+      height_cm: BACK_TEXT_HEIGHT_CM,
+      anchorX_cm: presetCenterX(ws),
+      anchorY_cm: backUpperDesignAnchorY(BACK_TEXT_HEIGHT_CM),
       orientation: "landscape",
     },
     {
@@ -321,10 +253,10 @@ export function buildPlacementPresets(size: string): PlacementPreset[] {
       label: "背面直式 A4",
       shortLabel: "背面 A4 直式",
       sides: ["back"],
-      width_cm: a4PortraitSizeCm.widthCm,
-      height_cm: a4PortraitSizeCm.heightCm,
-      anchorX_cm: presetCenterX(size),
-      anchorY_cm: backUpperDesignAnchorY(a4PortraitSizeCm.heightCm),
+      width_cm: A4_PORTRAIT_WIDTH_CM,
+      height_cm: A4_PORTRAIT_HEIGHT_CM,
+      anchorX_cm: presetCenterX(ws),
+      anchorY_cm: backUpperDesignAnchorY(A4_PORTRAIT_HEIGHT_CM),
       orientation: "portrait",
     },
     {
@@ -332,10 +264,10 @@ export function buildPlacementPresets(size: string): PlacementPreset[] {
       label: "背面 A3 直式",
       shortLabel: "背面 A3 直式",
       sides: ["back"],
-      width_cm: a3PortraitSizeCm.widthCm,
-      height_cm: a3PortraitSizeCm.heightCm,
-      anchorX_cm: presetCenterX(size),
-      anchorY_cm: backUpperDesignAnchorY(a3PortraitSizeCm.heightCm),
+      width_cm: A3_PORTRAIT_WIDTH_CM,
+      height_cm: A3_PORTRAIT_HEIGHT_CM,
+      anchorX_cm: presetCenterX(ws),
+      anchorY_cm: backUpperDesignAnchorY(A3_PORTRAIT_HEIGHT_CM),
       orientation: "portrait",
     },
     {
@@ -343,10 +275,10 @@ export function buildPlacementPresets(size: string): PlacementPreset[] {
       label: "背面 25×25",
       shortLabel: "背面 25×25",
       sides: ["back"],
-      width_cm: backCenterSizeCm.widthCm,
-      height_cm: backCenterSizeCm.heightCm,
-      anchorX_cm: presetCenterX(size),
-      anchorY_cm: backUpperDesignAnchorY(backCenterSizeCm.heightCm),
+      width_cm: BACK_CENTER_CM,
+      height_cm: BACK_CENTER_CM,
+      anchorX_cm: presetCenterX(ws),
+      anchorY_cm: backUpperDesignAnchorY(BACK_CENTER_CM),
       orientation: "square",
     },
   ];
@@ -406,18 +338,17 @@ function isPlacementPresetPositionOk(
   switch (preset.id) {
     case "left-chest-logo":
     case "left-chest-logo-6":
-    case "left-chest-logo-8": {
+    case "left-chest-logo-8":
+    case "left-chest-text": {
       const rect = getPlacementPresetTargetRect(preset);
+      const centerX = rect.x_cm + rect.width_cm / 2;
       const centerY = rect.y_cm + rect.height_cm / 2;
-      const refCenterY = getLeftChestLogoAnchor(size).anchorY_cm;
+      const ref = resolveFactoryLeftChestAnchorCm(PLACEMENT_WORKSPACE_SIZE);
       return (
-        collarTop >= 8 &&
-        collarTop <= 10 &&
-        Math.abs(centerY - refCenterY) < 0.01
+        Math.abs(centerX - ref.anchorX_cm) < 0.01 &&
+        Math.abs(centerY - ref.anchorY_cm) < 0.01
       );
     }
-    case "left-chest-text":
-      return collarTop >= 14 && collarTop <= 16;
     case "center-chest-text":
     case "center-chest-logo":
     case "center-chest-a4-portrait":
@@ -521,6 +452,9 @@ export function applyLayerPlacementPreset(
   printArea: PrintAreaCmBounds,
   _options?: { largePrintMode?: boolean },
 ): DesignLayer {
+  void printArea;
+  const side = preset.sides[0] ?? "front";
+  const workspacePrintArea = placementWorkspacePrintArea(side);
   const rasterFit = {
     maxPrintWidth_cm: preset.width_cm,
     maxPrintHeight_cm: preset.height_cm,
@@ -537,7 +471,7 @@ export function applyLayerPlacementPreset(
         x_cm: target.x_cm,
         y_cm: target.y_cm,
       },
-      printArea,
+      workspacePrintArea,
     );
   }
 
@@ -551,7 +485,7 @@ export function applyLayerPlacementPreset(
         x_cm: target.x_cm,
         y_cm: target.y_cm,
       },
-      printArea,
+      workspacePrintArea,
     );
   }
 
@@ -564,7 +498,7 @@ export function applyLayerPlacementPreset(
       x_cm: target.x_cm,
       y_cm: target.y_cm,
     },
-    printArea,
+    workspacePrintArea,
     rasterFit,
   );
 }

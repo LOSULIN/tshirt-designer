@@ -72,12 +72,12 @@ export async function exportDesignBundle(
     throw new Error("此面向尚無可輸出的設計內容");
   }
 
-  const debugReport = buildExportDebugReport(layers, side);
+  const debugReport = buildExportDebugReport(layers, side, size);
   logExportDebugReport(debugReport);
 
   const [mockupBlob, printResult, proofBlob] = await Promise.all([
-    renderMockupPreviewPng({ shirtColor, side, layers }),
-    exportPrintableDesign({ gender, side, layers, format: printFormat }),
+    renderMockupPreviewPng({ shirtColor, side, layers, size }),
+    exportPrintableDesign({ gender, side, layers, format: printFormat, size }),
     renderProofSheetPdf({ gender, side, shirtColor, size, layers, material }),
   ]);
 

@@ -7,6 +7,7 @@ import {
   type LiveDesignStateElement,
 } from "@/lib/live-design-state";
 import type { LayerInspectorReport } from "@/lib/design-inspector";
+import type { Side } from "@/lib/constants";
 import type { DesignLayer } from "@/lib/types";
 import {
   createContext,
@@ -27,18 +28,20 @@ const LiveDesignStateContext = createContext<LiveDesignStateContextValue | null>
 
 export function LiveDesignStateProvider({
   size,
+  side,
   layers,
   selectedLayerId = null,
   children,
 }: {
   size: string;
+  side: Side;
   layers: DesignLayer[];
   selectedLayerId?: string | null;
   children: ReactNode;
 }) {
   const designState = useMemo(
-    () => buildLiveDesignState(layers, size, selectedLayerId),
-    [layers, size, selectedLayerId],
+    () => buildLiveDesignState(layers, size, side, selectedLayerId),
+    [layers, size, side, selectedLayerId],
   );
 
   const value = useMemo<LiveDesignStateContextValue>(

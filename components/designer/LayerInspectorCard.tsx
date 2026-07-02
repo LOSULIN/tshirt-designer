@@ -1,6 +1,9 @@
 "use client";
 
 import type { LayerInspectorReport } from "@/lib/design-inspector";
+import { getInspectorConstraintBadgeMeta } from "@/lib/garment-constraint-ux-polish";
+import { GARMENT_CONSTRAINT_LEVEL_STYLES } from "@/lib/garment-constraint-ux-polish";
+import { GarmentConstraintBadge } from "./GarmentConstraintUxPrimitives";
 
 export function LayerInspectorCard({
   report,
@@ -52,7 +55,13 @@ export function LayerInspectorCard({
   draggable: boolean;
 }) {
   const isWarning = report.status === "warning";
-  const statusLabel = isWarning ? "WARNING" : "OK";
+  const inspectorBadge = getInspectorConstraintBadgeMeta(
+    report.exceedsPrintArea,
+    report.exceedsSafeZone,
+    report.name,
+    report.warnings,
+  );
+  const levelStyles = GARMENT_CONSTRAINT_LEVEL_STYLES[inspectorBadge.level];
 
   return (
     <li
@@ -81,15 +90,13 @@ export function LayerInspectorCard({
           <span className="font-medium text-zinc-900">{report.name}</span>
           <span className="ml-1 text-xs text-zinc-600">· {typeLabel}</span>
         </span>
-        <span
-          className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold tracking-wide ${
-            isWarning
-              ? "bg-amber-200 text-amber-900"
-              : "bg-emerald-100 text-emerald-800"
-          }`}
-        >
-          {statusLabel}
-        </span>
+        <GarmentConstraintBadge
+          level={inspectorBadge.level}
+          label={inspectorBadge.shortLabel}
+          tooltip={inspectorBadge.tooltip}
+          pulse={inspectorBadge.level === "violation"}
+          inspectorBadge
+        />
       </button>
 
       {editingName ? (
@@ -114,6 +121,23 @@ export function LayerInspectorCard({
         >
           重新命名
         </button>
+      )}
+
+      {report.warnings.length > 0 && (
+        <div
+          data-garment-constraint-inspector-warning
+          className="mb-2 space-y-0.5"
+        >
+          {report.warnings.map((warning) => (
+            <p
+              key={warning}
+              className={`text-[10px] font-medium leading-tight ${levelStyles.text}`}
+              role="status"
+            >
+              ⚠ {warning}
+            </p>
+          ))}
+        </div>
       )}
 
       <div className="flex flex-wrap gap-1">

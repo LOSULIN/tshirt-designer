@@ -10,6 +10,7 @@ import {
   getPlacementPresetsForSide,
   type PlacementPresetId,
 } from "@/lib/placement-presets";
+import { GarmentConstraintBadge } from "./GarmentConstraintUxPrimitives";
 
 const PlacementPresetSizeContext = createContext<string | null>(null);
 
@@ -44,11 +45,14 @@ export function PlacementPresetToolbar({
   side,
   disabled,
   activePresetId = null,
+  selectionOverflow = false,
   onApplyPreset,
 }: {
   side: Side;
   disabled: boolean;
   activePresetId?: PlacementPresetId | null;
+  /** 目前選取圖層超出可印刷範圍 */
+  selectionOverflow?: boolean;
   onApplyPreset: (presetId: PlacementPresetId) => void;
 }) {
   const size = usePlacementPresetSize();
@@ -60,6 +64,21 @@ export function PlacementPresetToolbar({
       aria-label="推薦印刷版型"
     >
       <span className="shrink-0 text-[10px] font-medium text-zinc-500">版型</span>
+      {selectionOverflow && (
+        <span
+          data-garment-constraint-selection-warning
+          data-garment-constraint-warning-level="violation"
+          className="shrink-0"
+          role="status"
+        >
+          <GarmentConstraintBadge
+            level="violation"
+            label="選取超出"
+            tooltip={`目前選取圖層超出尺碼 ${size} 可印範圍`}
+            pulse
+          />
+        </span>
+      )}
       <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
         {presets.map((preset) => {
           const isActive = activePresetId === preset.id;

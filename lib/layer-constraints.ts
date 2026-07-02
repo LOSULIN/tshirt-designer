@@ -1,11 +1,8 @@
 import type { LayerCmRect, PrintAreaCmBounds } from "./design-cm";
 import { getLayerEffectiveCmRect } from "./design-cm";
 import type { SnapTarget } from "./element-snap";
-import {
-  getMaxImageScaleForPrintLimit,
-  type FitRasterImageOptions,
-} from "./image-print-quality";
-import { applyDragSnap, fitLayerTransform, LAYER_MAX_SCALE } from "./geometry";
+import type { FitRasterImageOptions } from "./image-print-quality";
+import { applyDragSnap, fitLayerTransform } from "./geometry";
 import { getTextLayerMeasuredCmRect, getTextLayerPlacementCmRect, measureTextBoundsCm } from "./text-layer";
 import type {
   DesignLayer,
@@ -17,19 +14,8 @@ import type {
 export function fitImageLayer(
   layer: ImageDesignLayer,
   printArea: PrintAreaCmBounds,
-  options?: FitRasterImageOptions,
+  _options?: FitRasterImageOptions,
 ): ImageDesignLayer {
-  let maxScale = LAYER_MAX_SCALE;
-  if (options && layer.keepRatio !== false) {
-    maxScale = getMaxImageScaleForPrintLimit(
-      layer.width_cm,
-      layer.height_cm,
-      options.maxPrintWidth_cm,
-      options.maxPrintHeight_cm,
-      maxScale,
-    );
-  }
-
   const fitted = fitLayerTransform(
     layer.x_cm,
     layer.y_cm,
@@ -38,7 +24,6 @@ export function fitImageLayer(
     layer.scale,
     layer.rotation,
     printArea,
-    { maxScale },
   );
 
   return { ...layer, x_cm: fitted.x, y_cm: fitted.y, scale: fitted.scale };

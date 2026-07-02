@@ -67,8 +67,11 @@ export function buildOrderJson(
   version: number,
   validationReport: ValidationReport,
 ): OrderJsonDocument {
-  const spec = getPrintExportSpec(order.active_side);
-  const { widthPx, heightPx } = getPrintExportDimensionsPx(order.active_side);
+  const spec = getPrintExportSpec(order.active_side, order.size);
+  const { widthPx, heightPx } = getPrintExportDimensionsPx(
+    order.active_side,
+    order.size,
+  );
 
   return {
     order_id: order.order_id,

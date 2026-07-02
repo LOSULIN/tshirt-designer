@@ -72,54 +72,58 @@ import {
 } from "@/lib/proof-engine/client";
 import {
   cmToUiPx,
-  getDesignerPrintAreaCmBounds,
   migrateDesignLayersToCm,
-  type PrintAreaCmBounds,
 } from "@/lib/design-cm";
-import { getDesignerBluePrintArea } from "@/lib/designer-print-area-config";
+import { resolvePrintAreaCm } from "@/lib/coordinate-runtime";
 import {
   getExportDimensions,
   migrateLayersFromLegacyCanvasUnits,
 } from "@/lib/print-area";
 import { DEFAULT_PRINT_MODE } from "@/lib/printArea";
-import { getInitialPlacement } from "@/lib/geometry";
-import { getStaggeredPlacement } from "@/lib/layer-placement";
+import { getDesignerWorkspacePrintAreaCm } from "@/lib/designer-workspace";
+import {
+  applyDesignerPlacementPreset,
+  applyDesignerLayerAlignment,
+  createControllerContext,
+  createDesignerAlignmentContext,
+  createDesignerAutoFitLayer,
+  createDesignerDefaultShapeLayer,
+  createDesignerDefaultTextLayer,
+  createDesignerDuplicateLayer,
+  createDesignerFitContext,
+  createDesignerGestureContext,
+  createDesignerUploadPlacement,
+  fitDesignerLayer,
+  fitDesignerLayers,
+  hydrateDesignerLayers,
+  resolveDesignerGestureResizeWorkspacePatch,
+  resolveWorkspaceGestureForApplyClamped,
+  updateDesignerLayer,
+} from "@/lib/designer-coordinate-controller";
 import { getLayerEffectiveCmRect } from "@/lib/design-cm";
 import {
   applyClampedLayerPatch,
-  fitDesignLayers,
-  fitImageLayer,
-  fitShapeLayer,
-  fitTextLayer,
 } from "@/lib/layer-constraints";
 import {
   rotateClockwise90,
   rotateCounterClockwise90,
 } from "@/lib/layer-rotation";
 import {
-  clampRasterPrintDimensions,
   getImageFitOptions,
 } from "@/lib/image-print-quality";
 import {
-  applyLayerPlacementPreset,
   getPlacementPresetById,
   getPlacementPresetLayerPlacement,
   type PlacementPresetId,
 } from "@/lib/placement-presets";
-import { normalizeDesignLayers } from "@/lib/layer-normalize";
-import { createDefaultShapeLayer } from "@/lib/shape-layer";
-import { createDefaultTextLayer, getTextLayerCmRect } from "@/lib/text-layer";
-import { DEFAULT_RICH_TEXT_FIELDS } from "@/lib/text-style";
 import {
   canAddImageLayer,
   canAddShapeLayer,
   canAddTextLayer,
   createImageLayer,
-  defaultLayerName,
   duplicateImageLayerAsync,
   duplicateShapeLayer,
   duplicateTextLayer,
-  getNextZIndex,
   imageLayerLimitMessage,
   layersToDraftSnapshot,
   moveLayerZIndex,
@@ -147,49 +151,11 @@ import type {
 } from "@/lib/types";
 import { cloneDesignLayers } from "@/lib/design-history";
 import {
-  alignDesignLayers,
   countAlignableLayers,
   type LayerAlignmentAxis,
 } from "@/lib/layer-alignment";
 import { useDesignHistory } from "@/hooks/useDesignHistory";
 import { nanoid } from "nanoid";
-
-function createDefaultTextDesignLayer(
-  layers: DesignLayer[],
-  printArea: PrintAreaCmBounds,
-): TextDesignLayer {
-  const base = createDefaultTextLayer(printArea);
-  const stagger = getStaggeredPlacement(
-    printArea,
-    base.width_cm,
-    base.height_cm,
-    layers.length,
-  );
-  return fitTextLayer(
-    {
-      id: base.id,
-      name: defaultLayerName(layers, "text"),
-      type: "text",
-      visible: true,
-      locked: false,
-      zIndex: getNextZIndex(layers),
-      x_cm: stagger.x_cm,
-      y_cm: stagger.y_cm,
-      width_cm: base.width_cm,
-      height_cm: base.height_cm,
-      scale: base.scale,
-      rotation: base.rotation,
-      text: base.text,
-      fontSize_cm: base.fontSize_cm,
-      fontFamily: base.fontFamily,
-      color: base.color,
-      opacity: base.opacity,
-      fontWeight: base.fontWeight,
-      ...DEFAULT_RICH_TEXT_FIELDS,
-    },
-    printArea,
-  );
-}
 
 async function createPlaceholderPng(): Promise<Blob> {
   const canvas = document.createElement("canvas");
@@ -242,6 +208,7 @@ async function hydrateImageLayer(
 async function hydrateDesignLayersByTemplate(
   snapshot: ReturnType<typeof layersByTemplateToDraftSnapshot>,
   draftStorage: DraftStorage,
+  size = "M",
 ) {
   let result = createEmptyDesignLayersByTemplate();
   let legacyDraftImagesUsed = false;
@@ -276,13 +243,13 @@ async function hydrateDesignLayersByTemplate(
         result,
         templateGender,
         templateSide,
-        fitDesignLayers(
+        hydrateDesignerLayers(
           normalizeDesignLayers(
             migrateDesignLayersToCm(
               migrateLayersFromLegacyCanvasUnits(hydrated),
             ),
           ),
-          getDesignerPrintAreaCmBounds(templateSide),
+          createDesignerFitContext(templateSide, size),
         ),
       );
     }
@@ -377,14 +344,35 @@ export function DesignerApp({
     [layersByTemplate, gender, side],
   );
 
-  const printArea = useMemo(
-    () => getDesignerPrintAreaCmBounds(side),
+  const maxPrintBounds = useMemo(
+    () => resolvePrintAreaCm({ runtime: "designer", side, size }),
+    [side, size],
+  );
+  /** 圖層定位／clamp／對齊分母 — 固定 Design Workspace（M） */
+  const workspacePrintArea = useMemo(
+    () => getDesignerWorkspacePrintAreaCm(side),
     [side],
   );
-  const bluePrintArea = useMemo((): PrintAreaCmBounds => {
-    const { widthCm, heightCm } = getDesignerBluePrintArea(size);
-    return { width: widthCm, height: heightCm };
-  }, [size]);
+  /** Step 13.0H：建立／版型置入經 Designer Coordinate Controller */
+  const designerCoordinateContext = useMemo(
+    () => createControllerContext(side, size),
+    [side, size],
+  );
+  /** Step 13.0J：Gesture Runtime context */
+  const designerGestureContext = useMemo(
+    () => createDesignerGestureContext(side, size),
+    [side, size],
+  );
+  /** Step 13.0K：Alignment Runtime context */
+  const designerAlignmentContext = useMemo(
+    () => createDesignerAlignmentContext(side, size),
+    [side, size],
+  );
+  /** Step 13.0M：Auto-Fit / Hydration context */
+  const designerFitContext = useMemo(
+    () => createDesignerFitContext(side, size),
+    [side, size],
+  );
   const exportDims = useMemo(() => getExportDimensions(), []);
 
   const setLayers = useCallback(
@@ -393,11 +381,11 @@ export function DesignerApp({
         updateLayersForSlot(prev, gender, side, (current) => {
           const next =
             typeof updater === "function" ? updater(current) : updater;
-          return fitDesignLayers(next, getDesignerPrintAreaCmBounds(side));
+          return fitDesignerLayers(next, designerFitContext);
         }),
       );
     },
-    [gender, side],
+    [gender, side, designerFitContext],
   );
 
   const primaryId = selectedIds[selectedIds.length - 1] ?? null;
@@ -522,27 +510,18 @@ export function DesignerApp({
       setLayers((prev) =>
         prev.map((layer) => {
           if (layer.id !== id) return layer;
-          const merged = { ...layer, ...patch } as DesignLayer;
-          if (merged.type === "text") {
-            return fitTextLayer(merged, printArea);
-          }
-          if (merged.type === "image") {
-            return fitImageLayer(
-              merged,
-              printArea,
-              getImageFitOptions(largePrintModeEnabled),
-            );
-          }
-          if (merged.type === "shape") {
-            return fitShapeLayer(merged, printArea);
-          }
-          return merged;
+          return updateDesignerLayer(layer, patch, designerFitContext, {
+            rasterFit:
+              layer.type === "image"
+                ? getImageFitOptions(largePrintModeEnabled)
+                : undefined,
+          });
         }),
       );
     },
     [
       setLayers,
-      printArea,
+      designerFitContext,
       largePrintModeEnabled,
       prepareDiscreteMutation,
       prepareTextMutation,
@@ -563,28 +542,43 @@ export function DesignerApp({
       setLayers((prev) =>
         prev.map((layer) => {
           if (layer.id !== id) return layer;
-          return applyClampedLayerPatch(layer, patch, printArea, {
-            gridSnap: gridSnapEnabled,
-            elementSnapThreshold: elementSnapDistance,
-            otherElements: buildSnapTargetsFromLayers(
-              id,
-              prev.filter((l) => l.visible && !l.locked),
-            ),
-            rasterFit:
-              layer.type === "image"
-                ? getImageFitOptions(largePrintModeEnabled)
-                : undefined,
-          });
+          const visibleLayers = prev.filter((l) => l.visible && !l.locked);
+          const workspacePatch = resolveWorkspaceGestureForApplyClamped(
+            layer,
+            patch,
+            designerGestureContext,
+            {
+              gridSnap: gridSnapEnabled,
+              elementSnap: true,
+              elementSnapThresholdCm: elementSnapDistance,
+              otherElements: buildSnapTargetsFromLayers(id, visibleLayers),
+            },
+          );
+          return applyClampedLayerPatch(
+            layer,
+            workspacePatch,
+            workspacePrintArea,
+            {
+              gridSnap: gridSnapEnabled,
+              elementSnapThreshold: elementSnapDistance,
+              otherElements: buildSnapTargetsFromLayers(id, visibleLayers),
+              rasterFit:
+                layer.type === "image"
+                  ? getImageFitOptions(largePrintModeEnabled)
+                  : undefined,
+            },
+          );
         }),
       );
     },
     [
       setLayers,
-      printArea,
+      workspacePrintArea,
       gridSnapEnabled,
       elementSnapDistance,
       largePrintModeEnabled,
       markGestureMutation,
+      designerGestureContext,
     ],
   );
 
@@ -608,16 +602,24 @@ export function DesignerApp({
           const nextRotation = clockwise
             ? rotateClockwise90(layer.rotation)
             : rotateCounterClockwise90(layer.rotation);
-          return applyClampedLayerPatch(
+          const visibleLayers = prev.filter(
+            (entry) => entry.visible && !entry.locked,
+          );
+          const workspacePatch = resolveWorkspaceGestureForApplyClamped(
             layer,
             { rotation: nextRotation },
-            printArea,
+            designerGestureContext,
+          );
+          return applyClampedLayerPatch(
+            layer,
+            workspacePatch,
+            workspacePrintArea,
             {
               gridSnap: gridSnapEnabled,
               elementSnapThreshold: elementSnapDistance,
               otherElements: buildSnapTargetsFromLayers(
                 layer.id,
-                prev.filter((entry) => entry.visible && !entry.locked),
+                visibleLayers,
               ),
               rasterFit:
                 layer.type === "image"
@@ -633,10 +635,11 @@ export function DesignerApp({
       prepareDiscreteMutation,
       markGestureMutation,
       setLayers,
-      printArea,
+      workspacePrintArea,
       gridSnapEnabled,
       elementSnapDistance,
       largePrintModeEnabled,
+      designerGestureContext,
     ],
   );
 
@@ -651,6 +654,18 @@ export function DesignerApp({
         prev.map((layer) => {
           if (layer.id !== id) return layer;
 
+          const workspaceNext = resolveDesignerGestureResizeWorkspacePatch(
+            layer,
+            next,
+            designerGestureContext,
+          );
+          const fittedNext = {
+            x_cm: workspaceNext.x_cm ?? next.x_cm,
+            y_cm: workspaceNext.y_cm ?? next.y_cm,
+            width_cm: workspaceNext.width_cm ?? next.width_cm,
+            height_cm: workspaceNext.height_cm ?? next.height_cm,
+          };
+
           const current =
             layer.type === "text"
               ? getTextLayerCmRect(layer)
@@ -661,22 +676,24 @@ export function DesignerApp({
           if (layer.type === "text") {
             const factor =
               lockAspect && current.width_cm > 0
-                ? next.width_cm / current.width_cm
+                ? fittedNext.width_cm / current.width_cm
                 : current.height_cm > 0
-                  ? next.height_cm / current.height_cm
+                  ? fittedNext.height_cm / current.height_cm
                   : 1;
             if (Math.abs(factor - 1) < 1e-6) return layer;
 
-            return fitTextLayer(
+            return fitDesignerLayer(
               {
                 ...layer,
                 scale: layer.scale * factor,
               },
-              printArea,
+              designerFitContext,
               {
-                anchorCenter: {
-                  x_cm: anchorCenterX,
-                  y_cm: anchorCenterY,
+                textFit: {
+                  anchorCenter: {
+                    x_cm: anchorCenterX,
+                    y_cm: anchorCenterY,
+                  },
                 },
               },
             );
@@ -685,14 +702,18 @@ export function DesignerApp({
           if (layer.type === "shape") {
             if (lockAspect) {
               const scaleW =
-                current.width_cm > 0 ? next.width_cm / current.width_cm : 1;
+                current.width_cm > 0
+                  ? fittedNext.width_cm / current.width_cm
+                  : 1;
               const scaleH =
-                current.height_cm > 0 ? next.height_cm / current.height_cm : 1;
+                current.height_cm > 0
+                  ? fittedNext.height_cm / current.height_cm
+                  : 1;
               const factor =
                 Math.abs(scaleW - 1) >= Math.abs(scaleH - 1) ? scaleW : scaleH;
               const width_cm = current.width_cm * factor;
               const height_cm = current.height_cm * factor;
-              return fitShapeLayer(
+              return fitDesignerLayer(
                 {
                   ...layer,
                   width_cm,
@@ -701,59 +722,55 @@ export function DesignerApp({
                   x_cm: anchorCenterX - width_cm / 2,
                   y_cm: anchorCenterY - height_cm / 2,
                 },
-                printArea,
+                designerFitContext,
               );
             }
-            return fitShapeLayer(
+            return fitDesignerLayer(
               {
                 ...layer,
-                width_cm: next.width_cm,
-                height_cm: next.height_cm,
+                width_cm: fittedNext.width_cm,
+                height_cm: fittedNext.height_cm,
                 scale: 1,
-                x_cm: anchorCenterX - next.width_cm / 2,
-                y_cm: anchorCenterY - next.height_cm / 2,
+                x_cm: anchorCenterX - fittedNext.width_cm / 2,
+                y_cm: anchorCenterY - fittedNext.height_cm / 2,
               },
-              printArea,
+              designerFitContext,
             );
           }
 
           if (layer.type === "image") {
-            const rasterFit = getImageFitOptions(largePrintModeEnabled);
-            const clamped = clampRasterPrintDimensions(
-              next.width_cm,
-              next.height_cm,
-              rasterFit.maxPrintWidth_cm,
-              rasterFit.maxPrintHeight_cm,
-            );
-
             if (lockAspect) {
               const factor =
                 current.width_cm > 0
-                  ? clamped.width_cm / current.width_cm
+                  ? fittedNext.width_cm / current.width_cm
                   : 1;
-              return fitImageLayer(
+              return fitDesignerLayer(
                 {
                   ...layer,
-                  x_cm: next.x_cm,
-                  y_cm: next.y_cm,
+                  x_cm: fittedNext.x_cm,
+                  y_cm: fittedNext.y_cm,
                   scale: layer.scale * factor,
                 },
-                printArea,
-                rasterFit,
+                designerFitContext,
+                {
+                  rasterFit: getImageFitOptions(largePrintModeEnabled),
+                },
               );
             }
 
-            return fitImageLayer(
+            return fitDesignerLayer(
               {
                 ...layer,
-                width_cm: clamped.width_cm,
-                height_cm: clamped.height_cm,
+                width_cm: fittedNext.width_cm,
+                height_cm: fittedNext.height_cm,
                 scale: 1,
-                x_cm: anchorCenterX - clamped.width_cm / 2,
-                y_cm: anchorCenterY - clamped.height_cm / 2,
+                x_cm: anchorCenterX - fittedNext.width_cm / 2,
+                y_cm: anchorCenterY - fittedNext.height_cm / 2,
               },
-              printArea,
-              rasterFit,
+              designerFitContext,
+              {
+                rasterFit: getImageFitOptions(largePrintModeEnabled),
+              },
             );
           }
 
@@ -761,7 +778,7 @@ export function DesignerApp({
         }),
       );
     },
-    [setLayers, printArea, largePrintModeEnabled, markGestureMutation],
+    [setLayers, workspacePrintArea, largePrintModeEnabled, markGestureMutation, designerGestureContext, designerFitContext],
   );
 
   const handleTextInspectorPatch = useCallback(
@@ -1080,22 +1097,12 @@ export function DesignerApp({
       if (presetActive) {
         placement = getPlacementPresetLayerPlacement(pendingPreset);
       } else {
-        placement = getInitialPlacement(
+        placement = createDesignerUploadPlacement(
           preview.naturalWidth,
           preview.naturalHeight,
-          printArea,
-        );
-        const stagger = getStaggeredPlacement(
-          printArea,
-          placement.width_cm,
-          placement.height_cm,
           layers.length,
+          designerCoordinateContext,
         );
-        placement = {
-          ...placement,
-          x_cm: stagger.x_cm,
-          y_cm: stagger.y_cm,
-        };
       }
 
       const originalUrl = URL.createObjectURL(file);
@@ -1115,14 +1122,15 @@ export function DesignerApp({
 
       const createdLayer = createImageLayer(layers, uploaded, placement);
       const newLayer = presetActive
-        ? (applyLayerPlacementPreset(createdLayer, pendingPreset, printArea, {
-            largePrintMode: largePrintModeEnabled,
-          }) as ImageDesignLayer)
-        : fitImageLayer(
+        ? (applyDesignerPlacementPreset(
             createdLayer,
-            printArea,
-            getImageFitOptions(largePrintModeEnabled),
-          );
+            pendingPreset,
+            designerCoordinateContext,
+            { largePrintMode: largePrintModeEnabled },
+          ) as ImageDesignLayer)
+        : createDesignerAutoFitLayer(createdLayer, designerCoordinateContext, {
+            rasterFit: getImageFitOptions(largePrintModeEnabled),
+          });
       appendLayers(newLayer);
       setSelectedIds([newLayer.id]);
       const msgs: string[] = [];
@@ -1213,13 +1221,13 @@ export function DesignerApp({
       pendingPreset != null && pendingPreset.sides.includes(side);
 
     const layer = presetActive
-      ? (applyLayerPlacementPreset(
-          createDefaultTextDesignLayer(layers, printArea),
+      ? (applyDesignerPlacementPreset(
+          createDesignerDefaultTextLayer(layers, designerCoordinateContext),
           pendingPreset,
-          printArea,
+          designerCoordinateContext,
           { largePrintMode: largePrintModeEnabled },
         ) as TextDesignLayer)
-      : createDefaultTextDesignLayer(layers, printArea);
+      : createDesignerDefaultTextLayer(layers, designerCoordinateContext);
     appendLayers(layer);
     setSelectedIds([layer.id]);
     setPendingTextEditLayerId(layer.id);
@@ -1243,12 +1251,19 @@ export function DesignerApp({
     const presetActive =
       pendingPreset != null && pendingPreset.sides.includes(side);
 
-    const createdShape = createDefaultShapeLayer(kind, layers, printArea);
+    const createdShape = createDesignerDefaultShapeLayer(
+      kind,
+      layers,
+      designerCoordinateContext,
+    );
     const layer = presetActive
-      ? (applyLayerPlacementPreset(createdShape, pendingPreset, printArea, {
-          largePrintMode: largePrintModeEnabled,
-        }) as ShapeDesignLayer)
-      : fitShapeLayer(createdShape, printArea);
+      ? (applyDesignerPlacementPreset(
+          createdShape,
+          pendingPreset,
+          designerCoordinateContext,
+          { largePrintMode: largePrintModeEnabled },
+        ) as ShapeDesignLayer)
+      : createdShape;
     appendLayers(layer);
     setSelectedIds([layer.id]);
     setStatusMessage(
@@ -1296,7 +1311,12 @@ export function DesignerApp({
       if (countAlignableLayers(layers, selectedIds) === 0) return;
       prepareDiscreteMutation();
       setLayers((prev) =>
-        alignDesignLayers(prev, selectedIds, axis, printArea),
+        applyDesignerLayerAlignment(
+          prev,
+          selectedIds,
+          axis,
+          designerAlignmentContext,
+        ),
       );
     },
     [
@@ -1305,7 +1325,7 @@ export function DesignerApp({
       selectedIds,
       prepareDiscreteMutation,
       setLayers,
-      printArea,
+      designerAlignmentContext,
     ],
   );
 
@@ -1333,9 +1353,12 @@ export function DesignerApp({
       setLayers((prev) =>
         prev.map((layer) => {
           if (!idSet.has(layer.id)) return layer;
-          return applyLayerPlacementPreset(layer, preset, printArea, {
-            largePrintMode: largePrintModeEnabled,
-          });
+          return applyDesignerPlacementPreset(
+            layer,
+            preset,
+            designerCoordinateContext,
+            { largePrintMode: largePrintModeEnabled },
+          );
         }),
       );
       setStatusMessage(
@@ -1350,8 +1373,8 @@ export function DesignerApp({
       layers,
       prepareDiscreteMutation,
       setLayers,
-      printArea,
       largePrintModeEnabled,
+      designerCoordinateContext,
     ],
   );
 
@@ -1360,17 +1383,8 @@ export function DesignerApp({
       if (!guardEditable()) return;
       prepareDiscreteMutation();
       setLargePrintModeEnabled(enabled);
-      if (enabled) return;
-
-      const rasterFit = getImageFitOptions(false);
-      setLayers((prev) =>
-        prev.map((layer) => {
-          if (layer.type !== "image") return layer;
-          return fitImageLayer(layer, printArea, rasterFit);
-        }),
-      );
     },
-    [guardEditable, prepareDiscreteMutation, setLayers, printArea],
+    [guardEditable, prepareDiscreteMutation],
   );
 
   const handleDuplicate = async (id: string) => {
@@ -1380,21 +1394,23 @@ export function DesignerApp({
     if (source.type === "image") {
       const dup = await duplicateImageLayerAsync(layers, id);
       if (dup && dup.type === "image") {
-        const fitted = fitImageLayer(dup, printArea);
+        const fitted = createDesignerDuplicateLayer(dup, designerCoordinateContext, {
+          rasterFit: getImageFitOptions(largePrintModeEnabled),
+        });
         appendLayers(fitted);
         setSelectedIds([fitted.id]);
       }
     } else if (source.type === "shape") {
       const dup = duplicateShapeLayer(layers, id);
       if (dup) {
-        const fitted = fitShapeLayer(dup, printArea);
+        const fitted = createDesignerDuplicateLayer(dup, designerCoordinateContext);
         appendLayers(fitted);
         setSelectedIds([fitted.id]);
       }
     } else {
       const dup = duplicateTextLayer(layers, id);
       if (dup) {
-        const fitted = fitTextLayer(dup, printArea);
+        const fitted = createDesignerDuplicateLayer(dup, designerCoordinateContext);
         appendLayers(fitted);
         setSelectedIds([fitted.id]);
       }
@@ -1450,6 +1466,7 @@ export function DesignerApp({
             shirtColor,
             side: templateSide,
             layers: slotLayers,
+            size,
           });
 
           if (templateSide === "front") {
@@ -1636,9 +1653,9 @@ export function DesignerApp({
             next,
             templateGender,
             templateSide,
-            fitDesignLayers(
+            fitDesignerLayers(
               getLayersForSlot(next, templateGender, templateSide),
-              getDesignerPrintAreaCmBounds(templateSide),
+              createDesignerFitContext(templateSide, size),
             ),
           );
         }
@@ -1654,6 +1671,7 @@ export function DesignerApp({
   return (
     <LiveDesignStateProvider
       size={size}
+      side={side}
       layers={layers}
       selectedLayerId={primaryId}
     >
@@ -1718,7 +1736,7 @@ export function DesignerApp({
           shirtColor={shirtColor}
           size={size}
           side={side}
-          bluePrintArea={bluePrintArea}
+          bluePrintArea={maxPrintBounds}
           layers={layers}
           layersByTemplate={layersByTemplate}
           selectedIds={selectedIds}

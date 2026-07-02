@@ -52,8 +52,9 @@ export function getPrintExportDescriptor(
   gender: Gender,
   side: Side,
   format: PrintExportFormat,
+  size: string = "M",
 ): PrintExportDescriptor {
-  const spec = getPrintExportSpec(side);
+  const spec = getPrintExportSpec(side, size);
 
   return {
     gender,
@@ -94,9 +95,10 @@ export async function renderPrintableDesignPdf(
   gender: Gender,
   _side: Side,
   layers: DesignLayer[],
+  size: string = "M",
 ): Promise<Blob> {
-  const pngBlob = await renderPrintExportPng(layers, { side: _side });
-  const descriptor = getPrintExportDescriptor(gender, _side, "pdf");
+  const pngBlob = await renderPrintExportPng(layers, { side: _side, size });
+  const descriptor = getPrintExportDescriptor(gender, _side, "pdf", size);
   const { PDFDocument } = await import("pdf-lib");
 
   const pdfDoc = await PDFDocument.create();
@@ -124,11 +126,12 @@ export async function renderPrintableDesign(
   side: Side,
   layers: DesignLayer[],
   format: PrintExportFormat,
+  size: string = "M",
 ): Promise<Blob> {
   if (format === "png") {
-    return renderPrintExportPng(layers, { side });
+    return renderPrintExportPng(layers, { side, size });
   }
-  return renderPrintableDesignPdf(gender, side, layers);
+  return renderPrintableDesignPdf(gender, side, layers, size);
 }
 
 export async function exportPrintableDesign(params: {
@@ -136,16 +139,17 @@ export async function exportPrintableDesign(params: {
   side: Side;
   layers: DesignLayer[];
   format: PrintExportFormat;
+  size?: string;
 }): Promise<PrintExportResult> {
-  const { gender, side, layers, format } = params;
+  const { gender, side, layers, format, size = "M" } = params;
 
   if (!hasExportablePrintableDesign(layers)) {
     throw new Error("此面向尚無可輸出的設計內容");
   }
 
-  const blob = await renderPrintableDesign(gender, side, layers, format);
+  const blob = await renderPrintableDesign(gender, side, layers, format, size);
   const filename = buildPrintExportFileName(gender, side, format);
-  const descriptor = getPrintExportDescriptor(gender, side, format);
+  const descriptor = getPrintExportDescriptor(gender, side, format, size);
 
   return { blob, filename, descriptor };
 }
@@ -178,8 +182,9 @@ export function listPrintableExportSlots(
 export function formatPrintExportSpecLine(
   _gender?: Gender,
   side: Side = "front",
+  size: string = "M",
 ): string {
-  const spec = getPrintExportSpec(side);
+  const spec = getPrintExportSpec(side, size);
   return `PNG / PDF · ${spec.widthCm}×${spec.heightCm}cm · ${spec.widthPx}×${spec.heightPx}px · ${spec.dpi} DPI · 透明背景 · 僅可印刷區`;
 }
 

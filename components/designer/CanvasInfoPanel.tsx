@@ -7,6 +7,7 @@ import type {
   ShapeDesignLayer,
   TextDesignLayer,
 } from "@/lib/types";
+import type { Side } from "@/lib/constants";
 import { PropertiesPanel } from "./properties/PropertiesPanel";
 import { StackedInspectorPanel } from "./StackedInspectorPanel";
 
@@ -14,6 +15,8 @@ import { StackedInspectorPanel } from "./StackedInspectorPanel";
 export function CanvasInfoPanel({
   layers,
   selectedLayerIds,
+  side,
+  size,
   isBusy,
   readOnly = false,
   largePrintModeEnabled,
@@ -26,6 +29,8 @@ export function CanvasInfoPanel({
 }: {
   layers: DesignLayer[];
   selectedLayerIds: string[];
+  side: Side;
+  size: string;
   isBusy: boolean;
   readOnly?: boolean;
   largePrintModeEnabled: boolean;
@@ -60,6 +65,8 @@ export function CanvasInfoPanel({
       <StackedInspectorPanel
         layers={layers}
         selectedLayerIds={selectedLayerIds}
+        side={side}
+        size={size}
         readOnly={readOnly}
         isBusy={isBusy}
         onSelectLayer={onSelectLayer}

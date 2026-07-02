@@ -1,7 +1,18 @@
 "use client";
 
-import { useCallback, useRef } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import type { PrintAreaCmBounds } from "@/lib/design-cm";
+import type { DesignerCssPercentStyle } from "@/lib/designer-coordinate-facade";
+import {
+  applyDesignerFloatingMove,
+  clientPixelDeltaToDesignerCm,
+  createDesignerFloatingControlContext,
+  createDesignerFloatingDragState,
+  inferSideFromWorkspacePrintArea,
+  projectDesignerFloatingResultToWorkspace,
+  type DesignerFloatingDragState,
+} from "@/lib/designer-coordinate-controller";
+import { useLiveDesignState } from "./LiveDesignStateContext";
 
 function normalizeRotation(degrees: number) {
   let next = degrees;
@@ -25,8 +36,11 @@ export function LayerFloatingControls({
   onRotateLeft90,
   onRotateRight90,
   onDelete,
+  displayPercentStyle,
 }: {
   printArea: PrintAreaCmBounds;
+  /** Step 13.0D：Display Layer 定位 */
+  displayPercentStyle?: DesignerCssPercentStyle;
   x: number;
   y: number;
   width: number;
@@ -40,11 +54,22 @@ export function LayerFloatingControls({
   onRotateRight90?: () => void;
   onDelete?: () => void;
 }) {
+  const { designState } = useLiveDesignState();
+  const floatingContext = useMemo(
+    () =>
+      createDesignerFloatingControlContext(
+        inferSideFromWorkspacePrintArea(printArea),
+        designState.garment.size,
+      ),
+    [printArea, designState.garment.size],
+  );
+
   const moveRef = useRef<{
     startX: number;
     startY: number;
     originX: number;
     originY: number;
+    drag: DesignerFloatingDragState;
   } | null>(null);
   const rotateRef = useRef<{
     originRotation: number;
@@ -62,11 +87,13 @@ export function LayerFloatingControls({
 
   const onMovePointerDown = (event: React.PointerEvent) => {
     event.stopPropagation();
+    const workspaceOrigin = { x_cm: x, y_cm: y };
     moveRef.current = {
       startX: event.clientX,
       startY: event.clientY,
       originX: x,
       originY: y,
+      drag: createDesignerFloatingDragState(workspaceOrigin, floatingContext),
     };
     event.currentTarget.setPointerCapture(event.pointerId);
   };
@@ -76,15 +103,23 @@ export function LayerFloatingControls({
     const printRect = getPrintAreaRect();
     if (!printRect) return;
 
-    const scaleX = printArea.width / printRect.width;
-    const scaleY = printArea.height / printRect.height;
-    const dx = (event.clientX - moveRef.current.startX) * scaleX;
-    const dy = (event.clientY - moveRef.current.startY) * scaleY;
-
-    onMove({
-      x_cm: moveRef.current.originX + dx,
-      y_cm: moveRef.current.originY + dy,
-    });
+    const deltaDesigner = clientPixelDeltaToDesignerCm(
+      event.clientX - moveRef.current.startX,
+      event.clientY - moveRef.current.startY,
+      printRect,
+      floatingContext,
+    );
+    const patch = applyDesignerFloatingMove(
+      floatingContext,
+      moveRef.current.drag,
+      deltaDesigner,
+    );
+    onMove(
+      projectDesignerFloatingResultToWorkspace(
+        { x_cm: moveRef.current.originX, y_cm: moveRef.current.originY },
+        patch,
+      ),
+    );
   };
 
   const onMovePointerUp = (event: React.PointerEvent) => {
@@ -129,16 +164,20 @@ export function LayerFloatingControls({
     }
   };
 
+  const anchorStyle =
+    displayPercentStyle ??
+    ({
+      left: `${(x / printArea.width) * 100}%`,
+      top: `${(y / printArea.height) * 100}%`,
+      width: `${(width / printArea.width) * 100}%`,
+      height: `${(height / printArea.height) * 100}%`,
+    } satisfies DesignerCssPercentStyle);
+
   return (
     <div
       ref={anchorRef}
       className="pointer-events-none absolute"
-      style={{
-        left: `${(x / printArea.width) * 100}%`,
-        top: `${(y / printArea.height) * 100}%`,
-        width: `${(width / printArea.width) * 100}%`,
-        height: `${(height / printArea.height) * 100}%`,
-      }}
+      style={anchorStyle}
     >
       <div
         className="pointer-events-auto absolute top-full left-1/2 z-50 mt-1.5 flex -translate-x-1/2 items-center gap-0.5 rounded-lg border border-zinc-200 bg-white p-0.5 shadow-lg"

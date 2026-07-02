@@ -18,3 +18,47 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+@keyframes garment-constraint-overlay-pulse {
+  0%,
+  100% {
+    border-color: rgb(139 92 246 / 0.55);
+    background-color: rgb(139 92 246 / 0.03);
+  }
+  50% {
+    border-color: rgb(139 92 246 / 0.95);
+    background-color: rgb(139 92 246 / 0.07);
+  }
+}
+
+@keyframes garment-constraint-warning-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(239 68 68 / 0.35);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgb(239 68 68 / 0);
+  }
+}
+
+@keyframes garment-constraint-ring-pulse {
+  0%,
+  100% {
+    opacity: 0.85;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@utility animate-garment-constraint-overlay-pulse {
+  animation: garment-constraint-overlay-pulse 3s ease-in-out infinite;
+}
+
+@utility animate-garment-constraint-warning-pulse {
+  animation: garment-constraint-warning-pulse 2s ease-in-out infinite;
+}
+
+@utility animate-garment-constraint-ring-pulse {
+  animation: garment-constraint-ring-pulse 1.8s ease-in-out infinite;
+}

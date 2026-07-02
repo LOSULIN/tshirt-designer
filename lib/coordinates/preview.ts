@@ -7,7 +7,19 @@
 
 import type { Side } from "../constants";
 import type { ApparelSize } from "../sizes";
+import {
+  getDesignerBackBluePrintArea,
+  getDesignerBackRecommendedPrintArea,
+  getDesignerBluePrintArea,
+  getDesignerRecommendedPrintArea,
+} from "../designer-print-area-config";
 import { getDesignerBlueVisualContainerPct } from "../garment-visual-profile";
+import { resolveFactoryCenterTemplateXPx } from "../factory-anatomy-runtime";
+import { getCollarAnchorYPx, getPrintAreaOffsetPx } from "./print-area-offset";
+import {
+  resolveFactoryOverlayRectCm,
+  type FactoryOverlayRectCm,
+} from "../factory-overlay-runtime";
 import {
   getRuntimeTemplateCanvas,
   getRuntimeTemplatePlacement,
@@ -27,7 +39,10 @@ import {
 } from "./preview-position-mode";
 import { getGarmentVisualRenderScale } from "../garment-visual-profile";
 import { getPrintAreaCmToTemplateContainerPct } from "../design-cm";
-import { buildUiPrintAreaContainerStyle } from "./ui-print-offset";
+import {
+  buildUiPrintAreaContainerStyle,
+  buildUiPrintAreaContainerStyleFromPx,
+} from "./ui-print-offset";
 
 export const PREVIEW_CONTAINER = {
   get width(): number {
@@ -146,6 +161,105 @@ export function getPreviewPrintAreaContainerStyle(
     heightPct,
     PREVIEW_REFERENCE_TRANSFORM,
   );
+}
+
+/** Factory overlay → 模板畫布 px（UI Runtime 專用） */
+export function factoryOverlayRectCmToTemplatePx(
+  rect: FactoryOverlayRectCm,
+  side: PreviewSide,
+  size: string,
+  pxPerCm: number = getPreviewPxPerCm(),
+): {
+  leftPx: number;
+  topPx: number;
+  widthPx: number;
+  heightPx: number;
+} {
+  const centerTemplateX = resolveFactoryCenterTemplateXPx(side, size);
+  const widthPx = rect.widthCm * pxPerCm;
+  const heightPx = rect.heightCm * pxPerCm;
+
+  return {
+    topPx: getPrintAreaOffsetPx(
+      side,
+      pxPerCm,
+      getCollarAnchorYPx(side),
+      1,
+    ),
+    leftPx: centerTemplateX + rect.centerOffsetXCm * pxPerCm - widthPx / 2,
+    widthPx,
+    heightPx,
+  };
+}
+
+/**
+ * 設計器 Blue Overlay — Factory Overlay Runtime 唯一來源。
+ * 左上角定位；不使用 Canvas Center / translate(-50%)。
+ * 輸出為 1024×1536 模板畫布 %（與 Template PNG 同源，無 visualScale）。
+ */
+export function getDesignerFactoryOverlayContainerStyle(
+  side: PreviewSide = "front",
+  size: ApparelSize | string = DEFAULT_PREVIEW_SIZE,
+): PreviewContainerStyle {
+  const canvas = getRuntimeTemplateCanvas();
+  const rectPx = factoryOverlayRectCmToTemplatePx(
+    resolveFactoryOverlayRectCm(side, size),
+    side,
+    size,
+  );
+  return buildUiPrintAreaContainerStyleFromPx(
+    rectPx,
+    canvas.widthPx,
+    canvas.heightPx,
+  );
+}
+
+/** Factory Blue / Orange @ 模板畫布 px（驗證／debug） */
+export function getDesignerFactoryOverlayTemplatePx(
+  side: PreviewSide,
+  size: ApparelSize | string,
+): {
+  blue: { leftPx: number; topPx: number; widthPx: number; heightPx: number };
+  orange: { leftPx: number; topPx: number; widthPx: number; heightPx: number };
+} {
+  const blue = factoryOverlayRectCmToTemplatePx(
+    resolveFactoryOverlayRectCm(side, size),
+    side,
+    size,
+  );
+  const pct = getDesignerOrangeSafeZonePctInBlue(size, side);
+  return {
+    blue,
+    orange: {
+      leftPx: blue.leftPx + (blue.widthPx * pct.leftPct) / 100,
+      topPx: blue.topPx + (blue.heightPx * pct.topPct) / 100,
+      widthPx: (blue.widthPx * pct.widthPct) / 100,
+      heightPx: (blue.heightPx * pct.heightPct) / 100,
+    },
+  };
+}
+
+/** 橘框於藍框內 %（左右置中；上緣與藍框對齊；底部保留 Safe Zone） */
+export function getDesignerOrangeSafeZonePctInBlue(
+  size: ApparelSize | string,
+  side: PreviewSide = "front",
+) {
+  const blue =
+    side === "back"
+      ? getDesignerBackBluePrintArea(size)
+      : getDesignerBluePrintArea(size);
+  const recommended =
+    side === "back"
+      ? getDesignerBackRecommendedPrintArea(size)
+      : getDesignerRecommendedPrintArea(size);
+  const widthPct = (recommended.widthCm / blue.widthCm) * 100;
+  const heightPct = (recommended.heightCm / blue.heightCm) * 100;
+  return {
+    leftPct: (100 - widthPct) / 2,
+    topPct: 0,
+    widthPct,
+    heightPct,
+  };
 }
 
 export function getPreviewContainerAspectRatio(): string {

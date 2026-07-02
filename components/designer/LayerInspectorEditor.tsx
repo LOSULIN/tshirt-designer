@@ -1,10 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import type { Side } from "@/lib/constants";
 import {
-  formatInspectorCm,
-  getLayerInspectorCmRect,
-} from "@/lib/design-inspector";
+  createDesignerDisplayContext,
+  getLayerDesignerDisplayRect,
+  projectWorkspaceLengthToDesignerDisplay,
+  projectWorkspacePointToDesignerDisplay,
+} from "@/lib/designer-display-projection";
+import {
+  applyDesignerLayerPatch,
+  resizeLayerDesigner,
+  setLayerDesignerRotation,
+} from "@/lib/designer-coordinate-controller";
 import {
   formatInspectorDimensionDisplay,
   formatInspectorDimensionPrecise,
@@ -51,6 +59,8 @@ const textareaClass =
 
 export function LayerInspectorEditor({
   layer,
+  side,
+  size,
   disabled,
   compact = false,
   onTextPatch,
@@ -60,6 +70,8 @@ export function LayerInspectorEditor({
   largePrintModeEnabled = false,
 }: {
   layer: DesignLayer;
+  side: Side;
+  size: string;
   disabled: boolean;
   compact?: boolean;
   largePrintModeEnabled?: boolean;
@@ -88,6 +100,8 @@ export function LayerInspectorEditor({
       <TextInspectorFields
         key={layer.id}
         layer={layer}
+        side={side}
+        size={size}
         disabled={disabled}
         compact={compact}
         onPatch={(patch) => onTextPatch(layer.id, patch)}
@@ -101,6 +115,8 @@ export function LayerInspectorEditor({
       <ScalableInspectorFields
         key={layer.id}
         layer={layer}
+        side={side}
+        size={size}
         disabled={disabled}
         compact={compact}
         onTransform={(patch) => onImageTransform(layer.id, patch)}
@@ -114,6 +130,8 @@ export function LayerInspectorEditor({
     <ImageInspectorFields
       key={layer.id}
       layer={layer}
+      side={side}
+      size={size}
       disabled={disabled}
       compact={compact}
       largePrintModeEnabled={largePrintModeEnabled}
@@ -126,12 +144,16 @@ export function LayerInspectorEditor({
 
 function TextInspectorFields({
   layer,
+  side,
+  size,
   disabled,
   compact,
   onPatch,
   onRotationChange,
 }: {
   layer: Extract<DesignLayer, { type: "text" }>;
+  side: Side;
+  size: string;
   disabled: boolean;
   compact: boolean;
   onPatch: (patch: {
@@ -144,7 +166,31 @@ function TextInspectorFields({
   onRotationChange: (rotation: number) => void;
 }) {
   const values = getTextInspectorValues(layer);
-  const bounds = getLayerInspectorCmRect(layer);
+  const designerContext = useMemo(
+    () => createDesignerDisplayContext(side, size),
+    [side, size],
+  );
+  const bounds = useMemo(
+    () => getLayerDesignerDisplayRect(layer, designerContext),
+    [layer, designerContext],
+  );
+  const designerPosition = useMemo(
+    () =>
+      projectWorkspacePointToDesignerDisplay(
+        { x_cm: values.x_cm, y_cm: values.y_cm },
+        designerContext,
+      ),
+    [values.x_cm, values.y_cm, designerContext],
+  );
+  const designerFontSize = useMemo(
+    () =>
+      projectWorkspaceLengthToDesignerDisplay(
+        values.fontSize_cm,
+        designerContext,
+        "y",
+      ),
+    [values.fontSize_cm, designerContext],
+  );
   const [content, setContent] = useState(values.content);
 
   useEffect(() => {
@@ -175,7 +221,11 @@ function TextInspectorFields({
                 const factor =
                   bounds.height_cm > 0 ? height_cm / bounds.height_cm : 1;
                 if (Math.abs(factor - 1) < 1e-6) return;
-                onPatch({ fontSize_cm: values.fontSize_cm * factor });
+                onPatch(
+                  applyDesignerLayerPatch(layer, designerContext, {
+                    fontSize_cm: designerFontSize * factor,
+                  }),
+                );
               }}
             />
             <span className="shrink-0 text-zinc-400">cm</span>
@@ -185,16 +235,20 @@ function TextInspectorFields({
           <div className="flex items-center gap-1">
             <InspectorNumberInput
               compact
-              value={values.fontSize_cm}
+              value={designerFontSize}
               decimals={1}
               disabled={disabled}
               ariaLabel="Font size in centimeters"
-              onCommit={(fontSize_cm) => onPatch({ fontSize_cm })}
+              onCommit={(fontSize_cm) =>
+              onPatch(
+                applyDesignerLayerPatch(layer, designerContext, { fontSize_cm }),
+              )
+            }
             />
             <span className="shrink-0 text-zinc-400">cm</span>
           </div>
         </CompactRow>
-        <InspectorProofDetails layer={layer} />
+        <InspectorProofDetails layer={layer} side={side} size={size} />
       </div>
     );
   }
@@ -232,17 +286,25 @@ function TextInspectorFields({
               const factor =
                 bounds.height_cm > 0 ? height_cm / bounds.height_cm : 1;
               if (Math.abs(factor - 1) < 1e-6) return;
-              onPatch({ fontSize_cm: values.fontSize_cm * factor });
+              onPatch(
+                applyDesignerLayerPatch(layer, designerContext, {
+                  fontSize_cm: designerFontSize * factor,
+                }),
+              );
             }}
           />
         </Field>
         <Field label="Font size (cm)">
           <InspectorNumberInput
-            value={values.fontSize_cm}
+            value={designerFontSize}
             decimals={1}
             disabled={disabled}
             ariaLabel="Font size in centimeters"
-            onCommit={(fontSize_cm) => onPatch({ fontSize_cm })}
+            onCommit={(fontSize_cm) =>
+              onPatch(
+                applyDesignerLayerPatch(layer, designerContext, { fontSize_cm }),
+              )
+            }
           />
         </Field>
         <Field label="Rotation (°)">
@@ -251,35 +313,46 @@ function TextInspectorFields({
             decimals={0}
             disabled={disabled}
             ariaLabel="Rotation in degrees"
-            onCommit={onRotationChange}
+            onCommit={(rotation) =>
+              onRotationChange(
+                setLayerDesignerRotation(layer, designerContext, rotation)
+                  .rotation!,
+              )
+            }
           />
         </Field>
         <Field label="X (cm)">
           <InspectorNumberInput
-            value={values.x_cm}
+            value={designerPosition.x_cm}
             decimals={1}
             disabled={disabled}
             ariaLabel="X position in centimeters"
-            onCommit={(x_cm) => onPatch({ x_cm })}
+            onCommit={(x_cm) =>
+              onPatch(applyDesignerLayerPatch(layer, designerContext, { x_cm }))
+            }
           />
         </Field>
         <Field label="Y (cm)">
           <InspectorNumberInput
-            value={values.y_cm}
+            value={designerPosition.y_cm}
             decimals={1}
             disabled={disabled}
             ariaLabel="Y position in centimeters"
-            onCommit={(y_cm) => onPatch({ y_cm })}
+            onCommit={(y_cm) =>
+              onPatch(applyDesignerLayerPatch(layer, designerContext, { y_cm }))
+            }
           />
         </Field>
       </div>
-      <InspectorProofDetails layer={layer} />
+      <InspectorProofDetails layer={layer} side={side} size={size} />
     </div>
   );
 }
 
 function ScalableInspectorFields({
   layer,
+  side,
+  size,
   disabled,
   compact,
   onTransform,
@@ -287,6 +360,8 @@ function ScalableInspectorFields({
   onRotationChange,
 }: {
   layer: Extract<DesignLayer, { type: "image" | "shape" }>;
+  side: Side;
+  size: string;
   disabled: boolean;
   compact: boolean;
   onTransform: (patch: {
@@ -303,7 +378,35 @@ function ScalableInspectorFields({
   }) => void;
   onRotationChange: (rotation: number) => void;
 }) {
-  const values = getScalableLayerInspectorValues(layer);
+  const workspaceValues = getScalableLayerInspectorValues(layer);
+  const designerContext = useMemo(
+    () => createDesignerDisplayContext(side, size),
+    [side, size],
+  );
+  const designerBounds = useMemo(
+    () => getLayerDesignerDisplayRect(layer, designerContext),
+    [layer, designerContext],
+  );
+
+  const commitDesignerResize = (patch: {
+    width_cm?: number;
+    height_cm?: number;
+  }) => {
+    const ws = resizeLayerDesigner(layer, designerContext, {
+      width_cm: patch.width_cm ?? designerBounds.width_cm,
+      height_cm: patch.height_cm ?? designerBounds.height_cm,
+    });
+    onResize({
+      x_cm: ws.x_cm!,
+      y_cm: ws.y_cm!,
+      width_cm: ws.width_cm!,
+      height_cm: ws.height_cm!,
+    });
+  };
+
+  const commitDesignerTransform = (patch: { x_cm?: number; y_cm?: number }) => {
+    onTransform(applyDesignerLayerPatch(layer, designerContext, patch));
+  };
 
   if (compact) {
     return (
@@ -313,42 +416,28 @@ function ScalableInspectorFields({
             <InspectorNumberInput
               compact
               className="w-12"
-              value={values.width_cm}
+              value={designerBounds.width_cm}
               decimals={1}
               dimensionDisplay
               disabled={disabled}
               ariaLabel="Width in centimeters"
-              onCommit={(width_cm) =>
-                onResize({
-                  x_cm: values.x_cm,
-                  y_cm: values.y_cm,
-                  width_cm,
-                  height_cm: values.height_cm,
-                })
-              }
+              onCommit={(width_cm) => commitDesignerResize({ width_cm })}
             />
             <span className="shrink-0 text-zinc-400">×</span>
             <InspectorNumberInput
               compact
               className="w-12"
-              value={values.height_cm}
+              value={designerBounds.height_cm}
               decimals={1}
               dimensionDisplay
               disabled={disabled}
               ariaLabel="Height in centimeters"
-              onCommit={(height_cm) =>
-                onResize({
-                  x_cm: values.x_cm,
-                  y_cm: values.y_cm,
-                  width_cm: values.width_cm,
-                  height_cm,
-                })
-              }
+              onCommit={(height_cm) => commitDesignerResize({ height_cm })}
             />
             <span className="shrink-0 text-zinc-400">cm</span>
           </div>
         </CompactRow>
-        <InspectorProofDetails layer={layer} />
+        <InspectorProofDetails layer={layer} side={side} size={size} />
       </div>
     );
   }
@@ -358,59 +447,45 @@ function ScalableInspectorFields({
       <div className="grid grid-cols-2 gap-2">
         <Field label="Width (cm)">
           <InspectorNumberInput
-            value={values.width_cm}
+            value={designerBounds.width_cm}
             decimals={1}
             dimensionDisplay
             disabled={disabled}
             ariaLabel="Width in centimeters"
-            onCommit={(width_cm) =>
-              onResize({
-                x_cm: values.x_cm,
-                y_cm: values.y_cm,
-                width_cm,
-                height_cm: values.height_cm,
-              })
-            }
+            onCommit={(width_cm) => commitDesignerResize({ width_cm })}
           />
         </Field>
         <Field label="Height (cm)">
           <InspectorNumberInput
-            value={values.height_cm}
+            value={designerBounds.height_cm}
             decimals={1}
             dimensionDisplay
             disabled={disabled}
             ariaLabel="Height in centimeters"
-            onCommit={(height_cm) =>
-              onResize({
-                x_cm: values.x_cm,
-                y_cm: values.y_cm,
-                width_cm: values.width_cm,
-                height_cm,
-              })
-            }
+            onCommit={(height_cm) => commitDesignerResize({ height_cm })}
           />
         </Field>
         <Field label="X (cm)">
           <InspectorNumberInput
-            value={values.x_cm}
+            value={designerBounds.x_cm}
             decimals={1}
             disabled={disabled}
             ariaLabel="X position in centimeters"
-            onCommit={(x_cm) => onTransform({ x_cm })}
+            onCommit={(x_cm) => commitDesignerTransform({ x_cm })}
           />
         </Field>
         <Field label="Y (cm)">
           <InspectorNumberInput
-            value={values.y_cm}
+            value={designerBounds.y_cm}
             decimals={1}
             disabled={disabled}
             ariaLabel="Y position in centimeters"
-            onCommit={(y_cm) => onTransform({ y_cm })}
+            onCommit={(y_cm) => commitDesignerTransform({ y_cm })}
           />
         </Field>
         <Field label="Scale">
           <InspectorNumberInput
-            value={values.scale}
+            value={workspaceValues.scale}
             decimals={2}
             disabled={disabled}
             ariaLabel="Scale"
@@ -419,21 +494,28 @@ function ScalableInspectorFields({
         </Field>
         <Field label="Rotation (°)">
           <InspectorNumberInput
-            value={values.rotation}
+            value={workspaceValues.rotation}
             decimals={0}
             disabled={disabled}
             ariaLabel="Rotation in degrees"
-            onCommit={onRotationChange}
+            onCommit={(rotation) =>
+              onRotationChange(
+                setLayerDesignerRotation(layer, designerContext, rotation)
+                  .rotation!,
+              )
+            }
           />
         </Field>
       </div>
-      <InspectorProofDetails layer={layer} />
+      <InspectorProofDetails layer={layer} side={side} size={size} />
     </div>
   );
 }
 
 function ImageInspectorFields({
   layer,
+  side,
+  size,
   disabled,
   compact,
   largePrintModeEnabled,
@@ -442,6 +524,8 @@ function ImageInspectorFields({
   onRotationChange,
 }: {
   layer: Extract<DesignLayer, { type: "image" }>;
+  side: Side;
+  size: string;
   disabled: boolean;
   compact: boolean;
   largePrintModeEnabled: boolean;
@@ -464,6 +548,8 @@ function ImageInspectorFields({
       <div className="space-y-0.5">
         <ScalableInspectorFields
           layer={layer}
+          side={side}
+          size={size}
           disabled={disabled}
           compact
           onTransform={onTransform}
@@ -482,6 +568,8 @@ function ImageInspectorFields({
     <div className="space-y-2">
       <ScalableInspectorFields
         layer={layer}
+        side={side}
+        size={size}
         disabled={disabled}
         compact={false}
         onTransform={onTransform}

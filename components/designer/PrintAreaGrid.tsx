@@ -6,14 +6,17 @@ import { getGarmentPrintSafeZonePctInPrintArea } from "@/lib/coordinates/garment
 export function PrintAreaGrid({
   visible,
   printArea,
+  gridSizeCm = GRID_SIZE_CM,
 }: {
   visible: boolean;
   printArea: PrintAreaCmBounds;
+  /** Step 13.0I：Designer Printable Area 格線間距（cm） */
+  gridSizeCm?: number;
 }) {
   if (!visible) return null;
 
-  const cellW = (GRID_SIZE_CM / printArea.width) * 100;
-  const cellH = (GRID_SIZE_CM / printArea.height) * 100;
+  const cellW = (gridSizeCm / printArea.width) * 100;
+  const cellH = (gridSizeCm / printArea.height) * 100;
 
   return (
     <div

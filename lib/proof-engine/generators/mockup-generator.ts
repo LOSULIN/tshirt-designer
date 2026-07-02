@@ -17,15 +17,21 @@ export async function generateMockupPng(params: {
   side: Side;
   shirtColor: ShirtColor;
   layersByTemplate: DesignLayersByTemplate;
+  size?: string;
 }): Promise<Uint8Array> {
-  const { gender, side, shirtColor, layersByTemplate } = params;
+  const { gender, side, shirtColor, layersByTemplate, size = "M" } = params;
   const layers = getLayersForSlot(layersByTemplate, gender, side);
 
   if (!hasDesignInSlot(layersByTemplate, gender, side)) {
     throw new Error(`No design on ${side} for mockup generation`);
   }
 
-  const blob = await renderMockupPreviewPng({ shirtColor, side, layers });
+  const blob = await renderMockupPreviewPng({
+    shirtColor,
+    side,
+    layers,
+    size,
+  });
   return new Uint8Array(await blob.arrayBuffer());
 }
 
@@ -33,6 +39,7 @@ export async function generateMockupsForOrder(params: {
   gender: Gender;
   shirtColor: ShirtColor;
   layersByTemplate: DesignLayersByTemplate;
+  size?: string;
 }): Promise<Partial<Record<Side, Uint8Array>>> {
   const mockups: Partial<Record<Side, Uint8Array>> = {};
 
@@ -46,6 +53,7 @@ export async function generateMockupsForOrder(params: {
         side,
         shirtColor: params.shirtColor,
         layersByTemplate: params.layersByTemplate,
+        size: params.size,
       });
     }),
   );

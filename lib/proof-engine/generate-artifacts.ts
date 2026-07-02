@@ -31,10 +31,12 @@ export async function generateProofArtifacts(
       gender: order.gender,
       shirtColor: order.shirt_color,
       layersByTemplate: order.layers_by_template,
+      size: order.size,
     }),
     generatePrintsForOrder({
       gender: order.gender,
       layersByTemplate: order.layers_by_template,
+      size: order.size,
     }),
   ]);
 

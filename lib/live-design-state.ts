@@ -3,8 +3,18 @@
  * 由 layers + 成衣尺碼衍生；拖曳／縮放／新增圖層時自動重算。
  */
 
-import { inspectDesignLayer, type LayerInspectorReport } from "./design-inspector";
-import { getPrintAreaCmBounds } from "./design-cm";
+import type { Side } from "./constants";
+import {
+  garmentViolationFromOverflow,
+  getGarmentConstraintInspectorWarnings,
+} from "./garment-constraint-ux";
+import {
+  getWorkspaceGarmentLayerOverflowState,
+} from "./layer-overflow";
+import {
+  inspectDesignLayer,
+  type LayerInspectorReport,
+} from "./design-inspector";
 import { sortLayersForPanel } from "./layers";
 import { PRINT_AREA } from "./printArea";
 import {
@@ -118,19 +128,51 @@ export function buildDesignStateGarment(size: ApparelSize): DesignStateGarment {
   };
 }
 
+export function buildLayerInspectorReportWithConstraint(
+  layer: DesignLayer,
+  side: Side,
+  sizeInput: string,
+): LayerInspectorReport {
+  const overflow = getWorkspaceGarmentLayerOverflowState(
+    layer,
+    side,
+    sizeInput,
+  );
+  const violation = garmentViolationFromOverflow(overflow);
+  const base = inspectDesignLayer(layer, { side, size: sizeInput });
+  const exceedsPrintArea = violation.exceedsGarmentPrintArea;
+  const warnings = getGarmentConstraintInspectorWarnings(
+    violation,
+    base.exceedsSafeZone,
+  );
+  const status =
+    exceedsPrintArea || base.exceedsSafeZone ? "warning" : "ok";
+
+  return {
+    ...base,
+    exceedsPrintArea,
+    warnings,
+    status,
+  };
+}
+
 export function buildLiveDesignState(
   layers: DesignLayer[],
   sizeInput: string,
+  side: Side,
   selectedLayerId: string | null = null,
 ): LiveDesignState {
   const size = toApparelSize(sizeInput);
-  const printArea = getPrintAreaCmBounds();
   const garment = buildDesignStateGarment(size);
 
   const reportsById: Record<string, LayerInspectorReport> = {};
   const sortedLayers = sortLayersForPanel(layers);
   const elements: LiveDesignStateElement[] = sortedLayers.map((layer, idx) => {
-    const report = inspectDesignLayer(layer, printArea);
+    const report = buildLayerInspectorReportWithConstraint(
+      layer,
+      side,
+      sizeInput,
+    );
     reportsById[layer.id] = report;
     return layerToDesignStateElement(layer, report, idx + 1, selectedLayerId);
   });

@@ -3,16 +3,31 @@
  * 不修改 print area 或 shirt scale 系統。
  */
 
+import type { Side } from "./constants";
 import {
   getLayerEffectiveCmRect,
-  getPrintAreaCmBounds,
   type LayerCmRect,
   type PrintAreaCmBounds,
 } from "./design-cm";
+import { resolveGarmentPrintAreaCm } from "./garment-anchor-runtime";
+import {
+  getWorkspaceGarmentLayerOverflowState,
+} from "./layer-overflow";
+import { mapWorkspaceLayerCmRectToGarmentPrintArea } from "./placement-presets";
 import { getPrintSafeAreaCm, PRINT_SAFE_AREA_SPEC } from "./printArea";
 import { getRotatedAabb } from "./geometry";
 import { getTextLayerPlacementCmRect } from "./text-layer";
 import type { DesignLayer } from "./types";
+
+export type { LayerOverflowAmountsCm, LayerOverflowState } from "./layer-overflow";
+export {
+  buildWorkspaceGarmentLayerOverflowMap,
+  getBluePrintAreaBoundsForSize,
+  getLayerOverflowState,
+  getLayerOverflowStateForSize,
+  getRectOverflowState,
+  getWorkspaceGarmentLayerOverflowState,
+} from "./layer-overflow";
 
 export const DESIGN_SAFE_ZONE_SCALE = 1 - PRINT_SAFE_AREA_SPEC.marginRatio * 2;
 
@@ -42,8 +57,13 @@ export interface LayerInspectorReport {
   aabb: LayerInspectorAabbCm;
 }
 
+export interface InspectDesignLayerContext {
+  side: Side;
+  size: string;
+}
+
 export function getDesignSafeZoneCm(
-  printArea: PrintAreaCmBounds = getPrintAreaCmBounds(),
+  printArea: PrintAreaCmBounds,
 ): LayerCmRect {
   return getPrintSafeAreaCm(printArea);
 }
@@ -104,20 +124,18 @@ function aabbExceedsBounds(
 
 export function inspectDesignLayer(
   layer: DesignLayer,
-  printArea: PrintAreaCmBounds = getPrintAreaCmBounds(),
+  context: InspectDesignLayerContext,
 ): LayerInspectorReport {
+  const { side, size } = context;
   const rect = readLayerModelCmRect(layer);
-  const aabb = getLayerOrientedAabbCm(rect, layer.rotation);
-  const printBounds: LayerCmRect = {
-    x_cm: 0,
-    y_cm: 0,
-    width_cm: printArea.width,
-    height_cm: printArea.height,
-  };
-  const safeZone = getDesignSafeZoneCm(printArea);
+  const mappedRect = mapWorkspaceLayerCmRectToGarmentPrintArea(rect, side, size);
+  const garmentPrintArea = resolveGarmentPrintAreaCm(size, side);
+  const mappedAabb = getLayerOrientedAabbCm(mappedRect, layer.rotation);
+  const safeZone = getDesignSafeZoneCm(garmentPrintArea);
 
-  const exceedsPrintArea = aabbExceedsBounds(aabb, printBounds);
-  const exceedsSafeZone = aabbExceedsBounds(aabb, safeZone);
+  const overflow = getWorkspaceGarmentLayerOverflowState(layer, side, size);
+  const exceedsPrintArea = overflow.exceedsPrintArea;
+  const exceedsSafeZone = aabbExceedsBounds(mappedAabb, safeZone);
 
   const warnings: string[] = [];
   if (exceedsPrintArea) {
@@ -141,15 +159,15 @@ export function inspectDesignLayer(
     exceedsPrintArea,
     exceedsSafeZone,
     warnings,
-    aabb,
+    aabb: mappedAabb,
   };
 }
 
 export function inspectDesignLayers(
   layers: DesignLayer[],
-  printArea: PrintAreaCmBounds = getPrintAreaCmBounds(),
+  context: InspectDesignLayerContext,
 ): LayerInspectorReport[] {
-  return layers.map((layer) => inspectDesignLayer(layer, printArea));
+  return layers.map((layer) => inspectDesignLayer(layer, context));
 }
 
 export function formatInspectorCm(value: number, digits = 1): string {

@@ -3,7 +3,26 @@
 import { useCallback, useRef } from "react";
 import type { PrintAreaCmBounds } from "@/lib/design-cm";
 import {
-  clientPointToPrintCm,
+  applyDesignerDragSnap,
+  clientPixelDeltaToDesignerCm,
+  clientPointToDesignerCm,
+  createDesignerPointerDragState,
+  createDesignerPointerResizeState,
+  projectWorkspaceMaxResizeToDesigner,
+  resolveDesignerHandleResizeWorkspacePatch,
+  setLayerDesignerPosition,
+  type DesignerPointerDragState,
+  type DesignerPointerResizeState,
+} from "@/lib/designer-coordinate-controller";
+import type {
+  DesignerCoordinateContext,
+  DesignerCssPercentStyle,
+} from "@/lib/designer-coordinate-facade";
+import { toCssPercent } from "@/lib/coordinate-runtime";
+import type { GarmentConstraintBadgeMeta } from "@/lib/garment-constraint-ux-polish";
+import { GarmentConstraintLayerWarning } from "./GarmentConstraintLayerWarning";
+import type { DesignLayer } from "@/lib/types";
+import {
   computeHandleResizeCm,
   getResizeHandleCursor,
   type ResizeEdge,
@@ -11,7 +30,6 @@ import {
 } from "@/lib/direct-manipulation";
 import { guidesEqual, type SnapTarget } from "@/lib/element-snap";
 import {
-  applyDragSnap,
   fitLayerTransform,
   getScaledSize,
 } from "@/lib/geometry";
@@ -62,23 +80,34 @@ function isResizeEdge(handle: ResizeHandle): handle is ResizeEdge {
   return handle === "n" || handle === "e" || handle === "s" || handle === "w";
 }
 
-function ResizeHandleGrip({ handle }: { handle: ResizeHandle }) {
+function ResizeHandleGrip({
+  handle,
+  isOverflow,
+}: {
+  handle: ResizeHandle;
+  isOverflow?: boolean;
+}) {
+  const borderClass = isOverflow ? "border-red-500" : "border-blue-500";
   if (isResizeEdge(handle)) {
     const vertical = handle === "n" || handle === "s";
     return (
       <span
-        className={`block rounded-full border-2 border-blue-500 bg-white shadow-sm ${
+        className={`block rounded-full border-2 bg-white shadow-sm ${borderClass} ${
           vertical ? "h-1.5 w-7" : "h-7 w-1.5"
         }`}
       />
     );
   }
   return (
-    <span className="block h-4 w-4 rounded-sm border-2 border-blue-500 bg-white shadow-sm" />
+    <span
+      className={`block h-4 w-4 rounded-sm border-2 bg-white shadow-sm ${borderClass}`}
+    />
   );
 }
 
 export function PrintAreaElement({
+  layer,
+  designerPointerContext,
   x,
   y,
   width,
@@ -101,9 +130,16 @@ export function PrintAreaElement({
   printArea,
   maxResizeWidth_cm,
   maxResizeHeight_cm,
+  hasPrintAreaOverflow = false,
+  constraintWarningLabel = null,
+  constraintBadge = null,
+  displayPercentStyle,
   children,
   className = "",
 }: {
+  /** Step 13.0F：Drag 經 Controller 寫入 Storage */
+  layer: DesignLayer;
+  designerPointerContext: DesignerCoordinateContext;
   x: number;
   y: number;
   width: number;
@@ -137,21 +173,25 @@ export function PrintAreaElement({
   maxResizeWidth_cm?: number;
   /** 點陣圖最大印刷高（cm）；省略則不限制 */
   maxResizeHeight_cm?: number;
+  /** 超出 Blue Print Area — 僅 UI 警示，不修改 layer */
+  hasPrintAreaOverflow?: boolean;
+  /** Current Garment Constraint 圖層警告文案 */
+  constraintWarningLabel?: string | null;
+  /** Step 12.9D：圖層 badge 等級與 tooltip */
+  constraintBadge?: GarmentConstraintBadgeMeta | null;
+  /** Step 13.0D：Display Layer CSS %（Drag 使用 Designer Pointer + Controller） */
+  displayPercentStyle?: DesignerCssPercentStyle;
   children: React.ReactNode;
   className?: string;
 }) {
   const dragRef = useRef<{
     startX: number;
     startY: number;
-    originX: number;
-    originY: number;
+    designerDrag: DesignerPointerDragState;
   } | null>(null);
   const resizeRef = useRef<{
     handle: ResizeHandle;
-    originX: number;
-    originY: number;
-    originWidth: number;
-    originHeight: number;
+    designerResize: DesignerPointerResizeState;
   } | null>(null);
   const lastGuidesRef = useRef<SnapGuidesState>(EMPTY_GUIDES);
   const gridSnapRef = useRef(gridSnapEnabled);
@@ -185,31 +225,57 @@ export function PrintAreaElement({
     [onSnapGuidesChange],
   );
 
-  const applyPosition = useCallback(
-    (nextX: number, nextY: number, useSnap: boolean) => {
-      let px = nextX;
-      let py = nextY;
+  const layerRef = useRef(layer);
+  const designerPointerContextRef = useRef(designerPointerContext);
+  layerRef.current = layer;
+  designerPointerContextRef.current = designerPointerContext;
+
+  const applyWorkspacePosition = useCallback(
+    (designerX: number, designerY: number, useSnap: boolean) => {
+      let wsX = designerX;
+      let wsY = designerY;
 
       if (useSnap) {
-        const snap = applyDragSnap(px, py, width, height, scale, printArea, {
-          gridSnap: gridSnapRef.current,
-          elementSnap: elementSnapRef.current,
-          elementSnapThreshold: elementSnapDistanceRef.current,
-          otherElements: otherElementsRef.current,
-        });
-        px = snap.x;
-        py = snap.y;
+        const snap = applyDesignerDragSnap(
+          layerRef.current,
+          { x_cm: designerX, y_cm: designerY },
+          designerPointerContextRef.current,
+          {
+            gridSnap: gridSnapRef.current,
+            elementSnap: elementSnapRef.current,
+            elementSnapThresholdCm: elementSnapDistanceRef.current,
+            otherElements: otherElementsRef.current,
+          },
+        );
+        if (
+          snap.workspacePatch.x_cm === undefined ||
+          snap.workspacePatch.y_cm === undefined
+        ) {
+          return;
+        }
+        wsX = snap.workspacePatch.x_cm;
+        wsY = snap.workspacePatch.y_cm;
         emitGuides({
-          printCenterX: snap.printCenterSnapX,
-          printCenterY: snap.printCenterSnapY,
-          elementVertical: snap.elementGuides.vertical,
-          elementHorizontal: snap.elementGuides.horizontal,
+          printCenterX: snap.guides.printCenterX,
+          printCenterY: snap.guides.printCenterY,
+          elementVertical: snap.guides.elementVertical,
+          elementHorizontal: snap.guides.elementHorizontal,
         });
+      } else {
+        const patch = setLayerDesignerPosition(
+          layerRef.current,
+          designerPointerContextRef.current,
+          { x_cm: designerX, y_cm: designerY },
+        );
+        if (patch.x_cm !== undefined && patch.y_cm !== undefined) {
+          wsX = patch.x_cm;
+          wsY = patch.y_cm;
+        }
       }
 
       const fitted = fitLayerTransform(
-        px,
-        py,
+        wsX,
+        wsY,
         width,
         height,
         scale,
@@ -252,8 +318,10 @@ export function PrintAreaElement({
     dragRef.current = {
       startX: event.clientX,
       startY: event.clientY,
-      originX: x,
-      originY: y,
+      designerDrag: createDesignerPointerDragState(
+        layer,
+        designerPointerContext,
+      ),
     };
     lastGuidesRef.current = EMPTY_GUIDES;
   };
@@ -264,17 +332,20 @@ export function PrintAreaElement({
     const printRect = getPrintAreaRect(event.currentTarget);
     if (!printRect) return;
 
-    const scaleX = printArea.width / printRect.width;
-    const scaleY = printArea.height / printRect.height;
-
-    const dx = (event.clientX - dragRef.current.startX) * scaleX;
-    const dy = (event.clientY - dragRef.current.startY) * scaleY;
-
-    applyPosition(
-      dragRef.current.originX + dx,
-      dragRef.current.originY + dy,
-      true,
+    const deltaXPx = event.clientX - dragRef.current.startX;
+    const deltaYPx = event.clientY - dragRef.current.startY;
+    const deltaDesigner = clientPixelDeltaToDesignerCm(
+      deltaXPx,
+      deltaYPx,
+      printRect,
+      designerPointerContextRef.current,
     );
+    const designerX =
+      dragRef.current.designerDrag.originDesignerX_cm + deltaDesigner.dx_cm;
+    const designerY =
+      dragRef.current.designerDrag.originDesignerY_cm + deltaDesigner.dy_cm;
+
+    applyWorkspacePosition(designerX, designerY, true);
   };
 
   const onPointerUp = (event: React.PointerEvent) => {
@@ -293,10 +364,10 @@ export function PrintAreaElement({
       onSelect(event.shiftKey);
       resizeRef.current = {
         handle,
-        originX: x,
-        originY: y,
-        originWidth: scaled.width,
-        originHeight: scaled.height,
+        designerResize: createDesignerPointerResizeState(
+          layer,
+          designerPointerContext,
+        ),
       };
       event.currentTarget.setPointerCapture(event.pointerId);
     };
@@ -306,29 +377,59 @@ export function PrintAreaElement({
     const printRect = getPrintAreaRect(event.currentTarget);
     if (!printRect) return;
 
-    const pointer = clientPointToPrintCm(
+    const pointer = clientPointToDesignerCm(
       event.clientX,
       event.clientY,
       printRect,
-      printArea.width,
-      printArea.height,
+      designerPointerContextRef.current,
     );
+    const designerMax = projectWorkspaceMaxResizeToDesigner(
+      maxResizeWidth_cm,
+      maxResizeHeight_cm,
+      designerPointerContextRef.current,
+    );
+    const { designerResize } = resizeRef.current;
 
-    const next = computeHandleResizeCm({
+    const designerRect = computeHandleResizeCm({
       handle: resizeRef.current.handle,
-      pointerX: pointer.x,
-      pointerY: pointer.y,
-      originX: resizeRef.current.originX,
-      originY: resizeRef.current.originY,
-      originWidth: resizeRef.current.originWidth,
-      originHeight: resizeRef.current.originHeight,
+      pointerX: pointer.x_cm,
+      pointerY: pointer.y_cm,
+      originX: designerResize.originDesignerX_cm,
+      originY: designerResize.originDesignerY_cm,
+      originWidth: designerResize.originDesignerWidth_cm,
+      originHeight: designerResize.originDesignerHeight_cm,
       rotation,
       lockAspect: !isResizeEdge(resizeRef.current.handle),
-      maxWidth_cm: maxResizeWidth_cm,
-      maxHeight_cm: maxResizeHeight_cm,
+      maxWidth_cm: designerMax.maxWidth_cm,
+      maxHeight_cm: designerMax.maxHeight_cm,
     });
 
-    onResizeChange(next);
+    const workspacePatch = resolveDesignerHandleResizeWorkspacePatch(
+      layerRef.current,
+      designerPointerContextRef.current,
+      {
+        x_cm: designerRect.x,
+        y_cm: designerRect.y,
+        width_cm: designerRect.width,
+        height_cm: designerRect.height,
+      },
+    );
+
+    if (
+      workspacePatch.x_cm === undefined ||
+      workspacePatch.y_cm === undefined ||
+      workspacePatch.width_cm === undefined ||
+      workspacePatch.height_cm === undefined
+    ) {
+      return;
+    }
+
+    onResizeChange({
+      x: workspacePatch.x_cm,
+      y: workspacePatch.y_cm,
+      width: workspacePatch.width_cm,
+      height: workspacePatch.height_cm,
+    });
   };
 
   const onResizePointerUp = (event: React.PointerEvent) => {
@@ -338,18 +439,33 @@ export function PrintAreaElement({
     }
   };
 
+  const ringClass =
+    isActive && hasPrintAreaOverflow
+      ? "ring-2 ring-red-500 ring-offset-1 animate-garment-constraint-ring-pulse"
+      : isActive
+        ? "ring-2 ring-blue-400 ring-offset-1"
+        : "";
+  const selectionBorderClass = hasPrintAreaOverflow
+    ? "border-red-500"
+    : "border-blue-500";
+
+  const percentStyle =
+    displayPercentStyle ??
+    toCssPercent({
+      layerRect: {
+        x_cm: x,
+        y_cm: y,
+        width_cm: scaled.width,
+        height_cm: scaled.height,
+      },
+      printArea,
+    });
+
   return (
     <div
       data-layer-root
-      className={`absolute ${locked ? "cursor-default" : isEditing ? "cursor-text" : "touch-none cursor-move"} ${className} ${
-        isActive ? "ring-2 ring-blue-400 ring-offset-1" : ""
-      } ${locked ? "opacity-90" : ""}`}
-      style={{
-        left: `${(x / printArea.width) * 100}%`,
-        top: `${(y / printArea.height) * 100}%`,
-        width: `${(scaled.width / printArea.width) * 100}%`,
-        height: `${(scaled.height / printArea.height) * 100}%`,
-      }}
+      className={`absolute ${locked ? "cursor-default" : isEditing ? "cursor-text" : "touch-none cursor-move"} ${className} ${ringClass} ${locked ? "opacity-90" : ""}`}
+      style={percentStyle}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
@@ -359,6 +475,12 @@ export function PrintAreaElement({
         onDoubleClick?.();
       }}
     >
+      {constraintWarningLabel ? (
+        <GarmentConstraintLayerWarning
+          label={constraintWarningLabel}
+          badge={constraintBadge ?? undefined}
+        />
+      ) : null}
       <div
         className="relative flex h-full w-full items-center justify-center"
         style={{
@@ -370,7 +492,15 @@ export function PrintAreaElement({
           <div
             className={`absolute inset-0 z-10 ${showControls ? "" : "pointer-events-none"}`}
           >
-            <div className="absolute inset-0 border-2 border-dashed border-blue-500" />
+            <div
+              className={`absolute inset-0 border-2 border-dashed ${selectionBorderClass}`}
+            />
+            {hasPrintAreaOverflow && (
+              <div
+                className="pointer-events-none absolute inset-0 animate-garment-constraint-ring-pulse bg-red-500/15"
+                aria-hidden
+              />
+            )}
             {showControls &&
               activeHandles.map((handle) => (
                 <button
@@ -385,7 +515,10 @@ export function PrintAreaElement({
                   onPointerUp={onResizePointerUp}
                   onPointerCancel={onResizePointerUp}
                 >
-                  <ResizeHandleGrip handle={handle} />
+                  <ResizeHandleGrip
+                    handle={handle}
+                    isOverflow={hasPrintAreaOverflow}
+                  />
                 </button>
               ))}
           </div>

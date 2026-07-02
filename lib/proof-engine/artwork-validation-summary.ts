@@ -4,7 +4,6 @@
  */
 
 import { EXPORT_DPI } from "../constants";
-import { getPrintAreaCmBounds } from "../design-cm";
 import {
   DESIGN_SIDES,
   getLayersForSlot,
@@ -28,8 +27,6 @@ export interface ArtworkValidationSummary {
 }
 
 function evaluatePrintAreaPassed(order: ProofOrder): boolean {
-  const printArea = getPrintAreaCmBounds();
-
   for (const side of DESIGN_SIDES) {
     if (!hasDesignInSlot(order.layers_by_template, order.gender, side)) {
       continue;
@@ -45,7 +42,10 @@ function evaluatePrintAreaPassed(order: ProofOrder): boolean {
       if (!layer.visible) {
         continue;
       }
-      const report = inspectDesignLayer(layer, printArea);
+      const report = inspectDesignLayer(layer, {
+        side,
+        size: order.size,
+      });
       if (report.exceedsPrintArea) {
         return false;
       }
@@ -58,8 +58,11 @@ function evaluatePrintAreaPassed(order: ProofOrder): boolean {
 export function buildArtworkValidationSummary(
   order: ProofOrder,
 ): ArtworkValidationSummary {
-  const spec = getPrintExportSpec(order.active_side);
-  const { widthPx, heightPx } = getPrintExportDimensionsPx(order.active_side);
+  const spec = getPrintExportSpec(order.active_side, order.size);
+  const { widthPx, heightPx } = getPrintExportDimensionsPx(
+    order.active_side,
+    order.size,
+  );
   const printAreaPassed = evaluatePrintAreaPassed(order);
 
   const baseChecks: ArtworkValidationCheck[] = [

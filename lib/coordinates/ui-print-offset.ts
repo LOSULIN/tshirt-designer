@@ -70,3 +70,23 @@ export function buildUiPrintAreaContainerStyle(
     height: `${heightPct * 100}%`,
   };
 }
+
+/** 模板 px 矩形 → 畫布 %（左上角定位，無 translate） */
+export function buildUiPrintAreaContainerStyleFromPx(
+  rect: {
+    leftPx: number;
+    topPx: number;
+    widthPx: number;
+    heightPx: number;
+  },
+  containerWidth: number,
+  containerHeight: number,
+): UiPrintContainerStyle {
+  return {
+    left: `${(rect.leftPx / containerWidth) * 100}%`,
+    top: `${(rect.topPx / containerHeight) * 100}%`,
+    transform: "none",
+    width: `${(rect.widthPx / containerWidth) * 100}%`,
+    height: `${(rect.heightPx / containerHeight) * 100}%`,
+  };
+}

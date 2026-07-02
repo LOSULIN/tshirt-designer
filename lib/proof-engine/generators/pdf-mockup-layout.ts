@@ -77,6 +77,7 @@ export function computePdfMockupPlacement(
   side: Side,
   contentArea: PdfMockupContentAreaPt,
   embeddedImageSize?: { width: number; height: number },
+  size: string = "M",
 ): PdfMockupPlacement {
   const { widthPx: mockupW, heightPx: mockupH } = getCanonicalMockupExportPx();
 
@@ -89,7 +90,7 @@ export function computePdfMockupPlacement(
   const x = contentArea.originX + (contentArea.maxWidthPt - drawW) / 2;
   const y = contentArea.originY + (contentArea.maxHeightPt - drawH) / 2;
 
-  const printAreaCm = getDesignerPrintAreaCmBounds(side);
+  const printAreaCm = getDesignerPrintAreaCmBounds(side, size);
   const printRectPx = getMockupPngPrintAreaRectPx(side);
 
   const normLeft = printRectPx.left / mockupW;

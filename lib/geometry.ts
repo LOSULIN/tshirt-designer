@@ -79,16 +79,11 @@ export function getMaxLayerScale(
 }
 
 export function clampLayerScale(
-  width: number,
-  height: number,
   scale: number,
-  rotation: number,
-  printArea: PrintAreaCmBounds,
   min = LAYER_MIN_SCALE,
   max = LAYER_MAX_SCALE,
 ): number {
-  const maxFit = getMaxLayerScale(width, height, rotation, printArea, max);
-  return Math.min(Math.max(scale, min), maxFit);
+  return Math.min(Math.max(scale, min), max);
 }
 
 export function clampPositionToPrintArea(
@@ -132,7 +127,7 @@ export function clampPositionToPrintArea(
   };
 }
 
-/** 將圖層縮放與位置限制在可印刷區內（含旋轉後外接矩形） */
+/** 將圖層位置限制在可印刷區內（含旋轉後外接矩形）；不縮放尺寸。 */
 export function fitLayerTransform(
   x: number,
   y: number,
@@ -144,11 +139,7 @@ export function fitLayerTransform(
   options?: { minScale?: number; maxScale?: number },
 ): { x: number; y: number; scale: number } {
   const clampedScale = clampLayerScale(
-    width,
-    height,
     scale,
-    rotation,
-    printArea,
     options?.minScale ?? LAYER_MIN_SCALE,
     options?.maxScale ?? LAYER_MAX_SCALE,
   );

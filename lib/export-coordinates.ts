@@ -6,15 +6,18 @@
  */
 
 import type { Side } from "./constants";
-import { PRODUCTION_DPI } from "./coordinates/production";
+import { PRODUCTION_DPI } from "./coordinates/production-constants";
 import {
-  getDesignerPrintAreaCmBounds,
-  getLayerEffectiveCmRect,
+  exportCanvasSizeToTargetRect,
+  mapLayerCmRect,
+  resolveLayerCmRect,
+  resolvePrintAreaCm,
+} from "./coordinate-runtime";
+import {
   getPrintAreaCmBounds,
   type LayerCmRect,
   type PrintAreaCmBounds,
 } from "./design-cm";
-import { getTextLayerExportCmRect, getTextLayerPlacementCmRect } from "./text-layer";
 import type { DesignLayer } from "./types";
 
 export const EXPORT_DPI = PRODUCTION_DPI;
@@ -35,9 +38,12 @@ export interface ExportCanvasSpec {
   heightPx: number;
 }
 
-/** 匯出畫布規格：與 Designer 藍框相同之印刷區 @ 300 DPI */
-export function getExportCanvasSpec(side: Side): ExportCanvasSpec {
-  const printAreaCm = getDesignerPrintAreaCmBounds(side);
+/** 匯出畫布規格：Garment Blue 印刷區 @ 300 DPI */
+export function getExportCanvasSpec(
+  side: Side,
+  size: string = "M",
+): ExportCanvasSpec {
+  const printAreaCm = resolvePrintAreaCm({ runtime: "export", side, size });
   const dpi = EXPORT_DPI;
   return {
     side,
@@ -71,15 +77,15 @@ export interface ExportCanvasSizePx {
 
 /** 與 DesignCanvas / FlatShirtDesignView 相同的圖層 cm 外框 */
 export function getLayerExportCmRect(layer: DesignLayer): LayerCmRect {
-  if (layer.type === "text") {
-    return getTextLayerExportCmRect(layer);
-  }
-  return getLayerEffectiveCmRect(layer);
+  return resolveLayerCmRect(layer, { purpose: "export" });
 }
 
-export function resolveExportPrintAreaCm(side?: Side): PrintAreaCmBounds {
+export function resolveExportPrintAreaCm(
+  side?: Side,
+  size: string = "M",
+): PrintAreaCmBounds {
   if (side) {
-    return getDesignerPrintAreaCmBounds(side);
+    return resolvePrintAreaCm({ runtime: "export", side, size });
   }
   return getPrintAreaCmBounds();
 }
@@ -99,16 +105,19 @@ export function mapLayerCmRectToExportPx(
   printAreaCm: PrintAreaCmBounds,
   canvasSizePx: ExportCanvasSizePx,
 ): ExportLayerRectPx {
-  const pxPerCmX = canvasSizePx.widthPx / printAreaCm.width;
-  const pxPerCmY = canvasSizePx.heightPx / printAreaCm.height;
+  const mapped = mapLayerCmRect({
+    layerRect: rect,
+    printArea: printAreaCm,
+    targetRect: exportCanvasSizeToTargetRect(canvasSizePx),
+  });
 
   return {
-    x: rect.x_cm * pxPerCmX,
-    y: rect.y_cm * pxPerCmY,
-    width: rect.width_cm * pxPerCmX,
-    height: rect.height_cm * pxPerCmY,
-    pxPerCmX,
-    pxPerCmY,
+    x: mapped.x,
+    y: mapped.y,
+    width: mapped.width,
+    height: mapped.height,
+    pxPerCmX: mapped.pxPerCmX,
+    pxPerCmY: mapped.pxPerCmY,
   };
 }
 

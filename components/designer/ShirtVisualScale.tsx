@@ -6,18 +6,22 @@ import type { ApparelSize } from "@/lib/sizes";
 import { useEffect, type CSSProperties, type ReactNode } from "react";
 
 /**
- * 僅縮放 shirt 視覺（模板圖／SVG）；print area 與 design layer 置於外層，不受影響。
+ * 縮放 shirt 模板與 Factory Overlay（設計器 Blue／圖層與模板同源 scale）。
+ * Flat Preview / Mockup 若 print area 置於外層則不受影響。
  */
 export function ShirtVisualScale({
   size = "M",
   children,
   className = "absolute inset-0",
   style,
+  transformOrigin = "center center",
 }: {
   size?: ApparelSize | string;
   children: ReactNode;
   className?: string;
   style?: CSSProperties;
+  /** 預設 center；主畫布可設為 print-top 以固定 Blue 上緣 */
+  transformOrigin?: string;
 }) {
   const garmentScale = getGarmentVisualRenderScale(size);
   const transform = `scale(${garmentScale})`;
@@ -33,7 +37,7 @@ export function ShirtVisualScale({
       className={className}
       style={{
         transform,
-        transformOrigin: "center center",
+        transformOrigin,
         ...style,
       }}
     >

@@ -65,7 +65,7 @@ export function AlignmentToolbar({
         ))}
       </div>
       <span className="hidden text-[10px] text-zinc-400 sm:inline">
-        單選對齊印刷區 · 多選對齊群組
+        單選對齊設計工作區 · 多選對齊群組
       </span>
     </div>
   );

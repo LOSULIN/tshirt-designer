@@ -7,17 +7,19 @@ import {
   type Side,
   type Size,
 } from "@/lib/constants";
+import type { PrintAreaCmBounds } from "@/lib/design-cm";
 import {
-  getLayerEffectiveCmRect,
-  getPrintAreaCmBounds,
-  type PrintAreaCmBounds,
-} from "@/lib/design-cm";
+  resolveLayerCmRect,
+  resolvePrintAreaCm,
+  toCssPercent,
+} from "@/lib/coordinate-runtime";
 import {
   DEFAULT_PRINT_MODE,
   getPrintAreaContainerStyle,
   resolvePreviewPrintPositionMode,
   type PreviewPrintPositionMode,
 } from "@/lib/printArea";
+import { mapWorkspaceLayerCmRectToGarmentPrintArea } from "@/lib/placement-presets";
 import { sortLayersByZIndex } from "@/lib/layers";
 import type { DesignLayer } from "@/lib/types";
 import { LayerPreviewContent } from "./LayerPreviewContent";
@@ -28,21 +30,24 @@ import { ProcessedTemplateImage } from "./ProcessedTemplateImage";
 function StaticDesignLayer({
   layer,
   printArea,
+  side,
+  size,
 }: {
   layer: DesignLayer;
   printArea: PrintAreaCmBounds;
+  side: Side;
+  size: Size;
 }) {
-  const rect = getLayerEffectiveCmRect(layer);
+  const rect = mapWorkspaceLayerCmRectToGarmentPrintArea(
+    resolveLayerCmRect(layer, { purpose: "preview" }),
+    side,
+    size,
+  );
 
   return (
     <div
       className="pointer-events-none absolute"
-      style={{
-        left: `${(rect.x_cm / printArea.width) * 100}%`,
-        top: `${(rect.y_cm / printArea.height) * 100}%`,
-        width: `${(rect.width_cm / printArea.width) * 100}%`,
-        height: `${(rect.height_cm / printArea.height) * 100}%`,
-      }}
+      style={toCssPercent({ layerRect: rect, printArea })}
     >
       <div
         className="flex h-full w-full items-center justify-center"
@@ -81,7 +86,7 @@ export function FlatShirtDesignView({
   const assetSrc = getAdultTshirtTemplateSrc(shirtColor, side);
 
   const visibleLayers = sortLayersByZIndex(layers).filter((l) => l.visible);
-  const printArea = getPrintAreaCmBounds();
+  const printArea = resolvePrintAreaCm({ runtime: "preview", side, size });
   const printAreaStyle = getPrintAreaContainerStyle(side, {
     mode: resolvePreviewPrintPositionMode(previewPrintPositionMode),
     size,
@@ -119,6 +124,8 @@ export function FlatShirtDesignView({
               key={layer.id}
               layer={layer}
               printArea={printArea}
+              side={side}
+              size={size}
             />
           ))}
         </div>

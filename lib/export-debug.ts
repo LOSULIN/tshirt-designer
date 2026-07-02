@@ -48,8 +48,9 @@ function layerLabel(layer: DesignLayer): string {
 export function buildExportDebugReport(
   layers: DesignLayer[],
   side: Side,
+  size: string = "M",
 ): ExportDebugReport {
-  const spec = getExportCanvasSpec(side);
+  const spec = getExportCanvasSpec(side, size);
   const canvasSize = { widthPx: spec.widthPx, heightPx: spec.heightPx };
   const objects: ExportObjectDebugEntry[] = [];
 

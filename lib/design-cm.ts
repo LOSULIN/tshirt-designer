@@ -12,9 +12,9 @@ import {
   type ProductionRectMm,
 } from "./coordinates/production";
 import type { Side } from "./constants";
+import { resolveGarmentPrintAreaCm } from "./garment-anchor-runtime";
 import {
   getRuntimeTemplateCanvas,
-  getRuntimeTemplatePrintArea,
   getRuntimeTemplatePxPerCm,
 } from "./template-profile/runtime";
 import { ADULT_TSHIRT_SIZE_MEASUREMENTS } from "./sizes";
@@ -57,10 +57,12 @@ export function getPrintAreaCmBounds(): PrintAreaCmBounds {
   return getProductionPrintAreaCm();
 }
 
-/** 設計器預覽藍框（正面 35×50、背面 38×45） */
-export function getDesignerPrintAreaCmBounds(side: Side): PrintAreaCmBounds {
-  const { widthCm, heightCm } = getRuntimeTemplatePrintArea(side);
-  return { width: widthCm, height: heightCm };
+/** 設計器預覽藍框（Garment Blue 印刷區；預設 M） */
+export function getDesignerPrintAreaCmBounds(
+  side: Side,
+  size: string = "M",
+): PrintAreaCmBounds {
+  return resolveGarmentPrintAreaCm(size, side);
 }
 
 /**

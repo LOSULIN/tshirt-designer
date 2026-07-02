@@ -15,21 +15,23 @@ export async function generatePrintPng(params: {
   gender: Gender;
   side: Side;
   layersByTemplate: DesignLayersByTemplate;
+  size?: string;
 }): Promise<Uint8Array> {
-  const { gender, side, layersByTemplate } = params;
+  const { gender, side, layersByTemplate, size = "M" } = params;
   const layers = getLayersForSlot(layersByTemplate, gender, side);
 
   if (!hasDesignInSlot(layersByTemplate, gender, side)) {
     throw new Error(`No design on ${side} for print generation`);
   }
 
-  const blob = await renderPrintExportPng(layers, { side });
+  const blob = await renderPrintExportPng(layers, { side, size });
   return new Uint8Array(await blob.arrayBuffer());
 }
 
 export async function generatePrintsForOrder(params: {
   gender: Gender;
   layersByTemplate: DesignLayersByTemplate;
+  size?: string;
 }): Promise<Partial<Record<Side, Uint8Array>>> {
   const prints: Partial<Record<Side, Uint8Array>> = {};
 
@@ -42,6 +44,7 @@ export async function generatePrintsForOrder(params: {
         gender: params.gender,
         side,
         layersByTemplate: params.layersByTemplate,
+        size: params.size,
       });
     }),
   );
