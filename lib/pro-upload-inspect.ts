@@ -2,7 +2,7 @@ import {
   formatFileSize,
   getFileFormat,
 } from "./pro-upload";
-import { MAX_FILE_SIZE_BYTES } from "./constants";
+import { MAX_FILE_SIZE_BYTES } from "./upload-file-limits";
 
 export type ProUploadFileKind = "pdf" | "psd" | "ai";
 

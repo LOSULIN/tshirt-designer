@@ -1,4 +1,4 @@
-import { MAX_FILE_SIZE_BYTES, MAX_FILE_SIZE_MB } from "./constants";
+import { MAX_FILE_SIZE_BYTES, MAX_FILE_SIZE_MB } from "./upload-file-limits";
 
 export const PRO_UPLOAD_MAX_FILE_SIZE_MB = MAX_FILE_SIZE_MB;
 export const PRO_UPLOAD_MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_BYTES;

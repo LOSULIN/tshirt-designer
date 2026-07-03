@@ -209,13 +209,14 @@ const canvasSrc = readFileSync(
   "utf8",
 );
 if (
-  !canvasSrc.includes("getConstraintOverlayDescription") ||
+  (!canvasSrc.includes("getConstraintOverlayDescription") &&
+    !canvasSrc.includes("buildDisplayBlueFrameTooltip")) ||
   !canvasSrc.includes("getGarmentPrintStatus") ||
   !canvasSrc.includes("getLayerConstraintBadgeMeta")
 ) {
-  fail("DesignCanvas 未接 polish helpers");
+  fail("DesignCanvas 未接 polish / display tooltip helpers");
 } else {
-  pass("DesignCanvas 接 polish helpers");
+  pass("DesignCanvas 接 polish / display tooltip helpers");
 }
 
 // Runtime files must remain untouched (no polish import)

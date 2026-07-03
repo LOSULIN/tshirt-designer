@@ -37,6 +37,8 @@ export function LayerFloatingControls({
   onRotateRight90,
   onDelete,
   displayPercentStyle,
+  hasPrintAreaOverflow = false,
+  onFitToPrintableArea,
 }: {
   printArea: PrintAreaCmBounds;
   /** Step 13.0D：Display Layer 定位 */
@@ -53,6 +55,8 @@ export function LayerFloatingControls({
   onRotateLeft90?: () => void;
   onRotateRight90?: () => void;
   onDelete?: () => void;
+  hasPrintAreaOverflow?: boolean;
+  onFitToPrintableArea?: () => void;
 }) {
   const { designState } = useLiveDesignState();
   const floatingContext = useMemo(
@@ -263,6 +267,21 @@ export function LayerFloatingControls({
             onPointerCancel={onRotatePointerUp}
           >
             ↻
+          </button>
+        )}
+        {onFitToPrintableArea && hasPrintAreaOverflow && (
+          <button
+            type="button"
+            title="適合可印範圍"
+            aria-label="Fit to printable area"
+            data-fit-to-printable-area
+            className="whitespace-nowrap rounded-md px-2 py-1 text-[10px] font-medium text-red-700 hover:bg-red-50"
+            onClick={(e) => {
+              e.stopPropagation();
+              onFitToPrintableArea();
+            }}
+          >
+            適合可印範圍
           </button>
         )}
         {onDelete && (

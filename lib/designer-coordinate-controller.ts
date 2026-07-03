@@ -33,7 +33,7 @@ import { createDefaultShapeLayer } from "./shape-layer";
 import { createDefaultTextLayer } from "./text-layer";
 import { DEFAULT_RICH_TEXT_FIELDS } from "./text-style";
 import { defaultLayerName, getNextZIndex } from "./layers";
-import type { ShapeKind, TextDesignLayer, ShapeDesignLayer } from "./types";
+import type { ShapeKind, TextDesignLayer, ShapeDesignLayer, ImageDesignLayer } from "./types";
 import {
   createDesignerCoordinateContext,
   designerPointToWorkspacePoint,
@@ -427,13 +427,10 @@ function mergeWorkspacePatchIntoLayer(
   layer: DesignLayer,
   patch: WorkspaceLayerPatch,
 ): DesignLayer {
-  const next: Record<string, unknown> = { ...layer };
-  for (const [key, value] of Object.entries(patch)) {
-    if (value !== undefined) {
-      next[key] = value;
-    }
-  }
-  return next as DesignLayer;
+  return {
+    ...layer,
+    ...patch,
+  };
 }
 
 /** 於 Designer 空間 fit，再經 Controller 寫回 Workspace Storage */
@@ -460,12 +457,16 @@ function fitLayerInDesignerCoordinate(
 
   let fitted: DesignLayer;
   if (layer.type === "text") {
-    fitted = fitTextLayer(designerLayer, designerPrintArea, textFitOptions);
+    fitted = fitTextLayer(
+      designerLayer as TextDesignLayer,
+      designerPrintArea,
+      textFitOptions,
+    );
   } else if (layer.type === "shape") {
-    fitted = fitShapeLayer(designerLayer, designerPrintArea);
+    fitted = fitShapeLayer(designerLayer as ShapeDesignLayer, designerPrintArea);
   } else {
     fitted = fitImageLayer(
-      designerLayer,
+      designerLayer as ImageDesignLayer,
       designerPrintArea,
       options?.rasterFit,
     );
@@ -501,9 +502,13 @@ function workspacePatchFromFitResult(
     patch.scale = fitted.scale;
     changed = true;
   }
-  if (fitted.type === "text" && fitted.fontSize_cm !== original.fontSize_cm) {
-    patch.fontSize_cm = fitted.fontSize_cm;
-    changed = true;
+  if (fitted.type === "text") {
+    const originalText = original as TextDesignLayer;
+    const fittedText = fitted as TextDesignLayer;
+    if (fittedText.fontSize_cm !== originalText.fontSize_cm) {
+      patch.fontSize_cm = fittedText.fontSize_cm;
+      changed = true;
+    }
   }
   if (
     (fitted.type === "image" || fitted.type === "shape") &&
@@ -1101,9 +1106,13 @@ export function resolveDesignerAlignmentWorkspacePatches(
       patch.scale = aligned.scale;
       changed = true;
     }
-    if (aligned.type === "text" && aligned.fontSize_cm !== original.fontSize_cm) {
-      patch.fontSize_cm = aligned.fontSize_cm;
-      changed = true;
+    if (aligned.type === "text") {
+      const originalText = original as TextDesignLayer;
+      const alignedText = aligned as TextDesignLayer;
+      if (alignedText.fontSize_cm !== originalText.fontSize_cm) {
+        patch.fontSize_cm = alignedText.fontSize_cm;
+        changed = true;
+      }
     }
     if (
       (aligned.type === "image" || aligned.type === "shape") &&

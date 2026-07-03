@@ -4,15 +4,15 @@
  */
 
 import {
-  DESIGN_SIDES,
   getLayersForSlot,
   hasDesignInSlot,
-} from "../design-state";
+  PROOF_DESIGN_SIDES,
+} from "./layers-slot";
 import {
-  getPrintExportDimensionsPx,
-  getPrintExportSpec,
-} from "../print-export-system";
-import { resolveMaterialLabelFromDesignMeta } from "../constants";
+  getProofPrintExportDimensionsPx,
+  getProofPrintExportSpec,
+} from "./proof-print-spec";
+import { resolveMaterialLabelFromDesignMeta } from "./proof-domain";
 import type { ProofOrder } from "./types";
 import type { ValidationReport } from "./validation-report";
 
@@ -45,7 +45,7 @@ export function resolveOrderPrintMethod(order: ProofOrder): OrderPrintMethod {
     return raw;
   }
 
-  for (const side of DESIGN_SIDES) {
+  for (const side of PROOF_DESIGN_SIDES) {
     if (!hasDesignInSlot(order.layers_by_template, order.gender, side)) {
       continue;
     }
@@ -67,8 +67,8 @@ export function buildOrderJson(
   version: number,
   validationReport: ValidationReport,
 ): OrderJsonDocument {
-  const spec = getPrintExportSpec(order.active_side, order.size);
-  const { widthPx, heightPx } = getPrintExportDimensionsPx(
+  const spec = getProofPrintExportSpec(order.active_side, order.size);
+  const { widthPx, heightPx } = getProofPrintExportDimensionsPx(
     order.active_side,
     order.size,
   );

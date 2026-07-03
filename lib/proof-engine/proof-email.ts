@@ -3,12 +3,17 @@
  */
 
 import {
-  getProductName,
   GENDER_OPTIONS,
-  resolveMaterialLabelFromDesignMeta,
+  getShirtColorName,
   type Gender,
-} from "../constants";
-import { getShirtColorName } from "../shirt-template";
+} from "./proof-domain";
+import {
+  getProductCode,
+  getProductDisplayName,
+  getProductMaterialLabel,
+  getProductPrintMethodLabel,
+  getProductWeightLabel,
+} from "../product-metadata";
 import type { EmailSendResult } from "../email";
 import { Resend } from "resend";
 import type { ProofOrder, ProofPackage } from "./types";
@@ -58,10 +63,13 @@ function buildSubmissionAdminEmailHtml(params: {
     <p><strong>送件時間：</strong>${formatCreatedAt(proofPackage.created_at)}</p>
 
     <h3>商品資訊</h3>
-    <p><strong>商品：</strong>${getProductName()}</p>
+    <p><strong>商品名稱：</strong>${getProductDisplayName()}</p>
+    <p><strong>商品型號：</strong>${getProductCode()}</p>
     <p><strong>版型／模特：</strong>${formatGenderLabel(order.gender)}</p>
     <p><strong>尺碼：</strong>${order.size}</p>
-    <p><strong>材質 / 克重：</strong>${resolveMaterialLabelFromDesignMeta(order.design_meta)}</p>
+    <p><strong>材質：</strong>${getProductMaterialLabel()}</p>
+    <p><strong>克重：</strong>${getProductWeightLabel()}</p>
+    <p><strong>印刷方式：</strong>${getProductPrintMethodLabel()}</p>
     <p><strong>衣服顏色：</strong>${getShirtColorName(order.shirt_color)}</p>
     <p><strong>主設計面向：</strong>${order.active_side === "front" ? "正面" : "背面"}</p>
 

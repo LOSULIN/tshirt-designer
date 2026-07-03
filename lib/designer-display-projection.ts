@@ -9,7 +9,6 @@ import {
   createDesignerCoordinateContext,
   getDesignerPrintableArea,
   projectLayerToDesigner,
-  toDesignerCssPercentFromWorkspace,
   workspaceLengthToDesignerLength,
   workspacePointToDesignerPoint,
   workspaceRectToDesignerRect,
@@ -18,6 +17,7 @@ import {
   type DesignerCssPercentStyle,
   type DesignerLengthAxis,
 } from "./designer-coordinate-facade";
+import { workspaceRectToDisplayCssPercent } from "./designer-display-scale";
 import { getLayerInspectorCmRect } from "./design-inspector";
 import type { DesignLayer } from "./types";
 
@@ -67,7 +67,7 @@ export function getLayerDesignerDisplayCssPercent(
   workspaceRect: LayerCmRect,
   ctx: DesignerCoordinateContext,
 ): DesignerCssPercentStyle {
-  return toDesignerCssPercentFromWorkspace(workspaceRect, ctx);
+  return workspaceRectToDisplayCssPercent(workspaceRect, ctx);
 }
 
 export function createDesignerDisplayContext(

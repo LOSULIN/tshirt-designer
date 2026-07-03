@@ -31,7 +31,7 @@ export function GarmentConstraintLayerWarning({
         level={level}
         label={shortLabel}
         tooltip={tooltip}
-        pulse={level !== "ok"}
+        pulse={false}
         layerBadge
       />
     </div>

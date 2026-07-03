@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { nanoid } from "nanoid";
+import { DRAFT_TTL_MS } from "@/lib/draft-api-constants";
 import {
-  DRAFT_TTL_MS,
   extractShirtColorFromDesignJson,
   normalizeShirtColor,
-} from "@/lib/constants";
+} from "@/lib/shirt-color";
 import { createAdminClient, DESIGNS_BUCKET } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";

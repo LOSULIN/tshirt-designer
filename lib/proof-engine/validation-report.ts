@@ -2,7 +2,7 @@
  * validation-report.json — 彙整既有驗證結果供 ZIP 輸出。
  */
 
-import { getPrintExportSpec } from "../print-export-system";
+import { getProofPrintExportSpec } from "./proof-print-spec";
 import { buildArtworkValidationSummary } from "./artwork-validation-summary";
 import type { ProofOrder } from "./types";
 
@@ -23,7 +23,7 @@ export function buildValidationReport(
   timestamp?: string,
 ): ValidationReport {
   const summary = buildArtworkValidationSummary(order);
-  const spec = getPrintExportSpec(order.active_side, order.size);
+  const spec = getProofPrintExportSpec(order.active_side, order.size);
 
   const transparent =
     summary.checks.find((check) => check.label === "Transparent Background")

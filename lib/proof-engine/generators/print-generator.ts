@@ -2,7 +2,7 @@
  * Print File Generator — 僅 design layer、cm→mm @ 300dpi、透明背景
  */
 
-import type { Gender, Side } from "../../constants";
+import type { Gender, Side } from "../proof-domain";
 import {
   DESIGN_SIDES,
   getLayersForSlot,

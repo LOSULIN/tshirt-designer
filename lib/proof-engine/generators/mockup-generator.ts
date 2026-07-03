@@ -2,14 +2,13 @@
  * Mockup Generator — Front / Back T-shirt render（cm → px + template overlay）
  */
 
-import type { ShirtColor, Side } from "../../constants";
+import type { ShirtColor, Side, Gender } from "../proof-domain";
 import {
   DESIGN_SIDES,
   getLayersForSlot,
   hasDesignInSlot,
 } from "../../design-state";
 import { renderMockupPreviewPng } from "../../mockup-export";
-import type { Gender } from "../../constants";
 import type { DesignLayersByTemplate } from "../../types";
 
 export async function generateMockupPng(params: {

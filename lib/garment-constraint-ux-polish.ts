@@ -105,8 +105,8 @@ export function getLayerConstraintBadgeMeta(
   const edgeHint = edges ? `（超出${edges}側）` : "";
   return {
     level,
-    shortLabel: level === "violation" ? "超出" : "注意",
-    tooltip: `${layerName}：超出目前尺碼可印範圍${edgeHint}`,
+    shortLabel: "Exceeds printable area",
+    tooltip: `${layerName}: exceeds printable area${edgeHint}`,
   };
 }
 

@@ -4,9 +4,9 @@ import type { Side } from "@/lib/constants";
 import type { PrintAreaCmBounds } from "@/lib/design-cm";
 import { buildConstraintOverlayUxLabels } from "@/lib/garment-constraint-ux-labels";
 import {
-  getGarmentConstraintExclusionMaskRectsInWorkspace,
-  getPrintableConstraintPctInWorkspace,
-} from "@/lib/garment-constraint-visualization";
+  getDisplayExclusionMaskRects,
+  getDisplayPrintableRegionPct,
+} from "@/lib/designer-display-scale";
 import { GarmentConstraintTooltip } from "./GarmentConstraintUxPrimitives";
 
 function ConstraintDimensionLabels({
@@ -46,8 +46,8 @@ function ConstraintDimensionLabels({
 }
 
 /**
- * Step 13.1B/13.1C — 目前尺碼可印約束視覺化 + 專業標籤 UX。
- * 固定 Workspace 藍框內：可印區（紫框）+ 不可印區（淡灰遮罩）。
+ * Step 13.1B/13.1C + Phase 14.1 — 固定藍框內可印區視覺化。
+ * 藍框視覺大小不變；尺碼切換僅更新代表的可印 cm 與標籤。
  */
 export function CurrentGarmentConstraintVisualization({
   side,
@@ -69,11 +69,11 @@ export function CurrentGarmentConstraintVisualization({
     workspacePrintArea,
     garmentPrintArea,
   });
-  const printablePct = getPrintableConstraintPctInWorkspace(
+  const printablePct = getDisplayPrintableRegionPct(
     workspacePrintArea,
     garmentPrintArea,
   );
-  const exclusionMasks = getGarmentConstraintExclusionMaskRectsInWorkspace(
+  const exclusionMasks = getDisplayExclusionMaskRects(
     workspacePrintArea,
     garmentPrintArea,
   );

@@ -17,8 +17,10 @@ import {
   getLayerDesignerDisplayCssPercent,
 } from "@/lib/designer-display-projection";
 import {
+  buildDisplayBlueFrameTooltip,
+} from "@/lib/designer-display-scale";
+import {
   getDesignerWorkspaceContainerStyle,
-  getDesignerWorkspaceOrangeSafeZonePct,
   getDesignerWorkspacePrintAreaCm,
 } from "@/lib/designer-workspace";
 import type { PreviewPrintPositionMode } from "@/lib/printArea";
@@ -42,7 +44,6 @@ import {
   formatGarmentConstraintStatusWarning,
 } from "@/lib/garment-constraint-ux";
 import {
-  getConstraintOverlayDescription,
   getGarmentPrintStatus,
   getLayerConstraintBadgeMeta,
 } from "@/lib/garment-constraint-ux-polish";
@@ -72,6 +73,7 @@ import {
   PrintAreaCenterGuides,
   PrintAreaGrid,
 } from "./PrintAreaGrid";
+import { PrintAreaDisplayRuler } from "./PrintAreaDisplayRuler";
 import { PrintAreaDebugOverlay } from "./PrintAreaDebugOverlay";
 import { CanvasCenterDebugOverlay } from "./CanvasCenterDebugOverlay";
 import {
@@ -147,6 +149,7 @@ export function DesignCanvas({
   onApplyPlacementPreset,
   activePlacementPresetId = null,
   bluePrintArea: bluePrintAreaProp,
+  onFitToPrintableArea,
 }: {
   gender: Gender;
   shirtColor: ShirtColor;
@@ -219,6 +222,8 @@ export function DesignCanvas({
   activePlacementPresetId?: PlacementPresetId | null;
   /** 尺碼藍框（Designer Config）；僅供目前可印尺寸與溢出判斷 */
   bluePrintArea?: PrintAreaCmBounds;
+  /** Phase 14.2：使用者主動「適合可印範圍」 */
+  onFitToPrintableArea?: (layerId: string) => void;
 }) {
   const [snapGuides, setSnapGuides] = useState<SnapGuidesState>(EMPTY_GUIDES);
   const alignGuideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -266,10 +271,6 @@ export function DesignCanvas({
     () => getDesignerWorkspaceContainerStyle(side),
     [side],
   );
-  const orangeSafeZonePct = useMemo(
-    () => getDesignerWorkspaceOrangeSafeZonePct(side),
-    [side],
-  );
   const visibleLayers = useMemo(
     () => getLayersForCanvasRender(layers).filter((l) => l.visible),
     [layers],
@@ -306,12 +307,14 @@ export function DesignCanvas({
   );
   const constraintOverlayDescription = useMemo(
     () =>
-      getConstraintOverlayDescription(
-        size,
-        currentMaxPrintBounds,
-        workspacePrintArea,
-      ),
-    [size, currentMaxPrintBounds, workspacePrintArea],
+      UI_VISIBILITY.showEngineeringOverlays
+        ? buildDisplayBlueFrameTooltip({
+            side,
+            size,
+            garmentPrintable: currentMaxPrintBounds,
+          })
+        : undefined,
+    [side, size, currentMaxPrintBounds],
   );
   const garmentPrintStatus = useMemo(
     () =>
@@ -592,24 +595,16 @@ export function DesignCanvas({
                   onClearSelection();
                 }}
               >
-              <CurrentGarmentConstraintVisualization
-                side={side}
-                size={size}
-                workspacePrintArea={workspacePrintArea}
-                garmentPrintArea={currentMaxPrintBounds}
-                description={constraintOverlayDescription}
-              />
-              <div
-                className="pointer-events-none absolute z-[6] border-2 border-dashed border-amber-500/90"
-                aria-hidden
-                data-garment-safe-zone
-                style={{
-                  left: `${orangeSafeZonePct.leftPct}%`,
-                  top: `${orangeSafeZonePct.topPct}%`,
-                  width: `${orangeSafeZonePct.widthPct}%`,
-                  height: `${orangeSafeZonePct.heightPct}%`,
-                }}
-              />
+              {UI_VISIBILITY.showEngineeringOverlays && (
+                <CurrentGarmentConstraintVisualization
+                  side={side}
+                  size={size}
+                  workspacePrintArea={workspacePrintArea}
+                  garmentPrintArea={currentMaxPrintBounds}
+                  description={constraintOverlayDescription}
+                />
+              )}
+              <PrintAreaDisplayRuler printableArea={designerPrintableArea} />
               <PrintAreaGrid
                 visible={showGrid}
                 printArea={designerPrintableArea}
@@ -776,6 +771,15 @@ export function DesignCanvas({
                 {showPrimaryActions && primaryActionRect && primaryLayer && (
                   <LayerFloatingControls
                     printArea={printArea}
+                    hasPrintAreaOverflow={
+                      layerConstraintById.get(primaryLayer.id)
+                        ?.exceedsGarmentPrintArea ?? false
+                    }
+                    onFitToPrintableArea={
+                      onFitToPrintableArea
+                        ? () => onFitToPrintableArea(primaryLayer.id)
+                        : undefined
+                    }
                     displayPercentStyle={getLayerDesignerDisplayCssPercent(
                       {
                         x_cm: primaryActionRect.x_cm,

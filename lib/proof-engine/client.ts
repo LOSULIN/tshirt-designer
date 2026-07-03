@@ -2,7 +2,7 @@
  * Proof Engine Client — 瀏覽器端產生 artifacts 並組裝 submit payload。
  */
 
-import type { Gender, ShirtColor, Side, Size } from "../constants";
+import type { Gender, ShirtColor, Side, Size } from "./proof-domain";
 import type { ApplicationFormData, DesignLayersByTemplate } from "../types";
 import { generateProofArtifacts } from "./generate-artifacts";
 import type { ProofArtifactsInput, ProofOrder } from "./types";

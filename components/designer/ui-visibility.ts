@@ -9,4 +9,6 @@ export const UI_VISIBILITY = {
   showCanvasInfoPanel: true,
   /** 右側模特類型 / 模特選擇（ModelPanel） */
   showModelPanel: false,
+  /** Phase 14.2：紫框／橘框／工程約束疊加層 */
+  showEngineeringOverlays: false,
 } as const;

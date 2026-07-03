@@ -14,39 +14,39 @@
   </defs>
   <rect width="1000" height="620" fill="#fafafa"/>
   <text x="24" y="32" class="title">Step 13.1D  Designer Overlay Regression Validation</text>
-  <text x="24" y="52" class="t">Validation: 0 failures · Build: pass · 8 scripts · 14 sizes × front/back</text>
+  <text x="24" y="52" class="t">Validation: 0 failures ï¿½ Build: pass ï¿½ 8 scripts ï¿½ 14 sizes ï¿½ front/back</text>
 
   <rect x="24" y="68" width="460" height="200" class="panel" rx="8"/>
   <text x="40" y="90" class="h">Designer  Size 90 (Front)</text>
   <rect x="100" y="105" width="220" height="140" class="blue" stroke-width="2"/>
-  <text x="108" y="120" class="t" fill="#2563eb">Blue 35×50 fixed</text>
+  <text x="108" y="120" class="t" fill="#2563eb">Blue 35ï¿½50 fixed</text>
   <rect x="100" y="105" width="220" height="140" class="orange" stroke-width="1.5"/>
   <text x="108" y="134" class="t" fill="#b45309">Orange fixed (M)</text>
   <rect x="100" y="105" width="113" height="67" class="violet" stroke-width="2"/>
-  <text x="108" y="150" class="t" fill="#6d28d9">Constraint 18×24</text>
+  <text x="108" y="150" class="t" fill="#6d28d9">Constraint 18ï¿½24</text>
   <rect x="213" y="105" width="107" height="140" class="mask"/>
   <rect x="100" y="172" width="113" height="73" class="mask"/>
   <text x="108" y="188" class="t">Current Print Area</text>
-  <text x="108" y="202" class="t">18×24 cm</text>
-  <text x="108" y="218" class="t">Recommended 14×19 cm</text>
+  <text x="108" y="202" class="t">18ï¿½24 cm</text>
+  <text x="108" y="218" class="t">Recommended 14ï¿½19 cm</text>
   <text x="40" y="248" class="ok"> Layer cm unchanged on size switch</text>
 
   <rect x="500" y="68" width="476" height="200" class="panel" rx="8"/>
   <text x="516" y="90" class="h">Runtime Isolation (unchanged)</text>
-  <text x="516" y="112" class="t">Workspace · Placement · Alignment · Preview</text>
-  <text x="516" y="128" class="t">Overflow · Layer Storage · Factory · Export</text>
+  <text x="516" y="112" class="t">Workspace ï¿½ Placement ï¿½ Alignment ï¿½ Preview</text>
+  <text x="516" y="128" class="t">Overflow ï¿½ Layer Storage ï¿½ Factory ï¿½ Export</text>
   <text x="516" y="152" class="ok"> No UI overlay imports in runtime modules</text>
   <text x="516" y="172" class="ok"> Preview uses mapWorkspaceLayerCmRectToGarmentPrintArea</text>
   <text x="516" y="192" class="ok"> Constraint uses same mapping API</text>
   <text x="516" y="212" class="ok"> setSize does not mutate layer storage</text>
-  <text x="516" y="240" class="t">Overlay UI only: visualization · ux-labels · ux-polish</text>
+  <text x="516" y="240" class="t">Overlay UI only: visualization ï¿½ ux-labels ï¿½ ux-polish</text>
 
   <rect x="24" y="284" width="952" height="148" class="panel" rx="8"/>
   <text x="40" y="306" class="h">Validation Scripts (all pass)</text>
   <text x="40" y="328" class="t">validate-designer-overlay-regression-13-1d.mjs</text>
-  <text x="40" y="344" class="t">validate-overflow-12-8e · validate-garment-print-constraint-12-9a</text>
-  <text x="40" y="360" class="t">validate-design-canvas-constraint-12-9b · validate-garment-constraint-ux-12-9c</text>
-  <text x="40" y="376" class="t">validate-garment-constraint-ux-polish-12-9d · validate-garment-constraint-visualization-13-1b</text>
+  <text x="40" y="344" class="t">validate-overflow-12-8e ï¿½ validate-garment-print-constraint-12-9a</text>
+  <text x="40" y="360" class="t">validate-design-canvas-constraint-12-9b ï¿½ validate-garment-constraint-ux-12-9c</text>
+  <text x="40" y="376" class="t">validate-garment-constraint-ux-polish-12-9d ï¿½ validate-garment-constraint-visualization-13-1b</text>
   <text x="40" y="392" class="t">validate-garment-constraint-ux-13-1c</text>
   <text x="40" y="416" class="ok">npm run build  exit 0</text>
 
@@ -55,6 +55,6 @@
   <text x="40" y="492" class="t">Low: overlay changes are presentation-only (z-[4], masks, labels)</text>
   <text x="40" y="508" class="t">Medium: GarmentPrintSafeZoneGuide unused vs docs  orange is M-only by design</text>
   <text x="40" y="524" class="t">Low: XXXL constraint &gt; workspace clips to 100%  intentional visualization cap</text>
-  <text x="40" y="548" class="t">Mitigation: 28 size×side constraint checks + 7 sub-scripts on every 13.1D run</text>
+  <text x="40" y="548" class="t">Mitigation: 28 sizeï¿½side constraint checks + 7 sub-scripts on every 13.1D run</text>
   <text x="40" y="572" class="t">Browser DOM audit: scripts/audit-dom-overlay.mjs (manual /designer console)</text>
 </svg>

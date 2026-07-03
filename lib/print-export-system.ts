@@ -15,10 +15,10 @@ import {
   getExportCanvasSpec,
   type ExportLayerRectPx,
 } from "./export-coordinates";
+import { resolveExportGarmentLayerCmRect } from "./export-runtime";
 import {
   exportCanvasSizeToTargetRect,
   mapLayerCmRect,
-  resolveLayerCmRect,
 } from "./coordinate-runtime";
 import type { LayerCmRect, PrintAreaCmBounds } from "./design-cm";
 import { drawImageArtworkOnCanvas } from "./image-artwork-render";
@@ -182,7 +182,7 @@ export async function renderPrintExportPng(
       textLayers.map((t) => ({ ...t, type: "text" as const })),
       {
         getRenderFontSize_cm: (layer) => {
-          const rect = resolveLayerCmRect(layer, { purpose: "export" });
+          const rect = resolveExportGarmentLayerCmRect(layer, side, size);
           const exportRect = mapLayerRectToExportPx(
             rect,
             printAreaCm,
@@ -199,7 +199,7 @@ export async function renderPrintExportPng(
   }
 
   for (const layer of visibleLayers) {
-    const cmRect = resolveLayerCmRect(layer, { purpose: "export" });
+    const cmRect = resolveExportGarmentLayerCmRect(layer, side, size);
     const exportRect = mapLayerRectToExportPx(cmRect, printAreaCm, canvasSize);
 
     if (layer.type === "image") {

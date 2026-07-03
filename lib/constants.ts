@@ -3,10 +3,19 @@ export type Side = "front" | "back";
 export const PRODUCT_ID = "basic-tshirt" as const;
 export type Product = typeof PRODUCT_ID;
 
+import {
+  getProductCode,
+  getProductDisplayName,
+  getProductFitLabel,
+  getProductMaterialWeightLabel,
+  PRODUCT_PRESENTATION,
+} from "./product-metadata";
+
 export const PRODUCT = {
   id: PRODUCT_ID,
-  name: "TIIIGO 經典純棉短袖 T-Shirt",
-  description: "經典純棉圓領短袖",
+  code: PRODUCT_PRESENTATION.code,
+  name: PRODUCT_PRESENTATION.displayName,
+  description: PRODUCT_PRESENTATION.code,
 } as const;
 import type {
   AdultStandardSizeCode,
@@ -30,7 +39,7 @@ export type Material = "combed-cotton-180";
 export const DEFAULT_MATERIAL: Material = "combed-cotton-180";
 
 /** 材質／克重顯示文案（前端 UI、PDF、order.json 共用） */
-export const MATERIAL_LABEL = "100% 精梳純棉｜重磅厚棉 290g";
+export const MATERIAL_LABEL = getProductMaterialWeightLabel();
 
 export const MATERIAL_OPTIONS: { id: Material; label: string }[] = [
   { id: "combed-cotton-180", label: MATERIAL_LABEL },
@@ -90,10 +99,12 @@ export function getShirtColorHex(color: ShirtColor): string {
 }
 
 export function getProductName(): string {
-  return PRODUCT.name;
+  return getProductDisplayName();
 }
 
-export const FIT_LABEL = "標準";
+export { getProductCode };
+
+export const FIT_LABEL = getProductFitLabel();
 
 export const GENDER_OPTIONS: { id: Gender; label: string }[] = [
   { id: "male", label: "男生" },

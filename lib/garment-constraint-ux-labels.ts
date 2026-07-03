@@ -45,7 +45,6 @@ export function buildConstraintOverlayUxLabels(params: {
   const {
     side,
     size,
-    workspacePrintArea,
     garmentPrintArea,
     recommendedPrintArea = resolveRecommendedPrintAreaBounds(side, size),
   } = params;
@@ -53,7 +52,6 @@ export function buildConstraintOverlayUxLabels(params: {
   const currentPrintAreaDimension = formatConstraintDimensionCm(garmentPrintArea);
   const recommendedAreaDimension =
     formatConstraintDimensionCm(recommendedPrintArea);
-  const workspaceLabel = formatGarmentPrintAreaCmPair(workspacePrintArea);
 
   return {
     currentPrintAreaTitle: "Current Print Area",
@@ -63,9 +61,9 @@ export function buildConstraintOverlayUxLabels(params: {
     compactHeader: `${currentPrintAreaDimension} · ${size}`,
     printableRegionTooltip: [
       `尺碼 ${size}（${side === "front" ? "正面" : "背面"}）`,
+      `藍框視覺固定；100% = ${currentPrintAreaDimension}`,
       `Current Print Area：${currentPrintAreaDimension}`,
       `Recommended Area：${recommendedAreaDimension}`,
-      `設計工作區固定 ${workspaceLabel}；灰區為此尺碼不可印範圍。`,
     ].join("\n"),
     exclusionRegionTooltip: `不可印區域：超出尺碼 ${size} 可印範圍（${currentPrintAreaDimension}）`,
   };

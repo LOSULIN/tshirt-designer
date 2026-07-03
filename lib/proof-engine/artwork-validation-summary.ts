@@ -3,17 +3,17 @@
  * 不修改 design-inspector 或 print-export 驗證邏輯。
  */
 
-import { EXPORT_DPI } from "../constants";
+import { EXPORT_DPI } from "./proof-domain";
 import {
-  DESIGN_SIDES,
+  PROOF_DESIGN_SIDES,
   getLayersForSlot,
   hasDesignInSlot,
-} from "../design-state";
+} from "./layers-slot";
 import { inspectDesignLayer } from "../design-inspector";
 import {
-  getPrintExportDimensionsPx,
-  getPrintExportSpec,
-} from "../print-export-system";
+  getProofPrintExportDimensionsPx,
+  getProofPrintExportSpec,
+} from "./proof-print-spec";
 import type { ProofOrder } from "./types";
 
 export interface ArtworkValidationCheck {
@@ -27,7 +27,7 @@ export interface ArtworkValidationSummary {
 }
 
 function evaluatePrintAreaPassed(order: ProofOrder): boolean {
-  for (const side of DESIGN_SIDES) {
+  for (const side of PROOF_DESIGN_SIDES) {
     if (!hasDesignInSlot(order.layers_by_template, order.gender, side)) {
       continue;
     }
@@ -58,8 +58,8 @@ function evaluatePrintAreaPassed(order: ProofOrder): boolean {
 export function buildArtworkValidationSummary(
   order: ProofOrder,
 ): ArtworkValidationSummary {
-  const spec = getPrintExportSpec(order.active_side, order.size);
-  const { widthPx, heightPx } = getPrintExportDimensionsPx(
+  const spec = getProofPrintExportSpec(order.active_side, order.size);
+  const { widthPx, heightPx } = getProofPrintExportDimensionsPx(
     order.active_side,
     order.size,
   );

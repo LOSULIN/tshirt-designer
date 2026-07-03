@@ -7,62 +7,15 @@ import {
   type Side,
   type Size,
 } from "@/lib/constants";
-import type { PrintAreaCmBounds } from "@/lib/design-cm";
-import {
-  resolveLayerCmRect,
-  resolvePrintAreaCm,
-  toCssPercent,
-} from "@/lib/coordinate-runtime";
 import {
   DEFAULT_PRINT_MODE,
-  getPrintAreaContainerStyle,
-  resolvePreviewPrintPositionMode,
   type PreviewPrintPositionMode,
 } from "@/lib/printArea";
-import { mapWorkspaceLayerCmRectToGarmentPrintArea } from "@/lib/placement-presets";
-import { sortLayersByZIndex } from "@/lib/layers";
 import type { DesignLayer } from "@/lib/types";
-import { LayerPreviewContent } from "./LayerPreviewContent";
-import { ShirtContainerFrame } from "./ShirtContainerFrame";
-import { ShirtVisualScale } from "./ShirtVisualScale";
+import { PreviewGarmentView } from "./PreviewGarmentView";
 import { ProcessedTemplateImage } from "./ProcessedTemplateImage";
 
-function StaticDesignLayer({
-  layer,
-  printArea,
-  side,
-  size,
-}: {
-  layer: DesignLayer;
-  printArea: PrintAreaCmBounds;
-  side: Side;
-  size: Size;
-}) {
-  const rect = mapWorkspaceLayerCmRectToGarmentPrintArea(
-    resolveLayerCmRect(layer, { purpose: "preview" }),
-    side,
-    size,
-  );
-
-  return (
-    <div
-      className="pointer-events-none absolute"
-      style={toCssPercent({ layerRect: rect, printArea })}
-    >
-      <div
-        className="flex h-full w-full items-center justify-center"
-        style={{
-          transform: `rotate(${layer.rotation}deg)`,
-          transformOrigin: "center center",
-        }}
-      >
-        <LayerPreviewContent layer={layer} printArea={printArea} />
-      </div>
-    </div>
-  );
-}
-
-/** 平面衣服設計預覽（無模特；可替換為素材 PNG） */
+/** 平面衣服設計預覽（無模特；Preview Runtime 獨立於 Designer） */
 export function FlatShirtDesignView({
   gender: _gender,
   side,
@@ -72,6 +25,7 @@ export function FlatShirtDesignView({
   previewPrintPositionMode = DEFAULT_PRINT_MODE,
   className = "",
   compact = false,
+  zoom = 1,
 }: {
   gender: Gender;
   side: Side;
@@ -82,15 +36,10 @@ export function FlatShirtDesignView({
   className?: string;
   /** 右側預覽欄：限制在可用高度內 */
   compact?: boolean;
+  /** Camera zoom on rendered garment (not coordinate zoom). */
+  zoom?: number;
 }) {
   const assetSrc = getAdultTshirtTemplateSrc(shirtColor, side);
-
-  const visibleLayers = sortLayersByZIndex(layers).filter((l) => l.visible);
-  const printArea = resolvePrintAreaCm({ runtime: "preview", side, size });
-  const printAreaStyle = getPrintAreaContainerStyle(side, {
-    mode: resolvePreviewPrintPositionMode(previewPrintPositionMode),
-    size,
-  });
 
   return (
     <div
@@ -100,11 +49,15 @@ export function FlatShirtDesignView({
           : "w-full"
       } ${className}`}
     >
-      <ShirtContainerFrame
-        width={compact ? undefined : "100%"}
+      <PreviewGarmentView
+        side={side}
+        size={size}
+        layers={layers}
+        previewPrintPositionMode={previewPrintPositionMode}
+        zoom={zoom}
         fitRatio={compact ? 0.95 : undefined}
-      >
-        <ShirtVisualScale size={size}>
+        width={compact ? undefined : "100%"}
+        shirtVisual={
           <ProcessedTemplateImage
             gender={_gender}
             side={side}
@@ -113,23 +66,8 @@ export function FlatShirtDesignView({
             className="absolute inset-0 z-0 h-full w-full object-contain"
             showPlaceholderGuide={false}
           />
-        </ShirtVisualScale>
-        <div
-          data-print-area
-          className="absolute z-10 overflow-hidden [container-type:size]"
-          style={printAreaStyle}
-        >
-          {visibleLayers.map((layer) => (
-            <StaticDesignLayer
-              key={layer.id}
-              layer={layer}
-              printArea={printArea}
-              side={side}
-              size={size}
-            />
-          ))}
-        </div>
-      </ShirtContainerFrame>
+        }
+      />
     </div>
   );
 }

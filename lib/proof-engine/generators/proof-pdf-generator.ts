@@ -2,7 +2,7 @@
  * Proof PDF Generator — 委派至工廠級 A4 template。
  */
 
-import type { Side } from "../../constants";
+import type { Side } from "../proof-domain";
 import type { ProofOrder } from "../types";
 import {
   generateFactoryProofPdf,

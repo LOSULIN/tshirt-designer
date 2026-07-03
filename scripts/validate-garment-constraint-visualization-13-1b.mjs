@@ -108,6 +108,29 @@ function getExclusionMaskCount(workspace, garment) {
   return count;
 }
 
+/** Phase 14.1 display semantics (mirror lib/designer-display-scale.ts) */
+function getDisplayPrintableRegionPct(workspace, garment) {
+  const widthRatio = garment.width / workspace.width;
+  const heightRatio = garment.height / workspace.height;
+  if (widthRatio <= 1.0005 && heightRatio <= 1.0005) {
+    return { leftPct: 0, topPct: 0, widthPct: 100, heightPct: 100 };
+  }
+  return {
+    leftPct: 0,
+    topPct: 0,
+    widthPct: Math.min(100, widthRatio * 100),
+    heightPct: Math.min(100, heightRatio * 100),
+  };
+}
+
+function getDisplayExclusionMaskCount(workspace, garment) {
+  const printable = getDisplayPrintableRegionPct(workspace, garment);
+  let count = 0;
+  if (printable.widthPct < 99.95) count += 1;
+  if (printable.heightPct < 99.95) count += 1;
+  return count;
+}
+
 console.log("=== Step 13.1B Current Garment Constraint Visualization ===\n");
 
 // Component / DOM
@@ -129,7 +152,6 @@ const vizLibSrc = readFileSync(
 
 for (const [name, src] of [
   ["visualization lib", vizLibSrc],
-  ["CurrentGarmentConstraintVisualization", vizSrc],
 ]) {
   if (!src.includes("getPrintableConstraintPctInWorkspace")) {
     fail(`${name} 缺少 getPrintableConstraintPctInWorkspace`);
@@ -141,6 +163,17 @@ for (const [name, src] of [
   } else {
     pass(`${name} → exclusion mask API`);
   }
+}
+
+if (!vizSrc.includes("getDisplayPrintableRegionPct")) {
+  fail("CurrentGarmentConstraintVisualization 缺少 getDisplayPrintableRegionPct (14.1)");
+} else {
+  pass("CurrentGarmentConstraintVisualization → display-scale printable pct");
+}
+if (!vizSrc.includes("getDisplayExclusionMaskRects")) {
+  fail("CurrentGarmentConstraintVisualization 缺少 getDisplayExclusionMaskRects (14.1)");
+} else {
+  pass("CurrentGarmentConstraintVisualization → display-scale exclusion masks");
 }
 
 for (const attr of [
@@ -181,8 +214,8 @@ for (const file of protectedFiles) {
 // Example sizes from spec (front)
 const ws = WORKSPACE_M.front;
 const examples = [
-  { size: "90", garment: { width: 18, height: 24 }, masks: 2 },
-  { size: "130", garment: { width: 25, height: 35 }, masks: 2 },
+  { size: "90", garment: { width: 18, height: 24 }, masks: 0 },
+  { size: "130", garment: { width: 25, height: 35 }, masks: 0 },
   { size: "M", garment: { width: 35, height: 50 }, masks: 0 },
   { size: "XXXL", garment: { width: 45, height: 60 }, masks: 0 },
 ];
@@ -202,8 +235,8 @@ for (const ex of examples) {
     );
     continue;
   }
-  const printable = getPrintableConstraintPctInWorkspace(ws, ex.garment);
-  const masks = getExclusionMaskCount(ws, ex.garment);
+  const printable = getDisplayPrintableRegionPct(ws, ex.garment);
+  const masks = getDisplayExclusionMaskCount(ws, ex.garment);
   if (masks !== ex.masks) {
     fail(`front ${ex.size} 遮罩數應為 ${ex.masks}，得 ${masks}`);
   } else {
@@ -213,26 +246,18 @@ for (const ex of examples) {
   }
 }
 
-// All 14 sizes front/back — mask count sanity
+// All 14 sizes front/back — Phase 14.1: fixed blue frame always fills printable region
 for (const side of ["front", "back"]) {
   const rows = side === "front" ? FRONT_ROWS : BACK_ROWS;
   const workspace = WORKSPACE_M[side];
   for (const row of rows) {
-    const masks = getExclusionMaskCount(workspace, row.blue);
-    const expected =
-      row.blue.width < workspace.width - 0.01 ||
-      row.blue.height < workspace.height - 0.01
-        ? row.blue.width < workspace.width - 0.01 &&
-            row.blue.height < workspace.height - 0.01
-          ? 2
-          : 1
-        : 0;
-    if (masks !== expected) {
+    const masks = getDisplayExclusionMaskCount(workspace, row.blue);
+    if (masks !== 0) {
       fail(
-        `${side} ${row.size}: 遮罩數預期 ${expected} 得 ${masks} (garment ${row.blue.width}×${row.blue.height})`,
+        `${side} ${row.size}: Phase 14.1 display 遮罩應為 0，得 ${masks}`,
       );
     } else {
-      pass(`${side} ${row.size}: exclusion masks=${masks}`);
+      pass(`${side} ${row.size}: display printable fills fixed frame (masks=0)`);
     }
   }
 }

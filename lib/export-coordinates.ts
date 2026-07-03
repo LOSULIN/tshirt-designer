@@ -18,6 +18,7 @@ import {
   type LayerCmRect,
   type PrintAreaCmBounds,
 } from "./design-cm";
+import { resolveExportGarmentLayerCmRect } from "./export-runtime";
 import type { DesignLayer } from "./types";
 
 export const EXPORT_DPI = PRODUCTION_DPI;
@@ -75,9 +76,18 @@ export interface ExportCanvasSizePx {
   heightPx: number;
 }
 
-/** 與 DesignCanvas / FlatShirtDesignView 相同的圖層 cm 外框 */
+/** Workspace storage cm rect（未投影；Export 渲染請用 getLayerExportGarmentCmRect） */
 export function getLayerExportCmRect(layer: DesignLayer): LayerCmRect {
   return resolveLayerCmRect(layer, { purpose: "export" });
+}
+
+/** Garment physical cm rect for Export / Mockup（Facade 投影後） */
+export function getLayerExportGarmentCmRect(
+  layer: DesignLayer,
+  side: Side,
+  size: string,
+): LayerCmRect {
+  return resolveExportGarmentLayerCmRect(layer, side, size);
 }
 
 export function resolveExportPrintAreaCm(
@@ -125,9 +135,11 @@ export function mapLayerToExportPx(
   layer: DesignLayer,
   printAreaCm: PrintAreaCmBounds,
   canvasSizePx: ExportCanvasSizePx,
+  side: Side,
+  size: string,
 ): ExportLayerRectPx {
   return mapLayerCmRectToExportPx(
-    getLayerExportCmRect(layer),
+    getLayerExportGarmentCmRect(layer, side, size),
     printAreaCm,
     canvasSizePx,
   );
@@ -158,9 +170,11 @@ export function mapLayerToMockupPx(
   layer: DesignLayer,
   printAreaCm: PrintAreaCmBounds,
   printRect: MockupContainerRectPx,
+  side: Side,
+  size: string,
 ): MockupLayerRectPx {
   return mapLayerCmRectToMockupPx(
-    getLayerExportCmRect(layer),
+    getLayerExportGarmentCmRect(layer, side, size),
     printAreaCm,
     printRect,
   );

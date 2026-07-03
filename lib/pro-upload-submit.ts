@@ -1,4 +1,8 @@
-import { PRODUCT_ID, type ModelType, type Product } from "./constants";
+import {
+  DEFAULT_PRODUCT_ID,
+  type DefaultProductId,
+  type ModelType,
+} from "./product-api-constants";
 import { validateCaseForm, type ProUploadCaseFormData } from "./pro-upload-case";
 import type { ProUploadInspection } from "./pro-upload-inspect";
 import { isAllowedProUploadFile } from "./pro-upload";
@@ -8,7 +12,7 @@ const ALLOWED_FITS = new Set<ModelType>(["male", "female", "child"]);
 export const PRO_UPLOAD_DEFAULT_PRINT_SIDE = "front" as const;
 
 export type ProUploadSubmissionPayload = {
-  product: Product;
+  product: DefaultProductId;
   fit: ModelType;
   inspection: ProUploadInspection;
   caseForm: ProUploadCaseFormData;
@@ -65,7 +69,7 @@ export function parseSubmissionPayload(
   return {
     ok: true,
     data: {
-      product: PRODUCT_ID,
+      product: DEFAULT_PRODUCT_ID,
       fit: fit as ModelType,
       inspection: inspectionRecord,
       caseForm: form,

@@ -87,7 +87,7 @@ function ResizeHandleGrip({
   handle: ResizeHandle;
   isOverflow?: boolean;
 }) {
-  const borderClass = isOverflow ? "border-red-500" : "border-blue-500";
+  const borderClass = isOverflow ? "border-red-500" : "border-zinc-900";
   if (isResizeEdge(handle)) {
     const vertical = handle === "n" || handle === "s";
     return (
@@ -439,15 +439,14 @@ export function PrintAreaElement({
     }
   };
 
-  const ringClass =
-    isActive && hasPrintAreaOverflow
-      ? "ring-2 ring-red-500 ring-offset-1 animate-garment-constraint-ring-pulse"
-      : isActive
-        ? "ring-2 ring-blue-400 ring-offset-1"
-        : "";
+  const ringClass = isActive
+    ? hasPrintAreaOverflow
+      ? "ring-2 ring-red-500 ring-offset-1"
+      : "ring-2 ring-zinc-900/80 ring-offset-1"
+    : "";
   const selectionBorderClass = hasPrintAreaOverflow
     ? "border-red-500"
-    : "border-blue-500";
+    : "border-zinc-900";
 
   const percentStyle =
     displayPercentStyle ??
@@ -493,14 +492,8 @@ export function PrintAreaElement({
             className={`absolute inset-0 z-10 ${showControls ? "" : "pointer-events-none"}`}
           >
             <div
-              className={`absolute inset-0 border-2 border-dashed ${selectionBorderClass}`}
+              className={`absolute inset-0 border-2 border-dashed transition-colors duration-150 ${selectionBorderClass}`}
             />
-            {hasPrintAreaOverflow && (
-              <div
-                className="pointer-events-none absolute inset-0 animate-garment-constraint-ring-pulse bg-red-500/15"
-                aria-hidden
-              />
-            )}
             {showControls &&
               activeHandles.map((handle) => (
                 <button

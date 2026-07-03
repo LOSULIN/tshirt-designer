@@ -4,8 +4,8 @@ import { useState } from "react";
 import type { Material, ShirtColor, Size } from "@/lib/constants";
 import {
   FIT_LABEL,
+  getProductCode,
   getProductName,
-  PRODUCT,
   MATERIAL_OPTIONS,
   SHIRT_COLORS,
 } from "@/lib/constants";
@@ -41,7 +41,7 @@ export function ProductPanel({
           </div>
           <div>
             <p className="text-sm font-medium text-zinc-900">{getProductName()}</p>
-            <p className="text-xs text-zinc-500">{PRODUCT.description}</p>
+            <p className="text-xs text-zinc-500">{getProductCode()}</p>
           </div>
         </div>
       </div>

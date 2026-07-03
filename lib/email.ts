@@ -1,4 +1,4 @@
-import { getShirtColorName, type ShirtColor } from "@/lib/constants";
+import { getShirtColorName, type ShirtColor } from "@/lib/shirt-color";
 import { Resend } from "resend";
 import { formatSubmissionDisplayLabel } from "@/lib/submission-no";
 

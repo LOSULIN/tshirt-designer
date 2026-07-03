@@ -6,13 +6,13 @@ import {
   parseDesignJsonField,
 } from "@/lib/contest-submission";
 import {
+  formatContestProductLabel,
+  formatContestTemplateLabel,
+} from "@/lib/contest-api-helpers";
+import {
   extractShirtColorFromDesignJson,
-  GENDER_OPTIONS,
-  getProductName,
   normalizeShirtColor,
-  PRODUCT_ID,
-  type Gender,
-} from "@/lib/constants";
+} from "@/lib/shirt-color";
 import { sendContestSubmittedEmails } from "@/lib/email";
 import {
   allocateSubmissionNo,
@@ -20,18 +20,6 @@ import {
 } from "@/lib/submission-no";
 import { formatDbWriteError } from "@/lib/db-error";
 import { createAdminClient, DESIGNS_BUCKET } from "@/lib/supabase/admin";
-
-function formatContestProductLabel(productType: string | null): string {
-  if (!productType || productType === PRODUCT_ID) return getProductName();
-  return productType;
-}
-
-function formatContestTemplateLabel(templateType: string): string {
-  return (
-    GENDER_OPTIONS.find((option) => option.id === (templateType as Gender))
-      ?.label ?? templateType
-  );
-}
 
 export const runtime = "nodejs";
 

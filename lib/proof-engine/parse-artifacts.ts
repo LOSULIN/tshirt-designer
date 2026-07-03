@@ -2,7 +2,7 @@
  * 從 submit FormData 解析 Proof Engine artifacts。
  */
 
-import type { Side } from "../constants";
+import type { Side } from "./proof-domain";
 import type { ProofArtifactsInput } from "./types";
 
 async function blobToUint8Array(blob: Blob): Promise<Uint8Array> {

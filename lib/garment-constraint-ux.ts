@@ -57,11 +57,7 @@ export function formatGarmentConstraintLayerWarning(
   if (!state.exceedsGarmentPrintArea) {
     return "";
   }
-  if (state.violationEdges.length === 0) {
-    return "超出目前尺碼可印範圍";
-  }
-  const edges = state.violationEdges.map((edge) => EDGE_LABEL_ZH[edge]).join("、");
-  return `超出目前尺碼可印範圍（${edges}側）`;
+  return "Exceeds printable area";
 }
 
 export function getGarmentConstraintInspectorWarnings(
@@ -85,7 +81,10 @@ export function formatGarmentConstraintStatusWarning(
   if (violationCount <= 0) {
     return null;
   }
-  return `${violationCount} 個圖層超出尺碼 ${size} 可印範圍（${formatGarmentPrintAreaCmPair(garmentPrintArea)}）`;
+  if (violationCount === 1) {
+    return "This artwork exceeds the printable area for the current garment size.";
+  }
+  return `${violationCount} artworks exceed the printable area for the current garment size.`;
 }
 
 export function countGarmentConstraintViolations(

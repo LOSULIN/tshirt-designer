@@ -82,7 +82,6 @@ import {
 import { DEFAULT_PRINT_MODE } from "@/lib/printArea";
 import { getDesignerWorkspacePrintAreaCm } from "@/lib/designer-workspace";
 import {
-  applyDesignerPlacementPreset,
   applyDesignerLayerAlignment,
   createControllerContext,
   createDesignerAlignmentContext,
@@ -94,16 +93,18 @@ import {
   createDesignerGestureContext,
   createDesignerUploadPlacement,
   fitDesignerLayer,
-  fitDesignerLayers,
   hydrateDesignerLayers,
   resolveDesignerGestureResizeWorkspacePatch,
   resolveWorkspaceGestureForApplyClamped,
   updateDesignerLayer,
 } from "@/lib/designer-coordinate-controller";
+import { applyDesignerPlacementPresetPreserveSize, resolvePhysicalPresetWorkspaceRect } from "@/lib/designer-placement-ux";
 import { getLayerEffectiveCmRect } from "@/lib/design-cm";
+import { getTextLayerCmRect } from "@/lib/text-layer";
 import {
   applyClampedLayerPatch,
 } from "@/lib/layer-constraints";
+import { normalizeDesignLayers } from "@/lib/layer-normalize";
 import {
   rotateClockwise90,
   rotateCounterClockwise90,
@@ -113,7 +114,6 @@ import {
 } from "@/lib/image-print-quality";
 import {
   getPlacementPresetById,
-  getPlacementPresetLayerPlacement,
   type PlacementPresetId,
 } from "@/lib/placement-presets";
 import {
@@ -379,13 +379,11 @@ export function DesignerApp({
     (updater: DesignLayer[] | ((prev: DesignLayer[]) => DesignLayer[])) => {
       setLayersByTemplate((prev) =>
         updateLayersForSlot(prev, gender, side, (current) => {
-          const next =
-            typeof updater === "function" ? updater(current) : updater;
-          return fitDesignerLayers(next, designerFitContext);
+          return typeof updater === "function" ? updater(current) : updater;
         }),
       );
     },
-    [gender, side, designerFitContext],
+    [gender, side],
   );
 
   const primaryId = selectedIds[selectedIds.length - 1] ?? null;
@@ -682,21 +680,10 @@ export function DesignerApp({
                   : 1;
             if (Math.abs(factor - 1) < 1e-6) return layer;
 
-            return fitDesignerLayer(
-              {
-                ...layer,
-                scale: layer.scale * factor,
-              },
-              designerFitContext,
-              {
-                textFit: {
-                  anchorCenter: {
-                    x_cm: anchorCenterX,
-                    y_cm: anchorCenterY,
-                  },
-                },
-              },
-            );
+            return {
+              ...layer,
+              scale: layer.scale * factor,
+            };
           }
 
           if (layer.type === "shape") {
@@ -713,29 +700,23 @@ export function DesignerApp({
                 Math.abs(scaleW - 1) >= Math.abs(scaleH - 1) ? scaleW : scaleH;
               const width_cm = current.width_cm * factor;
               const height_cm = current.height_cm * factor;
-              return fitDesignerLayer(
-                {
-                  ...layer,
-                  width_cm,
-                  height_cm,
-                  scale: 1,
-                  x_cm: anchorCenterX - width_cm / 2,
-                  y_cm: anchorCenterY - height_cm / 2,
-                },
-                designerFitContext,
-              );
-            }
-            return fitDesignerLayer(
-              {
+              return {
                 ...layer,
-                width_cm: fittedNext.width_cm,
-                height_cm: fittedNext.height_cm,
+                width_cm,
+                height_cm,
                 scale: 1,
-                x_cm: anchorCenterX - fittedNext.width_cm / 2,
-                y_cm: anchorCenterY - fittedNext.height_cm / 2,
-              },
-              designerFitContext,
-            );
+                x_cm: anchorCenterX - width_cm / 2,
+                y_cm: anchorCenterY - height_cm / 2,
+              };
+            }
+            return {
+              ...layer,
+              width_cm: fittedNext.width_cm,
+              height_cm: fittedNext.height_cm,
+              scale: 1,
+              x_cm: anchorCenterX - fittedNext.width_cm / 2,
+              y_cm: anchorCenterY - fittedNext.height_cm / 2,
+            };
           }
 
           if (layer.type === "image") {
@@ -744,41 +725,29 @@ export function DesignerApp({
                 current.width_cm > 0
                   ? fittedNext.width_cm / current.width_cm
                   : 1;
-              return fitDesignerLayer(
-                {
-                  ...layer,
-                  x_cm: fittedNext.x_cm,
-                  y_cm: fittedNext.y_cm,
-                  scale: layer.scale * factor,
-                },
-                designerFitContext,
-                {
-                  rasterFit: getImageFitOptions(largePrintModeEnabled),
-                },
-              );
+              return {
+                ...layer,
+                x_cm: fittedNext.x_cm,
+                y_cm: fittedNext.y_cm,
+                scale: layer.scale * factor,
+              };
             }
 
-            return fitDesignerLayer(
-              {
-                ...layer,
-                width_cm: fittedNext.width_cm,
-                height_cm: fittedNext.height_cm,
-                scale: 1,
-                x_cm: anchorCenterX - fittedNext.width_cm / 2,
-                y_cm: anchorCenterY - fittedNext.height_cm / 2,
-              },
-              designerFitContext,
-              {
-                rasterFit: getImageFitOptions(largePrintModeEnabled),
-              },
-            );
+            return {
+              ...layer,
+              width_cm: fittedNext.width_cm,
+              height_cm: fittedNext.height_cm,
+              scale: 1,
+              x_cm: anchorCenterX - fittedNext.width_cm / 2,
+              y_cm: anchorCenterY - fittedNext.height_cm / 2,
+            };
           }
 
           return layer;
         }),
       );
     },
-    [setLayers, workspacePrintArea, largePrintModeEnabled, markGestureMutation, designerGestureContext, designerFitContext],
+    [setLayers, markGestureMutation, designerGestureContext],
   );
 
   const handleTextInspectorPatch = useCallback(
@@ -1095,7 +1064,10 @@ export function DesignerApp({
         height_cm: number;
       };
       if (presetActive) {
-        placement = getPlacementPresetLayerPlacement(pendingPreset);
+        placement = resolvePhysicalPresetWorkspaceRect(
+          pendingPreset,
+          designerCoordinateContext,
+        );
       } else {
         placement = createDesignerUploadPlacement(
           preview.naturalWidth,
@@ -1122,11 +1094,10 @@ export function DesignerApp({
 
       const createdLayer = createImageLayer(layers, uploaded, placement);
       const newLayer = presetActive
-        ? (applyDesignerPlacementPreset(
+        ? (applyDesignerPlacementPresetPreserveSize(
             createdLayer,
             pendingPreset,
             designerCoordinateContext,
-            { largePrintMode: largePrintModeEnabled },
           ) as ImageDesignLayer)
         : createDesignerAutoFitLayer(createdLayer, designerCoordinateContext, {
             rasterFit: getImageFitOptions(largePrintModeEnabled),
@@ -1221,11 +1192,10 @@ export function DesignerApp({
       pendingPreset != null && pendingPreset.sides.includes(side);
 
     const layer = presetActive
-      ? (applyDesignerPlacementPreset(
+      ? (applyDesignerPlacementPresetPreserveSize(
           createDesignerDefaultTextLayer(layers, designerCoordinateContext),
           pendingPreset,
           designerCoordinateContext,
-          { largePrintMode: largePrintModeEnabled },
         ) as TextDesignLayer)
       : createDesignerDefaultTextLayer(layers, designerCoordinateContext);
     appendLayers(layer);
@@ -1257,11 +1227,10 @@ export function DesignerApp({
       designerCoordinateContext,
     );
     const layer = presetActive
-      ? (applyDesignerPlacementPreset(
+      ? (applyDesignerPlacementPresetPreserveSize(
           createdShape,
           pendingPreset,
           designerCoordinateContext,
-          { largePrintMode: largePrintModeEnabled },
         ) as ShapeDesignLayer)
       : createdShape;
     appendLayers(layer);
@@ -1329,6 +1298,32 @@ export function DesignerApp({
     ],
   );
 
+  const handleFitToPrintableArea = useCallback(
+    (id: string) => {
+      if (!guardEditable()) return;
+      prepareDiscreteMutation();
+      setLayers((prev) =>
+        prev.map((layer) => {
+          if (layer.id !== id || layer.locked) return layer;
+          return fitDesignerLayer(layer, designerFitContext, {
+            rasterFit:
+              layer.type === "image"
+                ? getImageFitOptions(largePrintModeEnabled)
+                : undefined,
+          });
+        }),
+      );
+      setStatusMessage("已將圖層縮放至目前可印範圍內");
+    },
+    [
+      guardEditable,
+      prepareDiscreteMutation,
+      setLayers,
+      designerFitContext,
+      largePrintModeEnabled,
+    ],
+  );
+
   const handleApplyPlacementPreset = useCallback(
     (presetId: PlacementPresetId) => {
       if (!guardEditable()) return;
@@ -1353,11 +1348,10 @@ export function DesignerApp({
       setLayers((prev) =>
         prev.map((layer) => {
           if (!idSet.has(layer.id)) return layer;
-          return applyDesignerPlacementPreset(
+          return applyDesignerPlacementPresetPreserveSize(
             layer,
             preset,
             designerCoordinateContext,
-            { largePrintMode: largePrintModeEnabled },
           );
         }),
       );
@@ -1645,23 +1639,6 @@ export function DesignerApp({
   const handleGenderChange = (g: Gender) => {
     setGender(g);
     setModelId(DEFAULT_MODEL_ID[g]);
-    setLayersByTemplate((prev) => {
-      let next = prev;
-      for (const templateGender of DESIGN_GENDERS) {
-        for (const templateSide of DESIGN_SIDES) {
-          next = setLayersForSlot(
-            next,
-            templateGender,
-            templateSide,
-            fitDesignerLayers(
-              getLayersForSlot(next, templateGender, templateSide),
-              createDesignerFitContext(templateSide, size),
-            ),
-          );
-        }
-      }
-      return next;
-    });
   };
 
   const handleUpdateBody = () => {
@@ -1804,6 +1781,7 @@ export function DesignerApp({
           onAlignLayers={handleAlignLayers}
           onApplyPlacementPreset={handleApplyPlacementPreset}
           activePlacementPresetId={pendingPlacementPresetId}
+          onFitToPrintableArea={handleFitToPrintableArea}
           onClearCurrentSlotDesign={handleClearCurrentSlotDesign}
           onClearAllDesign={handleClearAllDesign}
         />

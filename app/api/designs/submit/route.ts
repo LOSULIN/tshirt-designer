@@ -3,16 +3,16 @@ import { nanoid } from "nanoid";
 import {
   extractShirtColorFromDesignJson,
   normalizeShirtColor,
-} from "@/lib/constants";
+} from "@/lib/shirt-color";
 import {
+  buildOrderStoragePath,
   generateProofDocuments,
   hasProofArtifacts,
   parseProofArtifactsFromFormData,
+  SubmitTiming,
   uploadSubmissionFiles,
   type ProofOrder,
-} from "@/lib/proof-engine";
-import { buildOrderStoragePath } from "@/lib/proof-engine/storage-manager";
-import { SubmitTiming } from "@/lib/proof-engine/submit-timing";
+} from "@/lib/proof-engine/server";
 import {
   allocateSubmissionNo,
   isSubmissionNoConflict,

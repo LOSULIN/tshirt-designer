@@ -2,7 +2,7 @@
  * Proof Engine — 標準化校稿輸出型別。
  */
 
-import type { Gender, ShirtColor, Side, Size } from "../constants";
+import type { Gender, ShirtColor, Side, Size } from "./proof-domain";
 import type { DesignLayersByTemplate } from "../types";
 
 export interface ProofOrderApplicant {

@@ -1,8 +1,8 @@
-import type { ModelType } from "./constants";
-import { getProductName, PRODUCT_ID } from "./constants";
+import { DEFAULT_PRODUCT_ID } from "./product-api-constants";
+import { getProductDisplayName } from "./product-metadata";
 import type { ProUploadInspection } from "./pro-upload-inspect";
 
-export type ProUploadFit = ModelType;
+export type ProUploadFit = import("./product-api-constants").ModelType;
 
 export type ProUploadFitSelection = {
   fit: ProUploadFit;
@@ -30,11 +30,11 @@ const PRO_UPLOAD_FIT_LABELS: Record<ProUploadFit, string> = {
 };
 
 export function getProductLabel(): string {
-  return getProductName();
+  return getProductDisplayName();
 }
 
-export function getProductId(): typeof PRODUCT_ID {
-  return PRODUCT_ID;
+export function getProductId(): typeof DEFAULT_PRODUCT_ID {
+  return DEFAULT_PRODUCT_ID;
 }
 
 export function getFitLabel(fit: ProUploadFit): string {

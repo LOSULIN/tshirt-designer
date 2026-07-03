@@ -82,13 +82,7 @@ export function ClothingBrowseModal({
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
-          <div
-            className="mx-auto grid max-w-4xl grid-cols-1 gap-5 transition-transform duration-200 md:grid-cols-2"
-            style={{
-              transform: `scale(${zoom})`,
-              transformOrigin: "top center",
-            }}
-          >
+          <div className="mx-auto grid max-w-4xl grid-cols-1 gap-5 md:grid-cols-2">
             <div>
               <h3 className="mb-2 text-center text-sm font-semibold text-zinc-800">
                 正面
@@ -101,6 +95,7 @@ export function ClothingBrowseModal({
                   size={size}
                   layers={frontLayers}
                   previewPrintPositionMode={previewPrintPositionMode}
+                  zoom={zoom}
                 />
               </div>
             </div>
@@ -116,6 +111,7 @@ export function ClothingBrowseModal({
                   size={size}
                   layers={backLayers}
                   previewPrintPositionMode={previewPrintPositionMode}
+                  zoom={zoom}
                 />
               </div>
             </div>

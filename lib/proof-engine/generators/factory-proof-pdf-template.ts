@@ -4,9 +4,16 @@
  */
 
 import type { RGB } from "pdf-lib";
-import type { Side } from "../../constants";
-import { getProductName, resolveMaterialLabelFromDesignMeta } from "../../constants";
-import { getDesignerPrintAreaCmBounds } from "../../design-cm";
+import type { Side } from "../proof-domain";
+import { getShirtColorName } from "../proof-domain";
+import {
+  getProductBrand,
+  getProductCode,
+  getProductDisplayName,
+  getProductMaterialLabel,
+  getProductPrintMethodLabel,
+  getProductWeightLabel,
+} from "../../product-metadata";
 import { formatInspectorCm } from "../../design-inspector";
 import {
   DESIGN_SIDES,
@@ -14,14 +21,14 @@ import {
   hasDesignInSlot,
 } from "../../design-state";
 import { getExportCanvasSpec } from "../../export-coordinates";
-import { getGarmentMaxPrintAreaCm } from "../../garment-print-config";
+import { mapLiveDesignElementsToExportPhysical } from "../../export-runtime";
 import {
   buildLiveDesignState,
   type LiveDesignStateElement,
 } from "../../live-design-state";
 import { getPrintAreaOffsetCm } from "../../coordinates/print-area-offset";
 import { embedPdfCjkFonts } from "../../pdf-fonts";
-import { getShirtColorName } from "../../shirt-template";
+import type { PdfArtworkPositionPresentation } from "../pdf-position-presentation";
 import type { ProofOrder } from "../types";
 import {
   computePdfMockupPlacement,
@@ -66,11 +73,6 @@ interface PageContext {
   white: RGB;
 }
 
-const SIDE_PRINT_LABEL: Record<Side, string> = {
-  front: "正面大圖",
-  back: "背面大圖",
-};
-
 const SIDE_TITLE: Record<Side, string> = {
   front: "FRONT",
   back: "BACK",
@@ -79,11 +81,6 @@ const SIDE_TITLE: Record<Side, string> = {
 const SIDE_DESIGN_FILE: Record<Side, string> = {
   front: "front_design.png",
   back: "back_design.png",
-};
-
-const COLLAR_LABEL: Record<Side, string> = {
-  front: "距離領口",
-  back: "距離後領",
 };
 
 const FACTORY_NOTES = [
@@ -152,32 +149,6 @@ function drawLabelValue(
   return y - 26;
 }
 
-function resolvePositionLabel(
-  elements: LiveDesignStateElement[],
-  side: Side,
-  size: string,
-): string {
-  if (elements.length === 0) return "—";
-  const printArea = getDesignerPrintAreaCmBounds(side, size);
-  const primary = [...elements].sort(
-    (a, b) => b.width_cm * b.height_cm - a.width_cm * a.height_cm,
-  )[0]!;
-  const cx = primary.x_cm + primary.width_cm / 2;
-  const cy = primary.y_cm + primary.height_cm / 2;
-  const tolX = printArea.width * 0.12;
-  const tolY = printArea.height * 0.12;
-  const hCenter = Math.abs(cx - printArea.width / 2) <= tolX;
-  const vUpper = cy < printArea.height * 0.38;
-  const hLeft = cx < printArea.width * 0.38;
-
-  if (hCenter && Math.abs(cy - printArea.height / 2) <= tolY) return "Center";
-  if (hLeft && vUpper) return "Left Chest";
-  if (!hLeft && vUpper) return "Right Chest";
-  if (hCenter && cy < printArea.height / 2) return "Upper Center";
-  if (hCenter) return "Center";
-  return "Custom";
-}
-
 function drawPageHeader(ctx: PageContext, side: Side) {
   const { page, fonts, black, gray, accent, border, white } = ctx;
   const top = FACTORY_PROOF_A4_HEIGHT_PT - MARGIN;
@@ -190,7 +161,7 @@ function drawPageHeader(ctx: PageContext, side: Side) {
     color: border,
   });
 
-  page.drawText("TIIIGO", {
+  page.drawText(getProductBrand(), {
     x: MARGIN,
     y: top - 18,
     size: 14,
@@ -198,7 +169,7 @@ function drawPageHeader(ctx: PageContext, side: Side) {
     color: accent,
   });
 
-  page.drawText(getProductName(), {
+  page.drawText(getProductDisplayName(), {
     x: MARGIN,
     y: top - 34,
     size: 9,
@@ -247,6 +218,7 @@ function drawLeftInfoPanel(
   side: Side,
   elements: LiveDesignStateElement[],
   printBytes: Uint8Array | Buffer | undefined,
+  positionPresentation: PdfArtworkPositionPresentation | null,
 ) {
   const { page, fonts, black, gray, accent, border } = ctx;
   const x = getLeftPanelX();
@@ -270,17 +242,37 @@ function drawLeftInfoPanel(
   });
   y -= 20;
 
-  const printArea = getGarmentMaxPrintAreaCm(side);
   const printSpec = getExportCanvasSpec(side, order.size);
+  const missingPosition = "—";
 
-  y = drawLabelValue(ctx, x, y, "品牌", "TIIIGO", panelMaxW, accent);
-  y = drawLabelValue(ctx, x, y, "商品", getProductName(), panelMaxW);
+  y = drawLabelValue(ctx, x, y, "品牌", getProductBrand(), panelMaxW, accent);
+  y = drawLabelValue(ctx, x, y, "商品名稱", getProductDisplayName(), panelMaxW);
+  y = drawLabelValue(ctx, x, y, "商品型號", getProductCode(), panelMaxW);
+
+  y -= 8;
+  page.drawLine({
+    start: { x, y },
+    end: { x: x + panelMaxW, y },
+    thickness: 0.5,
+    color: border,
+  });
+  y -= 14;
+
+  page.drawText("位置資訊", {
+    x,
+    y,
+    size: 10,
+    font: fonts.bold,
+    color: black,
+  });
+  y -= 18;
+
   y = drawLabelValue(
     ctx,
     x,
     y,
     "印刷位置",
-    SIDE_PRINT_LABEL[side],
+    positionPresentation?.sideLabel ?? missingPosition,
     panelMaxW,
   );
   y = drawLabelValue(
@@ -288,7 +280,7 @@ function drawLeftInfoPanel(
     x,
     y,
     "印刷尺寸",
-    `${formatInspectorCm(printArea.widthCm, 0)} × ${formatInspectorCm(printArea.heightCm, 0)} cm`,
+    positionPresentation?.printSizeLabel ?? missingPosition,
     panelMaxW,
     accent,
   );
@@ -296,21 +288,54 @@ function drawLeftInfoPanel(
     ctx,
     x,
     y,
-    "位置",
-    resolvePositionLabel(elements, side, order.size),
+    "距離領口",
+    positionPresentation?.collarDistanceLabel ?? missingPosition,
+    panelMaxW,
+    accent,
+  );
+  y = drawLabelValue(
+    ctx,
+    x,
+    y,
+    "距離左側",
+    positionPresentation?.leftDistanceLabel ?? missingPosition,
     panelMaxW,
   );
   y = drawLabelValue(
     ctx,
     x,
     y,
-    COLLAR_LABEL[side],
-    `${formatInspectorCm(getPrintAreaOffsetCm(side), 0)} cm`,
+    "距離右側",
+    positionPresentation?.rightDistanceLabel ?? missingPosition,
     panelMaxW,
-    accent,
   );
+
+  y -= 8;
+  page.drawLine({
+    start: { x, y },
+    end: { x: x + panelMaxW, y },
+    thickness: 0.5,
+    color: border,
+  });
+  y -= 14;
+
+  page.drawText("印刷規格", {
+    x,
+    y,
+    size: 10,
+    font: fonts.bold,
+    color: black,
+  });
+  y -= 18;
   y = drawLabelValue(ctx, x, y, "解析度", `${FACTORY_PROOF_DPI} DPI`, panelMaxW);
-  y = drawLabelValue(ctx, x, y, "印刷方式", "DTG（直噴印刷）", panelMaxW);
+  y = drawLabelValue(
+    ctx,
+    x,
+    y,
+    "印刷方式",
+    getProductPrintMethodLabel(),
+    panelMaxW,
+  );
   y = drawLabelValue(ctx, x, y, "色彩模式", "RGB", panelMaxW);
   y = drawLabelValue(ctx, x, y, "檔案格式", "PNG", panelMaxW);
 
@@ -373,8 +398,16 @@ function drawLeftInfoPanel(
     ctx,
     x,
     y,
-    "材質 / 克重",
-    resolveMaterialLabelFromDesignMeta(order.design_meta),
+    "材質",
+    getProductMaterialLabel(),
+    panelMaxW,
+  );
+  y = drawLabelValue(
+    ctx,
+    x,
+    y,
+    "克重",
+    getProductWeightLabel(),
     panelMaxW,
   );
 
@@ -568,10 +601,13 @@ function drawPageFooter(ctx: PageContext, order: ProofOrder, version: number) {
     {
       title: "衣服資訊",
       lines: [
-        `商品：${getProductName()}`,
+        `商品名稱：${getProductDisplayName()}`,
+        `商品型號：${getProductCode()}`,
         `顏色：${getShirtColorName(order.shirt_color)}`,
         `尺碼：${order.size}`,
-        `材質 / 克重：${resolveMaterialLabelFromDesignMeta(order.design_meta)}`,
+        `材質：${getProductMaterialLabel()}`,
+        `克重：${getProductWeightLabel()}`,
+        `印刷方式：${getProductPrintMethodLabel()}`,
       ],
     },
     {
@@ -633,8 +669,29 @@ async function drawSideProofPage(
     side,
   );
   const sideState = buildLiveDesignState(sideLayers, order.size, side);
+  const exportElements = mapLiveDesignElementsToExportPhysical(
+    sideState.elements,
+    sideLayers,
+    side,
+    order.size,
+  );
+  const { buildPdfArtworkPositionPresentation } = await import(
+    "../pdf-position-presentation"
+  );
+  const positionPresentation = await buildPdfArtworkPositionPresentation(
+    sideLayers,
+    side,
+    order.size,
+  );
 
-  drawLeftInfoPanel(ctx, order, side, sideState.elements, printBytes);
+  drawLeftInfoPanel(
+    ctx,
+    order,
+    side,
+    exportElements,
+    printBytes,
+    positionPresentation,
+  );
 
   const contentArea = getRightPanelMockupArea();
 

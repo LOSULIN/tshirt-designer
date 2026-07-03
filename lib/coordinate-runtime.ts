@@ -89,7 +89,7 @@ export function resolveLayerCmRect(
     return getLayerEffectiveCmRect(layer);
   }
 
-  // mockup / export / production — 沿用 export 讀取路徑
+  // mockup / export / production — workspace storage read; garment projection at render time (export-runtime)
   return getLayerExportCmRect(layer);
 }
 

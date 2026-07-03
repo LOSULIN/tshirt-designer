@@ -8,13 +8,13 @@
 
 import { APPAREL_SIZES, type ApparelSize } from "./sizes";
 import {
-  getProductionPrintAreaCm,
-  getProductionSafeAreaMm,
+  MM_PER_CM,
   mmToLegacyCmField,
-  PRODUCTION_LEGACY_UI_UNITS_PER_CM,
   PRODUCTION_PRINT_AREA_MM,
-  PRODUCTION_SAFE_MARGIN_RATIO,
-} from "./coordinates/production";
+} from "./coordinates/production-constants";
+
+/** Matches `coordinates/production.ts` — kept local to avoid init-time import of production runtime */
+const PRODUCTION_SAFE_MARGIN_RATIO = 0.05;
 import {
   getPreviewContainerAspectRatio,
   getPreviewContainerWidthOverHeight,
@@ -50,7 +50,11 @@ export { getUiPrintAreaContainerStyle, type UiPrintAreaView };
 
 export { UI_GLOBAL_PRINT_OFFSET_Y_PX, PRINT_COLLAR_OFFSET_CM, PRINT_AREA_OFFSET_CM };
 
-const productionCm = getProductionPrintAreaCm();
+// production-constants only — same values as resolvePrintAreaCm({ runtime: "production" })
+const productionCm = {
+  width: mmToLegacyCmField(PRODUCTION_PRINT_AREA_MM.width_mm),
+  height: mmToLegacyCmField(PRODUCTION_PRINT_AREA_MM.height_mm),
+};
 
 /** 固定印刷規格（物理／設計／匯出） */
 export const PRINT_AREA = {
@@ -92,10 +96,19 @@ export function getPrintSafeAreaCm(
     height: PRINT_AREA.heightCm,
   },
 ): PrintSafeAreaCm {
-  const safe = getProductionSafeAreaMm({
+  const printAreaMm = {
     width_mm: printArea.width * 10,
     height_mm: printArea.height * 10,
-  });
+  };
+  const ratio = PRODUCTION_SAFE_MARGIN_RATIO;
+  const insetX = printAreaMm.width_mm * ratio;
+  const insetY = printAreaMm.height_mm * ratio;
+  const safe = {
+    x_mm: insetX,
+    y_mm: insetY,
+    width_mm: printAreaMm.width_mm * (1 - ratio * 2),
+    height_mm: printAreaMm.height_mm * (1 - ratio * 2),
+  };
 
   return {
     x_cm: mmToLegacyCmField(safe.x_mm),
@@ -137,7 +150,7 @@ export function getPrintReference(
 export const PRINT_REFERENCE_TRANSFORM = PREVIEW_REFERENCE_TRANSFORM;
 
 /** @deprecated 請用 production 的 PRODUCTION_LEGACY_UI_UNITS_PER_CM */
-export const UI_SCALE = PRODUCTION_LEGACY_UI_UNITS_PER_CM;
+export const UI_SCALE = MM_PER_CM;
 
 export const SHIRT_CONTAINER_WIDTH = 1024;
 export const SHIRT_CONTAINER_HEIGHT = 1536;

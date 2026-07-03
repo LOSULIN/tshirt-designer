@@ -47,7 +47,7 @@ export function DesignWorkspaceStatusBar({
       aria-label="設計工作區狀態"
       data-design-workspace-status-bar
     >
-      <span className="text-[10px] font-medium text-zinc-600">設計工作區</span>
+      <span className="text-[10px] font-medium text-zinc-600">印刷區</span>
       <span className="text-[10px] text-zinc-500">
         尺碼 <span className="font-medium text-zinc-800">{size}</span>
       </span>
@@ -78,7 +78,7 @@ export function DesignWorkspaceStatusBar({
           data-garment-constraint-status-warning
           className={`text-[10px] font-medium ${levelStyles.text} ${status.level !== "ok" ? "animate-garment-constraint-ring-pulse" : ""}`}
         >
-          ⚠ {statusWarning ?? "超出目前尺寸可印範圍"}
+          ⚠ {statusWarning ?? "This artwork exceeds the printable area for the current garment size."}
         </span>
       )}
     </div>

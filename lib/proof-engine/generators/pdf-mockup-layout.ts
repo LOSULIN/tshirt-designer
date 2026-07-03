@@ -2,7 +2,7 @@
  * PDF 校稿 Mockup 放置 — 與 Mockup PNG Export 相同像素比例、完整顯示（contain）。
  */
 
-import type { Side } from "../../constants";
+import type { Side } from "../proof-domain";
 import { getDesignerPrintAreaCmBounds } from "../../design-cm";
 import {
   getFlatMockupPrintAreaRectPx,

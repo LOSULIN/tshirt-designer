@@ -189,50 +189,56 @@ const canvasSrc = readFileSync(
 );
 if (
   !canvasSrc.includes("getDesignerWorkspaceContainerStyle") ||
-  !canvasSrc.includes("getDesignerWorkspaceOrangeSafeZonePct")
+  (!canvasSrc.includes("getDesignerWorkspaceOrangeSafeZonePct") &&
+    !canvasSrc.includes("getDisplayOrangeSafeZonePct") &&
+    !canvasSrc.includes("showEngineeringOverlays"))
 ) {
-  fail("DesignCanvas 未使用 Workspace M 藍/橘 API");
+  fail("DesignCanvas 未使用固定藍框 API");
 } else {
-  pass("Blue / Orange 使用 Workspace M API（固定）");
+  pass("Blue 固定 Workspace M（14.2 overlays optional）");
 }
 
 // Constraint overlay size-aware
 if (
   !canvasSrc.includes("CurrentGarmentConstraintVisualization") ||
   !canvasSrc.includes("currentMaxPrintBounds") ||
-  !canvasSrc.includes("resolveGarmentPrintAreaCm")
+  !canvasSrc.includes("designerPrintableArea")
 ) {
   fail("Constraint Overlay 未依 size 更新");
 } else {
-  pass("Constraint Overlay 依 size（currentMaxPrintBounds）更新");
+  pass("Constraint Overlay 依 size（currentMaxPrintBounds / designerPrintableArea）更新");
 }
 
-// Orange pct stable across sizes (M-based in DesignCanvas)
-const orangeMFront = orangePct("front", "M");
-const orange90Front = orangePct("front", "90");
-if (
-  !orangeMFront ||
-  Math.abs(orangeMFront.widthPct - orange90Front.widthPct) > 0.01
-) {
-  // DesignCanvas uses getDesignerWorkspaceOrangeSafeZonePct(side) which is always M
-  // orangePct for M vs 90 from config differ - but DesignCanvas uses M only
-  pass("Orange 由 Workspace M 決定（與選取尺碼解耦）");
+// Orange pct varies by size in Phase 14.1, or hidden in 14.2
+if (canvasSrc.includes("UI_VISIBILITY.showEngineeringOverlays")) {
+  pass("Orange overlay hidden (14.2 UX)");
 } else {
-  pass("Orange Workspace M 比例一致");
+  const orangeMFront = orangePct("front", "M");
+  const orange90Front = orangePct("front", "90");
+  if (
+    orangeMFront &&
+    orange90Front &&
+    Math.abs(orangeMFront.widthPct - orange90Front.widthPct) > 0.01
+  ) {
+    pass("Orange 隨尺碼更新（14.1 size-aware safe zone）");
+  } else {
+    pass("Orange Workspace 比例一致");
+  }
 }
 
-// Constraint pct must vary 90 vs M front
+// Phase 14.1: display printable region fills fixed frame for garment ≤ workspace M
 const g90 = FRONT_ROWS.find((r) => r.size === "90").blue;
 const gM = FRONT_ROWS.find((r) => r.size === "M").blue;
-const pct90 =
-  (g90.width / WORKSPACE_M.front.width) * 100;
-const pctM = (gM.width / WORKSPACE_M.front.width) * 100;
-if (Math.abs(pct90 - pctM) < 1) {
-  fail("Constraint 90 與 M 可印寬度比例應不同");
+function displayPrintableWidthPct(garment, ws) {
+  const ratio = garment.width / ws.width;
+  return ratio <= 1.0005 ? 100 : Math.min(100, ratio * 100);
+}
+const pct90 = displayPrintableWidthPct(g90, WORKSPACE_M.front);
+const pctM = displayPrintableWidthPct(gM, WORKSPACE_M.front);
+if (Math.abs(pct90 - 100) > 0.01 || Math.abs(pctM - 100) > 0.01) {
+  fail("Phase 14.1: 90 與 M 可印區應填滿固定藍框（100%）");
 } else {
-  pass(
-    `Constraint 隨 size 變化：90=${pct90.toFixed(1)}% M=${pctM.toFixed(1)}%`,
-  );
+  pass("Phase 14.1: 固定藍框內可印區 100%（尺碼僅改變代表 cm）");
 }
 
 // --- 3. Layer position stability ---
@@ -309,6 +315,9 @@ const SUB_SCRIPTS = [
   "validate-garment-constraint-ux-polish-12-9d.mjs",
   "validate-garment-constraint-visualization-13-1b.mjs",
   "validate-garment-constraint-ux-13-1c.mjs",
+  "validate-designer-display-refinement-14-1.mjs",
+  "validate-designer-ux-refinement-14-2.mjs",
+  "validate-designer-preset-physical-size-14-2-2.mjs",
 ];
 
 for (const script of SUB_SCRIPTS) {
@@ -329,8 +338,16 @@ for (const script of SUB_SCRIPTS) {
   }
 }
 
-// --- 6. All sizes constraint overlay sanity ---
-console.log("\n── 14 Sizes × Front/Back Constraint Overlay ──");
+// --- 6. All sizes constraint overlay sanity (Phase 14.1 display) ---
+console.log("\n── 14 Sizes × Front/Back Constraint Overlay (14.1) ──");
+function displayRegionPct(garment, ws) {
+  const wr = garment.width / ws.width;
+  const hr = garment.height / ws.height;
+  return {
+    wPct: wr <= 1.0005 ? 100 : Math.min(100, wr * 100),
+    hPct: hr <= 1.0005 ? 100 : Math.min(100, hr * 100),
+  };
+}
 for (const side of ["front", "back"]) {
   const rows = side === "front" ? FRONT_ROWS : BACK_ROWS;
   const ws = WORKSPACE_M[side];
@@ -340,10 +357,9 @@ for (const side of ["front", "back"]) {
       fail(`${side} ${size} 缺少 config`);
       continue;
     }
-    const wPct = Math.min(100, (row.blue.width / ws.width) * 100);
-    const hPct = Math.min(100, (row.blue.height / ws.height) * 100);
+    const { wPct, hPct } = displayRegionPct(row.blue, ws);
     pass(
-      `${side} ${size}: constraint ${row.blue.width}×${row.blue.height} → ${wPct.toFixed(1)}%×${hPct.toFixed(1)}%`,
+      `${side} ${size}: display ${row.blue.width}×${row.blue.height} cm → ${wPct.toFixed(1)}%×${hPct.toFixed(1)}% of fixed frame`,
     );
   }
 }

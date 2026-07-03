@@ -85,8 +85,8 @@ export function InspectorObjectCard({
     [layer, designerContext],
   );
   const overflow = useMemo(
-    () => getLayerOverflowStateForSize(layer, size),
-    [layer, size],
+    () => getLayerOverflowStateForSize(layer, size, side),
+    [layer, size, side],
   );
   const displayName = getObjectDisplayName(layer, allLayers);
   const typeLabel = getLayerTypeLabel(layer.type);

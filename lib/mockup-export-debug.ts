@@ -9,10 +9,11 @@ import {
 } from "./coordinates/mockup";
 import {
   getDesignerPrintAreaCmBounds,
+  type LayerCmRect,
   type PrintAreaCmBounds,
 } from "./design-cm";
 import {
-  getLayerExportCmRect,
+  getLayerExportGarmentCmRect,
   mapLayerCmRectToMockupPx,
   type MockupContainerRectPx,
 } from "./export-coordinates";
@@ -49,7 +50,7 @@ export interface MockupLayerCmPxMappingLog {
   keepRatio?: boolean;
   printAreaCm: PrintAreaCmBounds;
   printRect: MockupContainerRectPx;
-  cmRect: ReturnType<typeof getLayerExportCmRect>;
+  cmRect: LayerCmRect;
   mapped: ReturnType<typeof mapLayerCmRectToMockupPx>;
 }
 
@@ -124,7 +125,7 @@ export function buildMockupOverlayDebugReport(
     if (!layer.visible) continue;
     if (layer.type === "text" && layer.text.trim().length === 0) continue;
 
-    const cmRect = getLayerExportCmRect(layer);
+    const cmRect = getLayerExportGarmentCmRect(layer, side, size);
     const mapped = mapLayerCmRectToMockupPx(
       cmRect,
       printAreaCm,

@@ -14,9 +14,9 @@ import {
 import {
   mapLayerCmRect,
   mockupPrintRectToTargetRect,
-  resolveLayerCmRect,
   resolvePrintAreaCm,
 } from "./coordinate-runtime";
+import { resolveExportGarmentLayerCmRect } from "./export-runtime";
 import type { LayerCmRect, PrintAreaCmBounds } from "./design-cm";
 import {
   buildMockupOverlayDebugReport,
@@ -75,7 +75,7 @@ function logAndMapLayerToMockupPx(
   size: string,
 ) {
   const printAreaCm = resolvePrintAreaCm({ runtime: "mockup", side, size });
-  const cmRect = resolveLayerCmRect(layer, { purpose: "mockup" });
+  const cmRect = resolveExportGarmentLayerCmRect(layer, side, size);
   const mapped = mapLayerRectToMockupPx(cmRect, printAreaCm, printRect);
 
   logMockupLayerCmPxMapping({
@@ -271,7 +271,7 @@ export async function renderMockupPreviewPng(params: {
       textLayers.map((t) => ({ ...t, type: "text" as const })),
       {
         getRenderFontSize_cm: (layer) => {
-          const rect = resolveLayerCmRect(layer, { purpose: "mockup" });
+          const rect = resolveExportGarmentLayerCmRect(layer, side, size);
           const mapped = mapLayerRectToMockupPx(rect, printAreaCm, printRect);
           return getRichTextRenderMetrics(
             layer,

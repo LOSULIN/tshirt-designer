@@ -5,7 +5,7 @@
 import type { Side } from "./constants";
 import {
   getExportCanvasSpec,
-  getLayerExportCmRect,
+  getLayerExportGarmentCmRect,
   mapLayerToExportPx,
 } from "./export-coordinates";
 import { sortLayersByZIndex } from "./layers";
@@ -58,11 +58,13 @@ export function buildExportDebugReport(
     if (!layer.visible) continue;
     if (layer.type === "text" && layer.text.trim().length === 0) continue;
 
-    const cmRect = getLayerExportCmRect(layer);
+    const cmRect = getLayerExportGarmentCmRect(layer, side, size);
     const exportRect = mapLayerToExportPx(
       layer,
       spec.printAreaCm,
       canvasSize,
+      side,
+      size,
     );
 
     objects.push({
