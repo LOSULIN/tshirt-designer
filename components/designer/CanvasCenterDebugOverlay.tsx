@@ -13,6 +13,9 @@ import { getShirtScale } from "@/lib/shirtScale";
 
 const FONT = "ui-monospace, SFMono-Regular, Menlo, monospace";
 
+/** UI only — 十字線常駐；文字／黑底 Label 僅 debug 模式顯示 */
+const SHOW_CENTER_DEBUG_LABELS = process.env.NEXT_PUBLIC_DEBUG === "true";
+
 interface CenterMarker {
   id: string;
   label: string;
@@ -137,32 +140,36 @@ export function CanvasCenterDebugOverlay({
               color={marker.color}
               dasharray={marker.dasharray}
             />
-            <text
-              x={Math.min(marker.xPct + 1.2, 72)}
-              y={Math.max(marker.yPct - 1.2, 3)}
-              fill={marker.color}
-              fontSize={1.7}
-              fontFamily={FONT}
-            >
-              {marker.label}
-            </text>
+            {SHOW_CENTER_DEBUG_LABELS ? (
+              <text
+                x={Math.min(marker.xPct + 1.2, 72)}
+                y={Math.max(marker.yPct - 1.2, 3)}
+                fill={marker.color}
+                fontSize={1.7}
+                fontFamily={FONT}
+              >
+                {marker.label}
+              </text>
+            ) : null}
           </g>
         ))}
       </svg>
 
-      <div className="absolute bottom-2 left-2 max-w-[min(100%,300px)] rounded-md border border-zinc-800/20 bg-black/75 px-2.5 py-2 text-[10px] leading-relaxed text-zinc-200 shadow-lg backdrop-blur-sm">
-        <p className="mb-1 font-semibold text-white">Center Debug</p>
-        {markers.map((marker) => (
-          <p key={marker.id} style={{ color: marker.color }}>
-            <span className="font-medium">{marker.label}</span>{" "}
-            <span className="text-zinc-400">
-              {marker.xPct.toFixed(1)}%, {marker.yPct.toFixed(1)}%
-            </span>
-            <br />
-            <span className="text-zinc-500">{marker.detail}</span>
-          </p>
-        ))}
-      </div>
+      {SHOW_CENTER_DEBUG_LABELS ? (
+        <div className="absolute bottom-2 left-2 max-w-[min(100%,300px)] rounded-md border border-zinc-800/20 bg-black/75 px-2.5 py-2 text-[10px] leading-relaxed text-zinc-200 shadow-lg backdrop-blur-sm">
+          <p className="mb-1 font-semibold text-white">Center Debug</p>
+          {markers.map((marker) => (
+            <p key={marker.id} style={{ color: marker.color }}>
+              <span className="font-medium">{marker.label}</span>{" "}
+              <span className="text-zinc-400">
+                {marker.xPct.toFixed(1)}%, {marker.yPct.toFixed(1)}%
+              </span>
+              <br />
+              <span className="text-zinc-500">{marker.detail}</span>
+            </p>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

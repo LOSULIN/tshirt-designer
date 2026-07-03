@@ -13,6 +13,18 @@ export interface PdfArtworkPositionPresentation {
   collarDistanceLabel: string;
   leftDistanceLabel: string;
   rightDistanceLabel: string;
+  /** Rounded cm — for mockup annotation layout only */
+  collarDistanceCm: number;
+  leftDistanceCm: number;
+  rightDistanceCm: number;
+  printWidthCm: number;
+  printHeightCm: number;
+  artworkTopCm: number;
+  artworkBottomCm: number;
+  artworkLeftCm: number;
+  artworkRightCm: number;
+  printAreaWidthCm: number;
+  printAreaHeightCm: number;
 }
 
 const SIDE_POSITION_LABEL: Record<Side, string> = {
@@ -91,5 +103,16 @@ export async function buildPdfArtworkPositionPresentation(
     collarDistanceLabel: formatRoundedDistanceCm(collarDistanceCm),
     leftDistanceLabel: formatRoundedDistanceCm(leftDistanceCm),
     rightDistanceLabel: formatRoundedDistanceCm(rightDistanceCm),
+    collarDistanceCm: Math.round(collarDistanceCm),
+    leftDistanceCm: Math.round(leftDistanceCm),
+    rightDistanceCm: Math.round(rightDistanceCm),
+    printWidthCm: Math.round(artworkAabb.width_cm),
+    printHeightCm: Math.round(artworkAabb.height_cm),
+    artworkTopCm: artworkAabb.top,
+    artworkBottomCm: artworkAabb.bottom,
+    artworkLeftCm: artworkAabb.left,
+    artworkRightCm: artworkAabb.right,
+    printAreaWidthCm: printArea.width,
+    printAreaHeightCm: printArea.height,
   };
 }

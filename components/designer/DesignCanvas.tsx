@@ -1,7 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlignmentToolbar } from "./AlignmentToolbar";
+import { DesignerAlignmentToolbar } from "./DesignerAlignmentToolbar";
+import { ContextToolbar } from "./ContextToolbar";
+import { ContextToolbarEmptyState } from "./ContextToolbarEmptyState";
+import { DesignerTooltip } from "./DesignerTooltip";
 import { PlacementPresetCalibrationPanel } from "./PlacementPresetCalibrationPanel";
 import { PlacementPresetToolbar } from "./PlacementPresetToolbar";
 import { CanvasInlineTextEditor } from "./CanvasInlineTextEditor";
@@ -23,6 +26,7 @@ import {
   getDesignerWorkspaceContainerStyle,
   getDesignerWorkspacePrintAreaCm,
 } from "@/lib/designer-workspace";
+import { DesignerGarmentPresentation } from "./DesignerGarmentPresentation";
 import type { PreviewPrintPositionMode } from "@/lib/printArea";
 import { ShirtContainerFrame } from "./ShirtContainerFrame";
 import type { Gender, ShirtColor, Side, Size } from "@/lib/constants";
@@ -63,10 +67,10 @@ import { CurrentGarmentConstraintVisualization } from "./CurrentGarmentConstrain
 import { CanvasInfoPanel } from "./CanvasInfoPanel";
 import { LayerPreviewContent } from "./LayerPreviewContent";
 import { UI_VISIBILITY } from "./ui-visibility";
-import { ClothingBrowseModal } from "./ClothingBrowseModal";
-import { ClothingBrowsePanel } from "./ClothingBrowsePanel";
 import { DesignReviewModal } from "./DesignReviewModal";
 import { DesignToolbar } from "./DesignToolbar";
+import { ds } from "./design-ui";
+import { tb } from "./toolbar-interaction-ui";
 import { ProcessedTemplateImage } from "./ProcessedTemplateImage";
 import { ElementAlignmentGuides } from "./ElementAlignmentGuides";
 import {
@@ -126,12 +130,17 @@ export function DesignCanvas({
   onLayerRotationChange,
   onQuickRotate90,
   onLayerResize,
+  onLayerToolbarScale,
   onClearSelection,
   onFocusTextEditorConsumed,
   onSideChange,
   onDuplicateLayer,
   onDeleteLayer,
   onMoveLayer,
+  onRenameLayer,
+  onToggleVisible,
+  onToggleLocked,
+  onReorderDrag,
   onUpload,
   onAddText,
   onAddShape,
@@ -150,6 +159,10 @@ export function DesignCanvas({
   activePlacementPresetId = null,
   bluePrintArea: bluePrintAreaProp,
   onFitToPrintableArea,
+  canUndo = false,
+  canRedo = false,
+  onUndo,
+  onRedo,
 }: {
   gender: Gender;
   shirtColor: ShirtColor;
@@ -183,12 +196,17 @@ export function DesignCanvas({
     next: { x_cm: number; y_cm: number; width_cm: number; height_cm: number },
     lockAspect?: boolean,
   ) => void;
+  onLayerToolbarScale: (id: string, factor: number) => void;
   onClearSelection: () => void;
   onFocusTextEditorConsumed: () => void;
   onSideChange: (side: Side) => void;
   onDuplicateLayer: (id: string) => void;
   onDeleteLayer: (id: string) => void;
   onMoveLayer: (id: string, action: "top" | "up" | "down" | "bottom") => void;
+  onRenameLayer: (id: string, name: string) => void;
+  onToggleVisible: (id: string) => void;
+  onToggleLocked: (id: string) => void;
+  onReorderDrag: (dragId: string, targetId: string) => void;
   onUpload: (file: File) => void;
   onAddText: () => void;
   onAddShape: (kind: ShapeDesignLayer["shapeKind"]) => void;
@@ -224,6 +242,10 @@ export function DesignCanvas({
   bluePrintArea?: PrintAreaCmBounds;
   /** Phase 14.2：使用者主動「適合可印範圍」 */
   onFitToPrintableArea?: (layerId: string) => void;
+  canUndo?: boolean;
+  canRedo?: boolean;
+  onUndo?: () => void;
+  onRedo?: () => void;
 }) {
   const [snapGuides, setSnapGuides] = useState<SnapGuidesState>(EMPTY_GUIDES);
   const alignGuideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -231,7 +253,6 @@ export function DesignCanvas({
   const [zoomIndex, setZoomIndex] = useState(DEFAULT_CANVAS_ZOOM_INDEX);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [showDesignReview, setShowDesignReview] = useState(false);
-  const [showClothingBrowse, setShowClothingBrowse] = useState(false);
   const hasCurrentSlotDesign = layers.length > 0;
   const hasAnyDesignContent = hasAnyDesign(layersByTemplate);
   const rasterMaxPrintSize = useMemo(
@@ -327,6 +348,9 @@ export function DesignCanvas({
   );
   const primaryId = selectedIds[selectedIds.length - 1] ?? null;
   const primaryLayer = layers.find((layer) => layer.id === primaryId) ?? null;
+  const showContextToolbar =
+    primaryLayer != null && !readOnly && !primaryLayer.locked;
+  const historyDisabled = isBusy || readOnly;
   const primaryOverflowExceeds =
     primaryId != null
       ? (layerConstraintById.get(primaryId)?.exceedsGarmentPrintArea ?? false)
@@ -477,21 +501,25 @@ export function DesignCanvas({
   }, []);
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col p-1">
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm">
-        <div className="flex shrink-0 items-center justify-between border-b border-zinc-100 px-3 py-1.5">
+    <div className={`flex min-h-0 min-w-0 flex-1 flex-col ${ds.space.p2}`}>
+      <div
+        className={`flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden ${ds.surface.canvas} ${ds.radius.card} border ${ds.surface.border} ${ds.motion.shadow}`}
+      >
+        <div
+          className={`flex shrink-0 items-center justify-between border-b border-zinc-100 ${ds.space.px3} py-1.5`}
+        >
           <div>
-            <h2 className="text-sm font-semibold text-zinc-900">設計工作區</h2>
-            <p className="text-[10px] text-zinc-500">{sideLabel}</p>
+            <h2 className={ds.type.title}>設計工作區</h2>
+            <p className={ds.type.helper}>{sideLabel}</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className={`flex items-center ${ds.space.gap2}`}>
             {UI_VISIBILITY.showDesignBrowseButton && (
               <button
                 type="button"
                 title="瀏覽完整衣服設計（正面與背面）"
                 disabled={isBusy || !canReviewGenderDesign}
                 onClick={() => setShowDesignReview(true)}
-                className="flex items-center gap-1 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40"
+                className={`flex items-center gap-1 ${ds.button.secondary}`}
               >
                 <span aria-hidden>👁</span>
                 <span>設計瀏覽</span>
@@ -502,7 +530,7 @@ export function DesignCanvas({
               title="清除目前模特與面向的設計"
               disabled={isBusy || readOnly || !hasCurrentSlotDesign}
               onClick={() => setShowClearConfirm(true)}
-              className="flex items-center gap-1 rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40"
+              className={`flex items-center gap-1 ${ds.button.secondary}`}
             >
               <span aria-hidden>↩</span>
               <span>重新設計</span>
@@ -510,18 +538,150 @@ export function DesignCanvas({
           </div>
         </div>
 
-        <AlignmentToolbar
-          disabled={isBusy || readOnly || alignableCount === 0}
-          onAlign={handleAlign}
-        />
+        <div className={`shrink-0 border-b border-zinc-100 bg-white ${ds.space.px3} py-1`}>
+          <div className="flex flex-col gap-1">
+            {/* 單列 Toolbar — 正/背面、版型、狀態、工具、對齊、Undo/Redo */}
+            <div
+              className={`flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1`}
+            >
+              <div
+                className={`inline-flex shrink-0 gap-0.5 border border-zinc-200 bg-white p-0.5 ${ds.radius.button}`}
+              >
+                {(
+                  [
+                    ["front", "正面"],
+                    ["back", "背面"],
+                  ] as const
+                ).map(([s, label]) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => onSideChange(s)}
+                    className={`rounded-md px-2 py-0.5 font-medium ${ds.type.body} transition-colors duration-150 ease-out ${
+                      side === s
+                        ? "bg-blue-700 text-white"
+                        : "text-zinc-600 hover:bg-zinc-100"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
 
-        <PlacementPresetToolbar
-          side={side}
-          disabled={isBusy || readOnly}
-          activePresetId={activePlacementPresetId}
-          selectionOverflow={primaryOverflowExceeds}
-          onApplyPreset={onApplyPlacementPreset}
-        />
+              <span className="hidden h-4 w-px shrink-0 bg-zinc-200 md:inline" aria-hidden />
+
+              <PlacementPresetToolbar
+                side={side}
+                disabled={isBusy || readOnly}
+                activePresetId={activePlacementPresetId}
+                selectionOverflow={primaryOverflowExceeds}
+                onApplyPreset={onApplyPlacementPreset}
+                embedded
+                variant="dropdown"
+              />
+
+              <DesignWorkspaceStatusBar
+                size={size}
+                maxPrintBounds={currentMaxPrintBounds}
+                hasOverflow={hasWorkspaceOverflow}
+                violationCount={garmentConstraintViolationCount}
+                statusWarning={garmentConstraintStatusWarning}
+                printStatus={garmentPrintStatus}
+                layers={layers}
+                embedded
+                compact
+              />
+
+              <span className="hidden h-4 w-px shrink-0 bg-zinc-200 lg:inline" aria-hidden />
+
+              <DesignToolbar
+                embedded
+                isBusy={isBusy}
+                readOnly={readOnly}
+                warnings={[]}
+                onUpload={onUpload}
+                onAddText={onAddText}
+                onAddShape={onAddShape}
+              />
+
+              <span className="hidden h-4 w-px shrink-0 bg-zinc-200 lg:inline" aria-hidden />
+
+              <DesignerAlignmentToolbar
+                disabled={isBusy || readOnly || alignableCount === 0}
+                onAlign={handleAlign}
+              />
+
+              <div className={`ml-auto flex shrink-0 items-center gap-0.5`}>
+                <DesignerTooltip content="復原">
+                  <button
+                    type="button"
+                    disabled={historyDisabled || !canUndo}
+                    onClick={() => onUndo?.()}
+                    className={tb.iconButton}
+                    aria-label="復原"
+                  >
+                    ↶
+                  </button>
+                </DesignerTooltip>
+                <DesignerTooltip content="重做">
+                  <button
+                    type="button"
+                    disabled={historyDisabled || !canRedo}
+                    onClick={() => onRedo?.()}
+                    className={tb.iconButton}
+                    aria-label="重做"
+                  >
+                    ↷
+                  </button>
+                </DesignerTooltip>
+              </div>
+            </div>
+
+            {/* Context Toolbar（選取物件時顯示） */}
+            {showContextToolbar && primaryLayer ? (
+              <ContextToolbar
+                layer={primaryLayer}
+                disabled={isBusy || readOnly}
+                onTextPatch={(patch) =>
+                  onTextStylePatch(primaryLayer.id, patch)
+                }
+                onImagePatch={(patch) =>
+                  onImageStylePatch(primaryLayer.id, patch)
+                }
+                onShapePatch={(patch) =>
+                  onShapeStylePatch(primaryLayer.id, patch)
+                }
+                onDelete={() => onDeleteLayer(primaryLayer.id)}
+                onReplaceImage={onUpload}
+              />
+            ) : (
+              !readOnly && (
+                <ContextToolbarEmptyState
+                  hasImage={layers.some((item) => item.type === "image")}
+                  hasText={layers.some((item) => item.type === "text")}
+                  hasShape={layers.some((item) => item.type === "shape")}
+                  disabled={isBusy || readOnly}
+                  onUpload={onUpload}
+                  onAddText={onAddText}
+                  onAddShape={onAddShape}
+                />
+              )
+            )}
+          </div>
+
+          {warnings.length > 0 && (
+            <div className={`mt-2 flex flex-wrap ${ds.space.gap2}`}>
+              {warnings.map((w) => (
+                <p
+                  key={w}
+                  className={`rounded bg-amber-50 px-2 py-1 text-amber-800 ${ds.type.helper}`}
+                >
+                  {w}
+                </p>
+              ))}
+            </div>
+          )}
+        </div>
 
         {debugPrintArea && (
           <PlacementPresetCalibrationPanel
@@ -531,35 +691,25 @@ export function DesignCanvas({
           />
         )}
 
-        <DesignWorkspaceStatusBar
-          size={size}
-          maxPrintBounds={currentMaxPrintBounds}
-          hasOverflow={hasWorkspaceOverflow}
-          violationCount={garmentConstraintViolationCount}
-          statusWarning={garmentConstraintStatusWarning}
-          printStatus={garmentPrintStatus}
-        />
-
-        <div className="relative flex min-h-0 flex-1 overflow-hidden bg-zinc-100">
+        <div className={`relative mx-1.5 mb-1.5 flex min-h-0 flex-1 overflow-hidden rounded-xl ${ds.surface.canvasWell}`}>
           {UI_VISIBILITY.showCanvasInfoPanel && (
             <CanvasInfoPanel
               layers={layers}
               selectedLayerIds={selectedIds}
-              side={side}
-              size={size}
               isBusy={isBusy}
               readOnly={readOnly}
-              largePrintModeEnabled={largePrintModeEnabled}
-              onSelectLayer={(id) => onSelectLayer(id, false)}
+              onSelectLayer={onSelectLayer}
+              onRenameLayer={onRenameLayer}
+              onToggleVisible={onToggleVisible}
+              onToggleLocked={onToggleLocked}
+              onMoveLayer={onMoveLayer}
+              onDuplicateLayer={onDuplicateLayer}
               onDeleteLayer={onDeleteLayer}
-              onLayerResize={onImageResize}
-              onTextPatch={onTextStylePatch}
-              onImagePatch={onImageStylePatch}
-              onShapePatch={onShapeStylePatch}
+              onReorderDrag={onReorderDrag}
             />
           )}
 
-          <div className="@container relative z-0 flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden p-2">
+          <div className="@container relative z-0 flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden p-3">
             <ShirtContainerFrame
               canvasRoot
               fitRatio={PREVIEW_FIT_RATIO}
@@ -567,13 +717,15 @@ export function DesignCanvas({
               className="relative z-0 transition-transform duration-200"
               onPointerDown={() => onClearSelection()}
             >
-                <ProcessedTemplateImage
-                  gender={gender}
-                  side={side}
-                  src={templateSrc}
-                  alt="服飾模板"
-                  className="absolute inset-0 z-0 h-full w-full object-contain"
-                />
+                <DesignerGarmentPresentation side={side}>
+                  <ProcessedTemplateImage
+                    gender={gender}
+                    side={side}
+                    src={templateSrc}
+                    alt="服飾模板"
+                    className="absolute inset-0 z-0 h-full w-full object-contain"
+                  />
+                </DesignerGarmentPresentation>
               <div
                 data-design-workspace
                 data-print-area
@@ -801,18 +953,10 @@ export function DesignCanvas({
                       })
                     }
                     onScaleDown={() =>
-                      onLayerTransformChange(primaryLayer.id, {
-                        x_cm: primaryLayer.x_cm,
-                        y_cm: primaryLayer.y_cm,
-                        scale: primaryLayer.scale * 0.9,
-                      })
+                      onLayerToolbarScale(primaryLayer.id, 0.9)
                     }
                     onScaleUp={() =>
-                      onLayerTransformChange(primaryLayer.id, {
-                        x_cm: primaryLayer.x_cm,
-                        y_cm: primaryLayer.y_cm,
-                        scale: primaryLayer.scale * 1.1,
-                      })
+                      onLayerToolbarScale(primaryLayer.id, 1.1)
                     }
                     onRotationChange={(rotation) =>
                       onLayerRotationChange(primaryLayer.id, rotation)
@@ -840,50 +984,21 @@ export function DesignCanvas({
             </ShirtContainerFrame>
           </div>
 
-          <ClothingBrowsePanel
-            gender={gender}
-            side={side}
-            shirtColor={shirtColor}
-            size={size}
-            layers={layers}
-            previewPrintPositionMode={previewPrintPositionMode}
-            onExpand={() => setShowClothingBrowse(true)}
-          />
-        </div>
-
-        <div className="flex items-center justify-between border-t border-zinc-200 bg-white px-3 py-1.5">
-          <div className="flex gap-1">
-            {(
-              [
-                ["front", "正面"],
-                ["back", "背面"],
-              ] as const
-            ).map(([s, label]) => (
-              <button
-                key={s}
-                type="button"
-                onClick={() => onSideChange(s)}
-                className={`rounded-md px-2.5 py-1 text-xs ${
-                  side === s
-                    ? "bg-zinc-900 text-white"
-                    : "text-zinc-600 hover:bg-zinc-100"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex items-center gap-1.5">
+          <div
+            className={`pointer-events-auto absolute bottom-2 right-2 z-30 flex items-center gap-0.5 rounded-lg border border-zinc-200 bg-white/95 px-1 py-0.5 shadow-sm backdrop-blur-sm ${ds.motion.shadow}`}
+            role="toolbar"
+            aria-label="畫布縮放"
+          >
             <button
               type="button"
               disabled={zoomIndex === 0}
               onClick={() => setZoomIndex((i) => Math.max(0, i - 1))}
-              className="rounded-md border border-zinc-200 px-2 py-0.5 text-xs hover:bg-zinc-50 disabled:opacity-40"
+              className={`flex ${ds.control.sm} items-center justify-center rounded-md text-zinc-700 transition-colors duration-150 ease-out hover:bg-zinc-100 active:bg-zinc-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 disabled:opacity-40 ${ds.type.body}`}
+              aria-label="縮小畫布"
             >
               −
             </button>
-            <span className="min-w-[2.5rem] text-center text-xs text-zinc-600">
+            <span className={`min-w-[2.5rem] text-center text-zinc-600 ${ds.type.helper}`}>
               {Math.round(zoom * 100)}%
             </span>
             <button
@@ -892,21 +1007,13 @@ export function DesignCanvas({
               onClick={() =>
                 setZoomIndex((i) => Math.min(ZOOM_STEPS.length - 1, i + 1))
               }
-              className="rounded-md border border-zinc-200 px-2 py-0.5 text-xs hover:bg-zinc-50 disabled:opacity-40"
+              className={`flex ${ds.control.sm} items-center justify-center rounded-md text-zinc-700 transition-colors duration-150 ease-out hover:bg-zinc-100 active:bg-zinc-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 disabled:opacity-40 ${ds.type.body}`}
+              aria-label="放大畫布"
             >
               +
             </button>
           </div>
         </div>
-
-        <DesignToolbar
-          isBusy={isBusy}
-          readOnly={readOnly}
-          warnings={warnings}
-          onUpload={onUpload}
-          onAddText={onAddText}
-          onAddShape={onAddShape}
-        />
       </div>
 
       <DesignReviewModal
@@ -919,41 +1026,31 @@ export function DesignCanvas({
         onClose={() => setShowDesignReview(false)}
       />
 
-      <ClothingBrowseModal
-        open={showClothingBrowse}
-        gender={gender}
-        shirtColor={shirtColor}
-        size={size}
-        layersByTemplate={layersByTemplate}
-        previewPrintPositionMode={previewPrintPositionMode}
-        onClose={() => setShowClothingBrowse(false)}
-      />
-
       {showClearConfirm && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          className={`fixed inset-0 z-50 flex items-center justify-center bg-black/40 ${ds.space.p4}`}
           onClick={() => setShowClearConfirm(false)}
         >
           <div
-            className="w-full max-w-sm rounded-xl bg-white p-5 shadow-xl"
+            className={`w-full max-w-sm bg-white ${ds.space.p6} ${ds.radius.card} ${ds.shadow.preview}`}
             onClick={(e) => e.stopPropagation()}
             role="alertdialog"
             aria-labelledby="clear-design-title"
           >
             <h3
               id="clear-design-title"
-              className="text-base font-semibold text-zinc-900"
+              className={ds.type.title}
             >
               清除目前面向設計？
             </h3>
-            <p className="mt-2 text-sm text-zinc-900">
+            <p className={`mt-2 text-zinc-900 ${ds.type.body}`}>
               將刪除目前模特「{sideLabel}」的所有圖片與文字圖層，其他模板與面向不受影響。
             </p>
-            <div className="mt-4 flex flex-wrap justify-end gap-2">
+            <div className={`mt-4 flex flex-wrap justify-end ${ds.space.gap2}`}>
               <button
                 type="button"
                 onClick={() => setShowClearConfirm(false)}
-                className="rounded-lg border border-zinc-300 px-4 py-2 text-sm hover:bg-zinc-50"
+                className={ds.button.secondary}
               >
                 取消
               </button>
@@ -964,7 +1061,7 @@ export function DesignCanvas({
                     setShowClearConfirm(false);
                     onClearAllDesign();
                   }}
-                  className="rounded-lg border border-red-300 px-4 py-2 text-sm text-red-700 hover:bg-red-50"
+                  className={`border border-red-300 px-4 py-2 text-red-700 hover:bg-red-50 ${ds.radius.button} ${ds.type.body} ${ds.motion.hover}`}
                 >
                   清除全部模板
                 </button>
@@ -975,7 +1072,7 @@ export function DesignCanvas({
                   setShowClearConfirm(false);
                   onClearCurrentSlotDesign();
                 }}
-                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-500"
+                className={`bg-red-600 px-4 py-2 font-medium text-white hover:bg-red-500 ${ds.radius.button} ${ds.type.body} ${ds.motion.hover}`}
               >
                 清除目前面向
               </button>

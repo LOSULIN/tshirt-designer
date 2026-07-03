@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useState } from "react";
 import {
   EXPORT_DPI,
@@ -17,6 +18,28 @@ import type { DesignLayersByTemplate } from "@/lib/types";
 import { FlatShirtDesignView } from "./FlatShirtDesignView";
 
 const ZOOM_STEPS = [0.75, 1, 1.25, 1.5];
+
+/** Clothing Browse preview shell — sized above Panel, below full grid cell width. */
+function ClothingBrowsePreviewBox({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="flex flex-col items-center">
+      <h3 className="mb-2 text-center text-sm font-semibold text-zinc-800">
+        {title}
+      </h3>
+      <div className="flex w-full -translate-y-[10px] justify-center">
+        <div className="w-full max-w-[240px] overflow-hidden rounded-lg border border-zinc-200 lg:max-w-[260px]">
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function ClothingBrowseModal({
   open,
@@ -83,38 +106,31 @@ export function ClothingBrowseModal({
 
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
           <div className="mx-auto grid max-w-4xl grid-cols-1 gap-5 md:grid-cols-2">
-            <div>
-              <h3 className="mb-2 text-center text-sm font-semibold text-zinc-800">
-                正面
-              </h3>
-              <div className="overflow-hidden rounded-lg border border-zinc-200">
-                <FlatShirtDesignView
-                  gender={gender}
-                  side="front"
-                  shirtColor={shirtColor}
-                  size={size}
-                  layers={frontLayers}
-                  previewPrintPositionMode={previewPrintPositionMode}
-                  zoom={zoom}
-                />
-              </div>
-            </div>
-            <div>
-              <h3 className="mb-2 text-center text-sm font-semibold text-zinc-800">
-                背面
-              </h3>
-              <div className="overflow-hidden rounded-lg border border-zinc-200">
-                <FlatShirtDesignView
-                  gender={gender}
-                  side="back"
-                  shirtColor={shirtColor}
-                  size={size}
-                  layers={backLayers}
-                  previewPrintPositionMode={previewPrintPositionMode}
-                  zoom={zoom}
-                />
-              </div>
-            </div>
+            <ClothingBrowsePreviewBox title="正面">
+              <FlatShirtDesignView
+                gender={gender}
+                side="front"
+                shirtColor={shirtColor}
+                size={size}
+                layers={frontLayers}
+                previewPrintPositionMode={previewPrintPositionMode}
+                compact
+                zoom={zoom}
+              />
+            </ClothingBrowsePreviewBox>
+            <ClothingBrowsePreviewBox title="背面">
+              <FlatShirtDesignView
+                className="[&_[data-preview-artwork-stage]]:-translate-y-[8px]"
+                gender={gender}
+                side="back"
+                shirtColor={shirtColor}
+                size={size}
+                layers={backLayers}
+                previewPrintPositionMode={previewPrintPositionMode}
+                compact
+                zoom={zoom}
+              />
+            </ClothingBrowsePreviewBox>
           </div>
 
           <p className="mt-4 text-center text-xs text-zinc-500">

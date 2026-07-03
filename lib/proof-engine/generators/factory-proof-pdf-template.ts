@@ -21,12 +21,6 @@ import {
   hasDesignInSlot,
 } from "../../design-state";
 import { getExportCanvasSpec } from "../../export-coordinates";
-import { mapLiveDesignElementsToExportPhysical } from "../../export-runtime";
-import {
-  buildLiveDesignState,
-  type LiveDesignStateElement,
-} from "../../live-design-state";
-import { getPrintAreaOffsetCm } from "../../coordinates/print-area-offset";
 import { embedPdfCjkFonts } from "../../pdf-fonts";
 import type { PdfArtworkPositionPresentation } from "../pdf-position-presentation";
 import type { ProofOrder } from "../types";
@@ -134,19 +128,48 @@ function drawLabelValue(
   page.drawText(label, {
     x,
     y,
-    size: 7.5,
+    size: 7,
     font: fonts.bold,
     color: gray,
   });
   page.drawText(value, {
     x,
-    y: y - 12,
-    size: 9,
+    y: y - 11,
+    size: 8.5,
     font: fonts.regular,
     color: valueColor ?? black,
     maxWidth,
   });
-  return y - 26;
+  return y - 22;
+}
+
+function drawSectionHeader(
+  ctx: PageContext,
+  x: number,
+  y: number,
+  title: string,
+  panelMaxW: number,
+): number {
+  const { page, fonts, black, border } = ctx;
+  page.drawText(title, {
+    x,
+    y,
+    size: 9.5,
+    font: fonts.bold,
+    color: black,
+  });
+  const lineY = y - 5;
+  page.drawLine({
+    start: { x, y: lineY },
+    end: { x: x + panelMaxW, y: lineY },
+    thickness: 0.4,
+    color: border,
+  });
+  return lineY - 12;
+}
+
+function drawSectionGap(ctx: PageContext, y: number): number {
+  return y - 6;
 }
 
 function drawPageHeader(ctx: PageContext, side: Side) {
@@ -216,7 +239,6 @@ function drawLeftInfoPanel(
   ctx: PageContext,
   order: ProofOrder,
   side: Side,
-  elements: LiveDesignStateElement[],
   printBytes: Uint8Array | Buffer | undefined,
   positionPresentation: PdfArtworkPositionPresentation | null,
 ) {
@@ -224,7 +246,7 @@ function drawLeftInfoPanel(
   const x = getLeftPanelX();
   const { top, bottom } = getContentVerticalBounds();
   const panelMaxW = LEFT_PANEL_W;
-  let y = top - 8;
+  let y = top - 4;
 
   page.drawLine({
     start: { x: x + panelMaxW + PANEL_GUTTER / 2, y: bottom },
@@ -233,163 +255,20 @@ function drawLeftInfoPanel(
     color: border,
   });
 
-  page.drawText("印刷資訊", {
-    x,
-    y,
-    size: 11,
-    font: fonts.bold,
-    color: black,
-  });
-  y -= 20;
-
   const printSpec = getExportCanvasSpec(side, order.size);
   const missingPosition = "—";
+  const caseNo = order.submission_no ?? order.order_id;
+  const dateStr = (order.created_at ?? new Date().toISOString()).slice(0, 10);
 
+  y = drawSectionHeader(ctx, x, y, "商品資訊", panelMaxW);
   y = drawLabelValue(ctx, x, y, "品牌", getProductBrand(), panelMaxW, accent);
   y = drawLabelValue(ctx, x, y, "商品名稱", getProductDisplayName(), panelMaxW);
   y = drawLabelValue(ctx, x, y, "商品型號", getProductCode(), panelMaxW);
-
-  y -= 8;
-  page.drawLine({
-    start: { x, y },
-    end: { x: x + panelMaxW, y },
-    thickness: 0.5,
-    color: border,
-  });
-  y -= 14;
-
-  page.drawText("位置資訊", {
-    x,
-    y,
-    size: 10,
-    font: fonts.bold,
-    color: black,
-  });
-  y -= 18;
-
   y = drawLabelValue(
     ctx,
     x,
     y,
-    "印刷位置",
-    positionPresentation?.sideLabel ?? missingPosition,
-    panelMaxW,
-  );
-  y = drawLabelValue(
-    ctx,
-    x,
-    y,
-    "印刷尺寸",
-    positionPresentation?.printSizeLabel ?? missingPosition,
-    panelMaxW,
-    accent,
-  );
-  y = drawLabelValue(
-    ctx,
-    x,
-    y,
-    "距離領口",
-    positionPresentation?.collarDistanceLabel ?? missingPosition,
-    panelMaxW,
-    accent,
-  );
-  y = drawLabelValue(
-    ctx,
-    x,
-    y,
-    "距離左側",
-    positionPresentation?.leftDistanceLabel ?? missingPosition,
-    panelMaxW,
-  );
-  y = drawLabelValue(
-    ctx,
-    x,
-    y,
-    "距離右側",
-    positionPresentation?.rightDistanceLabel ?? missingPosition,
-    panelMaxW,
-  );
-
-  y -= 8;
-  page.drawLine({
-    start: { x, y },
-    end: { x: x + panelMaxW, y },
-    thickness: 0.5,
-    color: border,
-  });
-  y -= 14;
-
-  page.drawText("印刷規格", {
-    x,
-    y,
-    size: 10,
-    font: fonts.bold,
-    color: black,
-  });
-  y -= 18;
-  y = drawLabelValue(ctx, x, y, "解析度", `${FACTORY_PROOF_DPI} DPI`, panelMaxW);
-  y = drawLabelValue(
-    ctx,
-    x,
-    y,
-    "印刷方式",
-    getProductPrintMethodLabel(),
-    panelMaxW,
-  );
-  y = drawLabelValue(ctx, x, y, "色彩模式", "RGB", panelMaxW);
-  y = drawLabelValue(ctx, x, y, "檔案格式", "PNG", panelMaxW);
-
-  y -= 8;
-  page.drawLine({
-    start: { x, y },
-    end: { x: x + panelMaxW, y },
-    thickness: 0.5,
-    color: border,
-  });
-  y -= 16;
-
-  page.drawText("設計檔案資訊", {
-    x,
-    y,
-    size: 10,
-    font: fonts.bold,
-    color: black,
-  });
-  y -= 18;
-
-  y = drawLabelValue(
-    ctx,
-    x,
-    y,
-    "檔案名稱",
-    SIDE_DESIGN_FILE[side],
-    panelMaxW,
-  );
-  y = drawLabelValue(
-    ctx,
-    x,
-    y,
-    "尺寸",
-    `${printSpec.widthPx} × ${printSpec.heightPx} px`,
-    panelMaxW,
-    accent,
-  );
-
-  const fileSize = printBytes?.length ?? 0;
-  y = drawLabelValue(
-    ctx,
-    x,
-    y,
-    "檔案大小",
-    fileSize > 0 ? formatFileSize(fileSize) : "—",
-    panelMaxW,
-  );
-
-  y = drawLabelValue(
-    ctx,
-    x,
-    y,
-    "衣服顏色",
+    "顏色",
     getShirtColorName(order.shirt_color),
     panelMaxW,
   );
@@ -410,29 +289,94 @@ function drawLeftInfoPanel(
     getProductWeightLabel(),
     panelMaxW,
   );
+  y = drawLabelValue(
+    ctx,
+    x,
+    y,
+    "印刷方式",
+    getProductPrintMethodLabel(),
+    panelMaxW,
+    accent,
+  );
 
-  if (elements.length > 0) {
-    y -= 6;
-    page.drawText("設計物件", {
+  y = drawSectionGap(ctx, y);
+  y = drawSectionHeader(ctx, x, y, "位置資訊", panelMaxW);
+  y = drawLabelValue(
+    ctx,
+    x,
+    y,
+    "印刷位置",
+    positionPresentation?.sideLabel ?? missingPosition,
+    panelMaxW,
+  );
+  y = drawLabelValue(
+    ctx,
+    x,
+    y,
+    "印刷尺寸",
+    positionPresentation?.printSizeLabel ?? missingPosition,
+    panelMaxW,
+    accent,
+  );
+  page.drawText("距離標示見右側圖稿", {
+    x,
+    y: y - 2,
+    size: 6.5,
+    font: fonts.regular,
+    color: gray,
+    maxWidth: panelMaxW,
+  });
+  y -= 14;
+
+  y = drawSectionGap(ctx, y);
+  y = drawSectionHeader(ctx, x, y, "印刷規格", panelMaxW);
+  y = drawLabelValue(ctx, x, y, "解析度", `${FACTORY_PROOF_DPI} DPI`, panelMaxW);
+  y = drawLabelValue(ctx, x, y, "色彩模式", "RGB", panelMaxW);
+  y = drawLabelValue(ctx, x, y, "檔案格式", "PNG", panelMaxW);
+
+  y = drawSectionGap(ctx, y);
+  y = drawSectionHeader(ctx, x, y, "設計檔案資訊", panelMaxW);
+  y = drawLabelValue(
+    ctx,
+    x,
+    y,
+    "檔案名稱",
+    SIDE_DESIGN_FILE[side],
+    panelMaxW,
+  );
+  y = drawLabelValue(
+    ctx,
+    x,
+    y,
+    "像素尺寸",
+    `${printSpec.widthPx} × ${printSpec.heightPx} px`,
+    panelMaxW,
+    accent,
+  );
+  const fileSize = printBytes?.length ?? 0;
+  y = drawLabelValue(
+    ctx,
+    x,
+    y,
+    "檔案大小",
+    fileSize > 0 ? formatFileSize(fileSize) : "—",
+    panelMaxW,
+  );
+
+  y = drawSectionGap(ctx, y);
+  y = drawSectionHeader(ctx, x, y, "訂單資訊", panelMaxW);
+  y = drawLabelValue(ctx, x, y, "訂單編號", caseNo, panelMaxW);
+  y = drawLabelValue(ctx, x, y, "日期", dateStr, panelMaxW);
+  const notes = order.applicant?.notes?.trim();
+  if (notes) {
+    y = drawLabelValue(
+      ctx,
       x,
       y,
-      size: 9,
-      font: fonts.bold,
-      color: accent,
-    });
-    y -= 14;
-    for (const el of elements.slice(0, 3)) {
-      const line = `${el.index}. ${el.width_cm.toFixed(1)}×${el.height_cm.toFixed(1)} cm`;
-      page.drawText(line, {
-        x,
-        y,
-        size: 7.5,
-        font: fonts.regular,
-        color: gray,
-        maxWidth: panelMaxW,
-      });
-      y -= 11;
-    }
+      "客戶備註",
+      notes.slice(0, 48),
+      panelMaxW,
+    );
   }
 }
 
@@ -489,10 +433,175 @@ function drawMockupImage(
   });
 }
 
+function artworkBoundsPt(
+  placement: PdfMockupPlacement,
+  position: PdfArtworkPositionPresentation,
+) {
+  const {
+    printAreaLeftPt,
+    printAreaTopPt,
+    printAreaRenderWidthPt,
+    printAreaRenderHeightPt,
+  } = placement;
+  const wCm = position.printAreaWidthCm;
+  const hCm = position.printAreaHeightCm;
+
+  const left =
+    printAreaLeftPt +
+    (position.artworkLeftCm / wCm) * printAreaRenderWidthPt;
+  const right =
+    printAreaLeftPt +
+    (position.artworkRightCm / wCm) * printAreaRenderWidthPt;
+  const top =
+    printAreaTopPt -
+    (position.artworkTopCm / hCm) * printAreaRenderHeightPt;
+  const bottom =
+    printAreaTopPt -
+    (position.artworkBottomCm / hCm) * printAreaRenderHeightPt;
+
+  return {
+    left,
+    right,
+    top,
+    bottom,
+    centerX: (left + right) / 2,
+    centerY: (top + bottom) / 2,
+  };
+}
+
+function drawArtworkMeasurementAnnotations(
+  ctx: PageContext,
+  placement: PdfMockupPlacement,
+  position: PdfArtworkPositionPresentation,
+) {
+  const { page, fonts, accent, gray } = ctx;
+  const bounds = artworkBoundsPt(placement, position);
+  const tick = 3;
+  const lineW = 0.65;
+  const labelSize = 7.5;
+
+  const collarY = placement.collarCenterPt.y;
+  const neckX = bounds.centerX;
+
+  if (collarY > bounds.top + 6) {
+    page.drawLine({
+      start: { x: neckX, y: bounds.top },
+      end: { x: neckX, y: collarY },
+      thickness: lineW,
+      color: accent,
+    });
+    page.drawLine({
+      start: { x: neckX - tick, y: bounds.top },
+      end: { x: neckX + tick, y: bounds.top },
+      thickness: lineW,
+      color: accent,
+    });
+    page.drawLine({
+      start: { x: neckX - tick, y: collarY },
+      end: { x: neckX + tick, y: collarY },
+      thickness: lineW,
+      color: accent,
+    });
+    const neckLabel = `↑ ${position.collarDistanceCm} cm`;
+    const neckLabelW = fonts.regular.widthOfTextAtSize(neckLabel, labelSize);
+    page.drawText(neckLabel, {
+      x: neckX - neckLabelW / 2,
+      y: bounds.top + 6,
+      size: labelSize,
+      font: fonts.bold,
+      color: accent,
+    });
+  }
+
+  const leftY = bounds.centerY;
+  if (bounds.left > placement.printAreaLeftPt + 8) {
+    page.drawLine({
+      start: { x: placement.printAreaLeftPt, y: leftY },
+      end: { x: bounds.left, y: leftY },
+      thickness: lineW,
+      color: accent,
+    });
+    page.drawLine({
+      start: { x: placement.printAreaLeftPt, y: leftY - tick },
+      end: { x: placement.printAreaLeftPt, y: leftY + tick },
+      thickness: lineW,
+      color: accent,
+    });
+    page.drawLine({
+      start: { x: bounds.left, y: leftY - tick },
+      end: { x: bounds.left, y: leftY + tick },
+      thickness: lineW,
+      color: accent,
+    });
+    const leftLabel = `← ${position.leftDistanceCm} cm`;
+    page.drawText(leftLabel, {
+      x: placement.printAreaLeftPt - 2,
+      y: leftY + 8,
+      size: labelSize,
+      font: fonts.bold,
+      color: accent,
+    });
+  }
+
+  const rightY = bounds.centerY;
+  const printAreaRight = placement.printAreaLeftPt + placement.printAreaRenderWidthPt;
+  if (printAreaRight > bounds.right + 8) {
+    page.drawLine({
+      start: { x: bounds.right, y: rightY },
+      end: { x: printAreaRight, y: rightY },
+      thickness: lineW,
+      color: accent,
+    });
+    page.drawLine({
+      start: { x: bounds.right, y: rightY - tick },
+      end: { x: bounds.right, y: rightY + tick },
+      thickness: lineW,
+      color: accent,
+    });
+    page.drawLine({
+      start: { x: printAreaRight, y: rightY - tick },
+      end: { x: printAreaRight, y: rightY + tick },
+      thickness: lineW,
+      color: accent,
+    });
+    const rightLabel = `${position.rightDistanceCm} cm →`;
+    const rightLabelW = fonts.regular.widthOfTextAtSize(rightLabel, labelSize);
+    page.drawText(rightLabel, {
+      x: printAreaRight - rightLabelW + 2,
+      y: rightY - 14,
+      size: labelSize,
+      font: fonts.bold,
+      color: accent,
+    });
+  }
+
+  page.drawRectangle({
+    x: bounds.left,
+    y: bounds.bottom,
+    width: bounds.right - bounds.left,
+    height: bounds.top - bounds.bottom,
+    borderColor: accent,
+    borderWidth: 0.8,
+    color: undefined,
+    opacity: 0.15,
+  });
+
+  const sizeLabel = position.printSizeLabel;
+  const sizeLabelW = fonts.bold.widthOfTextAtSize(sizeLabel, labelSize);
+  page.drawText(sizeLabel, {
+    x: bounds.centerX - sizeLabelW / 2,
+    y: bounds.centerY - 4,
+    size: labelSize,
+    font: fonts.bold,
+    color: gray,
+  });
+}
+
 async function drawMockupAnnotations(
   ctx: PageContext,
   side: Side,
   placement: PdfMockupPlacement,
+  positionPresentation: PdfArtworkPositionPresentation | null,
 ) {
   const { page, fonts, accent, printBlue } = ctx;
   const {
@@ -503,9 +612,6 @@ async function drawMockupAnnotations(
     printAreaTopPt,
     printAreaWidthCm,
     printAreaHeightCm,
-    collarCenterPt,
-    x,
-    drawWidthPt,
   } = placement;
 
   await drawDashedRect(
@@ -532,42 +638,8 @@ async function drawMockupAnnotations(
     color: accent,
   });
 
-  const offsetCm = getPrintAreaOffsetCm(side);
-  const dimX = x + drawWidthPt + 10;
-  const dimTop = collarCenterPt.y;
-  const dimBottom = printAreaTopPt;
-
-  if (dimTop > dimBottom + 8) {
-    page.drawLine({
-      start: { x: dimX, y: dimBottom },
-      end: { x: dimX, y: dimTop },
-      thickness: 0.75,
-      color: accent,
-    });
-    page.drawLine({
-      start: { x: dimX - 4, y: dimBottom },
-      end: { x: dimX + 4, y: dimBottom },
-      thickness: 0.75,
-      color: accent,
-    });
-    page.drawLine({
-      start: { x: dimX - 4, y: dimTop },
-      end: { x: dimX + 4, y: dimTop },
-      thickness: 0.75,
-      color: accent,
-    });
-
-    const offsetLabel = `${formatInspectorCm(offsetCm, 0)} cm`;
-    const offsetLabelW = fonts.regular.widthOfTextAtSize(offsetLabel, 8);
-    page.drawText(offsetLabel, {
-      x: dimX + 6,
-      y: (dimTop + dimBottom) / 2 - 4,
-      size: 8,
-      font: fonts.regular,
-      color: accent,
-    });
-
-    void offsetLabelW;
+  if (positionPresentation) {
+    drawArtworkMeasurementAnnotations(ctx, placement, positionPresentation);
   }
 }
 
@@ -583,8 +655,8 @@ function drawPageFooter(ctx: PageContext, order: ProofOrder, version: number) {
     color: border,
   });
 
-  const colW = (FACTORY_PROOF_A4_WIDTH_PT - MARGIN * 2) / 3;
-  const cols = [MARGIN, MARGIN + colW, MARGIN + colW * 2];
+  const colW = (FACTORY_PROOF_A4_WIDTH_PT - MARGIN * 2) / 2;
+  const cols = [MARGIN, MARGIN + colW];
   const caseNo = order.submission_no ?? order.order_id;
   const dateStr = (order.created_at ?? new Date().toISOString()).slice(0, 10);
   const notes = order.applicant?.notes?.trim();
@@ -596,18 +668,6 @@ function drawPageFooter(ctx: PageContext, order: ProofOrder, version: number) {
         `訂單編號：${caseNo}`,
         `日期：${dateStr}`,
         notes ? `客戶備註：${notes.slice(0, 40)}` : "客戶備註：—",
-      ],
-    },
-    {
-      title: "衣服資訊",
-      lines: [
-        `商品名稱：${getProductDisplayName()}`,
-        `商品型號：${getProductCode()}`,
-        `顏色：${getShirtColorName(order.shirt_color)}`,
-        `尺碼：${order.size}`,
-        `材質：${getProductMaterialLabel()}`,
-        `克重：${getProductWeightLabel()}`,
-        `印刷方式：${getProductPrintMethodLabel()}`,
       ],
     },
     {
@@ -668,13 +728,6 @@ async function drawSideProofPage(
     order.gender,
     side,
   );
-  const sideState = buildLiveDesignState(sideLayers, order.size, side);
-  const exportElements = mapLiveDesignElementsToExportPhysical(
-    sideState.elements,
-    sideLayers,
-    side,
-    order.size,
-  );
   const { buildPdfArtworkPositionPresentation } = await import(
     "../pdf-position-presentation"
   );
@@ -688,7 +741,6 @@ async function drawSideProofPage(
     ctx,
     order,
     side,
-    exportElements,
     printBytes,
     positionPresentation,
   );
@@ -704,7 +756,7 @@ async function drawSideProofPage(
     }, order.size);
     logPdfMockupPlacementDebug(side, placement);
     drawMockupImage(ctx.page, image, placement);
-    await drawMockupAnnotations(ctx, side, placement);
+    await drawMockupAnnotations(ctx, side, placement, positionPresentation);
   } else {
     const placement = computePdfMockupPlacement(side, contentArea, undefined, order.size);
     logPdfMockupPlacementDebug(side, placement);

@@ -15,6 +15,7 @@ import {
   getModelType,
   MODEL_TYPE_OPTIONS,
 } from "@/lib/constants";
+import { ds } from "./design-ui";
 
 function ModelChoiceCard({
   gender,
@@ -109,7 +110,11 @@ export function ModelPanel({
       : ADULT_MODEL_OPTIONS[modelType];
 
   return (
-    <aside className="flex w-64 shrink-0 flex-col border-l border-zinc-200 bg-white">
+    <aside
+      data-layout-rail="checkout"
+      data-drawer-panel
+      className={`relative flex h-full min-h-0 shrink-0 flex-col border-l border-zinc-200 ${ds.surface.panel} ${ds.layout.infoRail}`}
+    >
       <div className="flex flex-1 flex-col gap-5 overflow-y-auto p-4">
         <div>
           <h2 className="mb-2 text-sm font-semibold text-zinc-900">模特類型</h2>

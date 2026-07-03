@@ -138,6 +138,24 @@ export function scaleLayerFromToolbar(
   );
 }
 
+/** Property Panel / Inspector：設定有效字級（cm）並經 fitTextLayer 重算外框 */
+export function applyTextFontSizePatch(
+  layer: TextDesignLayer,
+  fontSize_cm: number,
+  printArea: PrintAreaCmBounds,
+): TextDesignLayer {
+  const current = getTextLayerPlacementCmRect(layer);
+  const anchorCenter = {
+    x_cm: current.x_cm + current.width_cm / 2,
+    y_cm: current.y_cm + current.height_cm / 2,
+  };
+  return fitTextLayer(
+    { ...layer, fontSize_cm, scale: 1 },
+    printArea,
+    { anchorCenter },
+  );
+}
+
 export interface FitTextLayerOptions {
   /** Resize 期間固定不動的中心（與 PrintAreaElement 起點 effective rect 一致） */
   anchorCenter?: Pick<LayerCmRect, "x_cm" | "y_cm">;

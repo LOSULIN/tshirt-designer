@@ -12,27 +12,13 @@ import {
   formatInspectorDimensionPrecise,
 } from "@/lib/inspector-sync";
 import { getLayerOverflowStateForSize } from "@/lib/layer-overflow";
-import { getLayerTypeLabel } from "@/lib/layer-system";
-import { sortLayersForPanel } from "@/lib/layers";
 import type { DesignLayer } from "@/lib/types";
+import { getLayerDisplayLabel } from "./layer-display-ui";
 import { InspectorProofDetails } from "./InspectorProofDetails";
 import { InspectorNumberInput } from "./InspectorNumberInput";
 
-function getObjectTypeLabel(type: DesignLayer["type"]): string {
-  if (type === "text") return "Text";
-  if (type === "image") return "Image";
-  return "Shape";
-}
-
-function getObjectDisplayName(
-  layer: DesignLayer,
-  allLayers: DesignLayer[],
-): string {
-  const sameType = sortLayersForPanel(allLayers).filter(
-    (entry) => entry.type === layer.type,
-  );
-  const index = sameType.findIndex((entry) => entry.id === layer.id) + 1;
-  return `${getObjectTypeLabel(layer.type)} ${index}`;
+function getObjectDisplayName(layer: DesignLayer): string {
+  return getLayerDisplayLabel(layer);
 }
 
 function CompactSizeRow({
@@ -88,8 +74,7 @@ export function InspectorObjectCard({
     () => getLayerOverflowStateForSize(layer, size, side),
     [layer, size, side],
   );
-  const displayName = getObjectDisplayName(layer, allLayers);
-  const typeLabel = getLayerTypeLabel(layer.type);
+  const displayName = getObjectDisplayName(layer);
 
   const commitSize = (patch: { width_cm?: number; height_cm?: number }) => {
     let width_cm = patch.width_cm ?? bounds.width_cm;
@@ -151,9 +136,6 @@ export function InspectorObjectCard({
           <p className="truncate text-[9px] text-zinc-500">{layer.name}</p>
         </div>
         <div className="flex shrink-0 items-center gap-1">
-          <span className="text-[9px] font-medium uppercase text-zinc-400">
-            {typeLabel}
-          </span>
           <button
             type="button"
             title="刪除物件"

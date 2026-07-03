@@ -3,12 +3,19 @@
 import type { LayerInspectorReport } from "@/lib/design-inspector";
 import { getInspectorConstraintBadgeMeta } from "@/lib/garment-constraint-ux-polish";
 import { GARMENT_CONSTRAINT_LEVEL_STYLES } from "@/lib/garment-constraint-ux-polish";
+import type { DesignLayer } from "@/lib/types";
 import { GarmentConstraintBadge } from "./GarmentConstraintUxPrimitives";
+import { LayerTypeIcon } from "./layer-icons-ui";
+import { ds } from "./design-ui";
+
+const actionBtn =
+  "rounded-lg bg-zinc-100 px-2 py-1 text-xs text-zinc-700 transition-colors duration-150 ease-out hover:bg-zinc-200 active:bg-zinc-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 disabled:opacity-50";
 
 export function LayerInspectorCard({
+  layer,
   report,
   selected,
-  typeLabel,
+  displayLabel,
   visible,
   locked,
   editingName,
@@ -29,10 +36,13 @@ export function LayerInspectorCard({
   onDrop,
   onDragEnd,
   draggable,
+  isDragging = false,
+  isDropTarget = false,
 }: {
+  layer: DesignLayer;
   report: LayerInspectorReport;
   selected: boolean;
-  typeLabel: string;
+  displayLabel: string;
   visible: boolean;
   locked: boolean;
   editingName: boolean;
@@ -53,6 +63,8 @@ export function LayerInspectorCard({
   onDrop: () => void;
   onDragEnd: () => void;
   draggable: boolean;
+  isDragging?: boolean;
+  isDropTarget?: boolean;
 }) {
   const isWarning = report.status === "warning";
   const inspectorBadge = getInspectorConstraintBadgeMeta(
@@ -70,25 +82,37 @@ export function LayerInspectorCard({
       onDragOver={onDragOver}
       onDrop={onDrop}
       onDragEnd={onDragEnd}
-      className={`rounded-lg border px-2 py-2 text-sm transition-colors ${
-        selected
-          ? isWarning
-            ? "border-amber-400 bg-amber-50 ring-1 ring-amber-300"
-            : "border-blue-400 bg-blue-50"
-          : isWarning
-            ? "border-amber-300 bg-amber-50/70 hover:bg-amber-50"
-            : "border-zinc-200 bg-white hover:bg-zinc-50"
-      }`}
+      className={`relative rounded-lg border px-2 py-2 transition-all duration-150 ease-out ${ds.motion.shadow} ${
+        isDropTarget
+          ? "border-blue-700 ring-2 ring-blue-100"
+          : selected
+            ? isWarning
+              ? "border-amber-400 bg-amber-50 ring-2 ring-amber-100"
+              : "border-blue-700 bg-blue-50/90 ring-2 ring-blue-100"
+            : isWarning
+              ? "border-amber-200 bg-amber-50/80 hover:border-amber-300 hover:bg-amber-50 hover:shadow-sm"
+              : "border-zinc-200 bg-white hover:border-zinc-300 hover:bg-zinc-50 hover:shadow-sm"
+      } ${isDragging ? "opacity-45" : ""}`}
     >
+      {isDropTarget ? (
+        <span
+          className="pointer-events-none absolute inset-x-2 top-0 h-0.5 rounded-full bg-blue-700"
+          aria-hidden
+        />
+      ) : null}
       <button
         type="button"
         disabled={isBusy}
-        className="mb-1 flex w-full items-start justify-between gap-2 text-left"
+        className="mb-1 flex w-full items-center gap-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-1 rounded-md"
         onClick={(e) => onSelect(e.shiftKey)}
       >
-        <span>
-          <span className="font-medium text-zinc-900">{report.name}</span>
-          <span className="ml-1 text-xs text-zinc-600">· {typeLabel}</span>
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-zinc-50">
+          <LayerTypeIcon layer={layer} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className={`block truncate font-medium text-zinc-900 ${ds.type.body}`}>
+            {displayLabel}
+          </span>
         </span>
         <GarmentConstraintBadge
           level={inspectorBadge.level}
@@ -101,7 +125,7 @@ export function LayerInspectorCard({
 
       {editingName ? (
         <input
-          className="mb-2 w-full rounded border border-zinc-200 bg-white px-2 py-1 text-xs text-zinc-900"
+          className={`mb-2 w-full rounded-lg border border-zinc-200 bg-white px-2 py-1 text-zinc-900 ${ds.type.body} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600`}
           value={editName}
           disabled={isBusy}
           onChange={(e) => onEditNameChange(e.target.value)}
@@ -116,7 +140,7 @@ export function LayerInspectorCard({
         <button
           type="button"
           disabled={isBusy}
-          className="mb-2 text-xs text-blue-600 hover:underline"
+          className={`mb-2 ${ds.type.helper} ${ds.accent.link} hover:underline`}
           onClick={onStartRename}
         >
           重新命名
@@ -146,7 +170,7 @@ export function LayerInspectorCard({
           title="顯示/隱藏"
           disabled={isBusy}
           onClick={onToggleVisible}
-          className="rounded bg-zinc-100 px-2 py-0.5 text-xs hover:bg-zinc-200"
+          className={actionBtn}
         >
           {visible ? "👁" : "👁‍🗨"}
         </button>
@@ -155,7 +179,7 @@ export function LayerInspectorCard({
           title="鎖定/解鎖"
           disabled={isBusy}
           onClick={onToggleLocked}
-          className="rounded bg-zinc-100 px-2 py-0.5 text-xs hover:bg-zinc-200"
+          className={actionBtn}
         >
           {locked ? "🔒" : "🔓"}
         </button>
@@ -163,7 +187,7 @@ export function LayerInspectorCard({
           type="button"
           disabled={isBusy}
           onClick={() => onMove("top")}
-          className="rounded bg-zinc-100 px-1.5 py-0.5 text-xs hover:bg-zinc-200"
+          className={actionBtn}
         >
           頂
         </button>
@@ -171,7 +195,7 @@ export function LayerInspectorCard({
           type="button"
           disabled={isBusy}
           onClick={() => onMove("up")}
-          className="rounded bg-zinc-100 px-1.5 py-0.5 text-xs hover:bg-zinc-200"
+          className={actionBtn}
         >
           ↑
         </button>
@@ -179,7 +203,7 @@ export function LayerInspectorCard({
           type="button"
           disabled={isBusy}
           onClick={() => onMove("down")}
-          className="rounded bg-zinc-100 px-1.5 py-0.5 text-xs hover:bg-zinc-200"
+          className={actionBtn}
         >
           ↓
         </button>
@@ -187,7 +211,7 @@ export function LayerInspectorCard({
           type="button"
           disabled={isBusy}
           onClick={() => onMove("bottom")}
-          className="rounded bg-zinc-100 px-1.5 py-0.5 text-xs hover:bg-zinc-200"
+          className={actionBtn}
         >
           底
         </button>
@@ -195,7 +219,7 @@ export function LayerInspectorCard({
           type="button"
           disabled={isBusy}
           onClick={onDuplicate}
-          className="rounded bg-zinc-100 px-1.5 py-0.5 text-xs hover:bg-zinc-200"
+          className={actionBtn}
         >
           複製
         </button>
@@ -203,7 +227,7 @@ export function LayerInspectorCard({
           type="button"
           disabled={isBusy}
           onClick={onDelete}
-          className="rounded bg-red-50 px-1.5 py-0.5 text-xs text-red-700 hover:bg-red-100"
+          className="rounded-lg bg-red-50 px-2 py-1 text-xs text-red-700 transition-colors duration-150 ease-out hover:bg-red-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
         >
           刪除
         </button>

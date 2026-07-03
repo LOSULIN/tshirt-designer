@@ -6,10 +6,24 @@ import { PlacementPresetSizeProvider } from "./PlacementPresetToolbar";
 import { DesignPanel } from "./DesignPanel";
 import { LiveDesignStateProvider } from "./LiveDesignStateContext";
 import { IconNav } from "./IconNav";
-import { GarmentInfoPanel } from "./GarmentInfoPanel";
+import { withAutoLayerName } from "./layer-auto-name-ui";
+import { ClothingBrowseModal } from "./ClothingBrowseModal";
+import { ResultPanel } from "./ResultPanel";
+import {
+  DesignerBottomNav,
+  type DesignerMobileNavTab,
+} from "./DesignerBottomNav";
+import { LayoutBottomSheet } from "./LayoutBottomSheet";
+import { LayoutDrawer } from "./LayoutDrawer";
 import { ModelPanel } from "./ModelPanel";
 import { UI_VISIBILITY } from "./ui-visibility";
 import { ProductPanel } from "./ProductPanel";
+import { ds } from "./design-ui";
+import { DesignerToast } from "./DesignerToast";
+import { buildCurrentGarmentConstraintMap } from "@/lib/current-garment-print-constraint";
+import { countGarmentConstraintViolations } from "@/lib/garment-constraint-ux";
+import { getGarmentPrintStatus } from "@/lib/garment-constraint-ux-polish";
+import { getLayersForCanvasRender } from "@/lib/layer-system";
 import {
   contestFormToApplicantPayload,
   createEmptyContestSubmissionForm,
@@ -103,6 +117,9 @@ import { getLayerEffectiveCmRect } from "@/lib/design-cm";
 import { getTextLayerCmRect } from "@/lib/text-layer";
 import {
   applyClampedLayerPatch,
+  applyTextFontSizePatch,
+  resizeTextLayer,
+  scaleLayerFromToolbar,
 } from "@/lib/layer-constraints";
 import { normalizeDesignLayers } from "@/lib/layer-normalize";
 import {
@@ -318,6 +335,13 @@ export function DesignerApp({
   const [largePrintModeEnabled, setLargePrintModeEnabled] = useState(false);
   const [elementSnapDistance, setElementSnapDistance] = useState(10);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
+  const [showClothingBrowse, setShowClothingBrowse] = useState(false);
+  const [leftDrawerOpen, setLeftDrawerOpen] = useState(false);
+  const [rightDrawerOpen, setRightDrawerOpen] = useState(false);
+  const [mobileNavTab, setMobileNavTab] = useState<DesignerMobileNavTab>("design");
+  const [mobileSheet, setMobileSheet] = useState<
+    "product" | "preview" | "checkout" | null
+  >(null);
   const [showContestSubmitModal, setShowContestSubmitModal] = useState(false);
   const [submissionSuccess, setSubmissionSuccess] = useState<{
     submissionNo: string;
@@ -348,6 +372,24 @@ export function DesignerApp({
     () => resolvePrintAreaCm({ runtime: "designer", side, size }),
     [side, size],
   );
+
+  const previewPrintStatus = useMemo(() => {
+    const visibleLayers = getLayersForCanvasRender(layers).filter(
+      (layer) => layer.visible,
+    );
+    const constraintMap = buildCurrentGarmentConstraintMap(
+      visibleLayers,
+      side,
+      size,
+    );
+    const violationCount = countGarmentConstraintViolations(
+      [...constraintMap.values()].map((state) => ({
+        exceedsGarmentPrintArea: state.exceedsGarmentPrintArea,
+        violationEdges: state.violationEdges,
+      })),
+    );
+    return getGarmentPrintStatus(violationCount, size, maxPrintBounds);
+  }, [layers, side, size, maxPrintBounds]);
   /** 圖層定位／clamp／對齊分母 — 固定 Design Workspace（M） */
   const workspacePrintArea = useMemo(
     () => getDesignerWorkspacePrintAreaCm(side),
@@ -475,6 +517,10 @@ export function DesignerApp({
     prepareTextMutation,
     clearHistory,
     revokeDeletedLayerAssets,
+    canUndo,
+    canRedo,
+    undo,
+    redo,
   } = useDesignHistory({
     layers,
     gender,
@@ -482,6 +528,18 @@ export function DesignerApp({
     enabled: !isDesignLocked && !isBusy,
     onRestore: restoreLayersFromHistory,
   });
+
+  const handleUndoClick = useCallback(() => {
+    if (undo()) {
+      setStatusMessage("已完成 Undo");
+    }
+  }, [undo]);
+
+  const handleRedoClick = useCallback(() => {
+    if (redo()) {
+      setStatusMessage("已完成 Redo");
+    }
+  }, [redo]);
 
   /** 新增圖層時不重新 fit 既有圖層，避免版位被連帶重算 */
   const appendLayers = useCallback(
@@ -672,18 +730,19 @@ export function DesignerApp({
           const anchorCenterY = current.y_cm + current.height_cm / 2;
 
           if (layer.type === "text") {
-            const factor =
-              lockAspect && current.width_cm > 0
-                ? fittedNext.width_cm / current.width_cm
-                : current.height_cm > 0
-                  ? fittedNext.height_cm / current.height_cm
-                  : 1;
-            if (Math.abs(factor - 1) < 1e-6) return layer;
-
-            return {
-              ...layer,
-              scale: layer.scale * factor,
-            };
+            const textKeepRatio = layer.keepRatio === false ? lockAspect : true;
+            return resizeTextLayer(
+              layer,
+              fittedNext,
+              {
+                keepRatio: textKeepRatio,
+                anchorCenter: {
+                  x_cm: anchorCenterX,
+                  y_cm: anchorCenterY,
+                },
+              },
+              workspacePrintArea,
+            );
           }
 
           if (layer.type === "shape") {
@@ -747,7 +806,35 @@ export function DesignerApp({
         }),
       );
     },
-    [setLayers, markGestureMutation, designerGestureContext],
+    [setLayers, markGestureMutation, designerGestureContext, workspacePrintArea],
+  );
+
+  const applyLayerToolbarScale = useCallback(
+    (id: string, factor: number) => {
+      if (!guardEditable()) return;
+      if (Math.abs(factor - 1) < 1e-6) return;
+      markGestureMutation();
+      setLayers((prev) =>
+        prev.map((layer) => {
+          if (layer.id !== id) return layer;
+          return scaleLayerFromToolbar(
+            layer,
+            factor,
+            workspacePrintArea,
+            layer.type === "image"
+              ? { rasterFit: getImageFitOptions(largePrintModeEnabled) }
+              : undefined,
+          );
+        }),
+      );
+    },
+    [
+      guardEditable,
+      markGestureMutation,
+      setLayers,
+      workspacePrintArea,
+      largePrintModeEnabled,
+    ],
   );
 
   const handleTextInspectorPatch = useCallback(
@@ -774,14 +861,31 @@ export function DesignerApp({
         return;
       }
       if (patch.fontSize_cm !== undefined) {
-        updateLayer(id, { fontSize_cm: patch.fontSize_cm, scale: 1 });
+        prepareDiscreteMutation();
+        setLayers((prev) =>
+          prev.map((layer) => {
+            if (layer.id !== id || layer.type !== "text") return layer;
+            return applyTextFontSizePatch(
+              layer,
+              patch.fontSize_cm!,
+              workspacePrintArea,
+            );
+          }),
+        );
         return;
       }
       if (patch.text !== undefined) {
         updateLayer(id, { text: patch.text });
       }
     },
-    [guardEditable, updateLayer, applyClampedLayerTransform],
+    [
+      guardEditable,
+      updateLayer,
+      applyClampedLayerTransform,
+      prepareDiscreteMutation,
+      setLayers,
+      workspacePrintArea,
+    ],
   );
 
   const handleInspectorImageTransform = useCallback(
@@ -829,6 +933,7 @@ export function DesignerApp({
   const deleteLayerById = useCallback(
     (id: string) => {
       if (!guardEditable()) return;
+      const target = layers.find((layer) => layer.id === id);
       prepareDiscreteMutation();
       setLayersByTemplate((prev) => {
         const current = getLayersForSlot(prev, gender, side);
@@ -846,13 +951,20 @@ export function DesignerApp({
         return next;
       });
       setSelectedIds((prev) => prev.filter((x) => x !== id));
-      setStatusMessage("已刪除圖層");
+      if (target?.type === "image") {
+        setStatusMessage("已刪除圖片");
+      } else if (target?.type === "text") {
+        setStatusMessage("已刪除文字");
+      } else {
+        setStatusMessage("已刪除圖層");
+      }
     },
     [
       draftStorage,
       gender,
       side,
       guardEditable,
+      layers,
       prepareDiscreteMutation,
       revokeDeletedLayerAssets,
     ],
@@ -1093,15 +1205,18 @@ export function DesignerApp({
       };
 
       const createdLayer = createImageLayer(layers, uploaded, placement);
-      const newLayer = presetActive
-        ? (applyDesignerPlacementPresetPreserveSize(
-            createdLayer,
-            pendingPreset,
-            designerCoordinateContext,
-          ) as ImageDesignLayer)
-        : createDesignerAutoFitLayer(createdLayer, designerCoordinateContext, {
-            rasterFit: getImageFitOptions(largePrintModeEnabled),
-          });
+      const newLayer = withAutoLayerName(
+        presetActive
+          ? (applyDesignerPlacementPresetPreserveSize(
+              createdLayer,
+              pendingPreset,
+              designerCoordinateContext,
+            ) as ImageDesignLayer)
+          : createDesignerAutoFitLayer(createdLayer, designerCoordinateContext, {
+              rasterFit: getImageFitOptions(largePrintModeEnabled),
+            }),
+        layers,
+      );
       appendLayers(newLayer);
       setSelectedIds([newLayer.id]);
       const msgs: string[] = [];
@@ -1117,8 +1232,8 @@ export function DesignerApp({
       setWarnings(msgs);
       setStatusMessage(
         presetActive
-          ? `圖片已上傳並套用版型 ${pendingPreset.label}（${pendingPreset.width_cm}×${pendingPreset.height_cm} cm）`
-          : "圖片已上傳，可拖曳、縮放與旋轉",
+          ? `圖片新增完成 · 已套用版型 ${pendingPreset.label}`
+          : "圖片新增完成",
       );
     } catch (error) {
       showUploadError(
@@ -1191,20 +1306,24 @@ export function DesignerApp({
     const presetActive =
       pendingPreset != null && pendingPreset.sides.includes(side);
 
-    const layer = presetActive
+    const created = presetActive
       ? (applyDesignerPlacementPresetPreserveSize(
           createDesignerDefaultTextLayer(layers, designerCoordinateContext),
           pendingPreset,
           designerCoordinateContext,
         ) as TextDesignLayer)
       : createDesignerDefaultTextLayer(layers, designerCoordinateContext);
+    const layer = withAutoLayerName(
+      { ...created, text: "雙擊輸入文字" },
+      layers,
+    );
     appendLayers(layer);
     setSelectedIds([layer.id]);
     setPendingTextEditLayerId(layer.id);
     setStatusMessage(
       presetActive
-        ? `已新增文字並套用版型 ${pendingPreset.label}（${pendingPreset.width_cm}×${pendingPreset.height_cm} cm）`
-        : "已新增文字 TEST，輸入後按 Enter 或點擊空白確認",
+        ? `文字新增完成 · 已套用版型 ${pendingPreset.label}`
+        : "文字新增完成",
     );
   };
 
@@ -1226,13 +1345,16 @@ export function DesignerApp({
       layers,
       designerCoordinateContext,
     );
-    const layer = presetActive
-      ? (applyDesignerPlacementPresetPreserveSize(
-          createdShape,
-          pendingPreset,
-          designerCoordinateContext,
-        ) as ShapeDesignLayer)
-      : createdShape;
+    const layer = withAutoLayerName(
+      presetActive
+        ? (applyDesignerPlacementPresetPreserveSize(
+            createdShape,
+            pendingPreset,
+            designerCoordinateContext,
+          ) as ShapeDesignLayer)
+        : createdShape,
+      layers,
+    );
     appendLayers(layer);
     setSelectedIds([layer.id]);
     setStatusMessage(
@@ -1245,9 +1367,39 @@ export function DesignerApp({
   const handleTextStylePatch = useCallback(
     (id: string, patch: Partial<TextDesignLayer>) => {
       if (!guardEditable()) return;
+      if (patch.fontSize_cm !== undefined) {
+        const { fontSize_cm, scale: _scale, ...rest } = patch;
+        prepareDiscreteMutation();
+        setLayers((prev) =>
+          prev.map((layer) => {
+            if (layer.id !== id || layer.type !== "text") return layer;
+            let next = applyTextFontSizePatch(
+              layer,
+              fontSize_cm,
+              workspacePrintArea,
+            );
+            if (Object.keys(rest).length > 0) {
+              next = updateDesignerLayer(
+                next,
+                rest,
+                designerFitContext,
+              ) as TextDesignLayer;
+            }
+            return next;
+          }),
+        );
+        return;
+      }
       updateLayer(id, patch);
     },
-    [guardEditable, updateLayer],
+    [
+      guardEditable,
+      updateLayer,
+      prepareDiscreteMutation,
+      setLayers,
+      workspacePrintArea,
+      designerFitContext,
+    ],
   );
 
   const handleImageStylePatch = useCallback(
@@ -1645,6 +1797,162 @@ export function DesignerApp({
     setSuggestedSize(suggestSize(heightCm, weightKg));
   };
 
+  useEffect(() => {
+    const desktopQuery = window.matchMedia("(min-width: 1024px)");
+    const tabletQuery = window.matchMedia("(min-width: 768px)");
+    const handleViewportChange = () => {
+      if (desktopQuery.matches) {
+        setLeftDrawerOpen(false);
+        setRightDrawerOpen(false);
+        setMobileSheet(null);
+        return;
+      }
+      if (tabletQuery.matches) {
+        setMobileSheet(null);
+        setMobileNavTab("design");
+      }
+    };
+    desktopQuery.addEventListener("change", handleViewportChange);
+    tabletQuery.addEventListener("change", handleViewportChange);
+    return () => {
+      desktopQuery.removeEventListener("change", handleViewportChange);
+      tabletQuery.removeEventListener("change", handleViewportChange);
+    };
+  }, []);
+
+  const handleMobileNavChange = (tab: DesignerMobileNavTab) => {
+    setMobileNavTab(tab);
+    if (tab === "design") {
+      setMobileSheet(null);
+      return;
+    }
+    if (tab === "product") {
+      setMobileSheet("product");
+      return;
+    }
+    if (tab === "preview") {
+      setMobileSheet("preview");
+      return;
+    }
+    setMobileSheet("checkout");
+  };
+
+  const closeMobileSheet = () => {
+    setMobileSheet(null);
+    setMobileNavTab("design");
+  };
+
+  const productPanelNode = (
+    <ProductPanel
+      shirtColor={shirtColor}
+      material={material}
+      size={size}
+      heightCm={heightCm}
+      weightKg={weightKg}
+      suggestedSize={suggestedSize}
+      isBusy={isBusy}
+      designLocked={isDesignLocked}
+      onColorChange={handleShirtColorChange}
+      onMaterialChange={setMaterial}
+      onSizeChange={setSize}
+      onHeightChange={setHeightCm}
+      onWeightChange={setWeightKg}
+      onUpdateBody={handleUpdateBody}
+      hideColorPicker={isContestMode}
+    />
+  );
+
+  const resultPanelNode = (
+    <ResultPanel
+      gender={gender}
+      side={side}
+      shirtColor={shirtColor}
+      size={size}
+      layers={layers}
+      printStatus={previewPrintStatus}
+      printBounds={maxPrintBounds}
+      previewPrintPositionMode={previewPrintPositionMode}
+      isBusy={isBusy}
+      hasDesign={hasDesign}
+      designLocked={isDesignLocked}
+      onExpand={() => {
+        setShowClothingBrowse(true);
+        closeMobileSheet();
+      }}
+      onSubmit={handleSubmitRequest}
+      submitLabel={isContestMode ? "確認投稿" : "確認送出"}
+    />
+  );
+
+  const mobilePreviewPanelNode = (
+    <ResultPanel
+      gender={gender}
+      side={side}
+      shirtColor={shirtColor}
+      size={size}
+      layers={layers}
+      printStatus={previewPrintStatus}
+      printBounds={maxPrintBounds}
+      previewPrintPositionMode={previewPrintPositionMode}
+      isBusy={isBusy}
+      hasDesign={hasDesign}
+      designLocked={isDesignLocked}
+      onExpand={() => {
+        setShowClothingBrowse(true);
+        closeMobileSheet();
+      }}
+      onSubmit={handleSubmitRequest}
+      submitLabel={isContestMode ? "確認投稿" : "確認送出"}
+      sections={["preview", "print"]}
+    />
+  );
+
+  const mobileCheckoutPanelNode = (
+    <ResultPanel
+      gender={gender}
+      side={side}
+      shirtColor={shirtColor}
+      size={size}
+      layers={layers}
+      printStatus={previewPrintStatus}
+      printBounds={maxPrintBounds}
+      previewPrintPositionMode={previewPrintPositionMode}
+      isBusy={isBusy}
+      hasDesign={hasDesign}
+      designLocked={isDesignLocked}
+      onExpand={() => {
+        setShowClothingBrowse(true);
+        closeMobileSheet();
+      }}
+      onSubmit={handleSubmitRequest}
+      submitLabel={isContestMode ? "確認投稿" : "確認送出"}
+      sections={["print", "cta"]}
+    />
+  );
+
+  const panelHostClassName =
+    "[&_[data-drawer-panel]]:w-full [&_[data-drawer-panel]]:max-w-none [&_[data-drawer-panel]]:shrink-0 [&_[data-drawer-panel]]:border-0 [&_[data-layout-rail]]:w-full [&_[data-layout-rail]]:max-w-none [&_[data-layout-rail]]:border-0";
+
+  const garmentInfoPanel = UI_VISIBILITY.showModelPanel ? (
+    <ModelPanel
+      gender={gender}
+      heightCm={heightCm}
+      weightKg={weightKg}
+      suggestedSize={suggestedSize}
+      isBusy={isBusy}
+      hasDesign={hasDesign}
+      onGenderChange={handleGenderChange}
+      onHeightChange={setHeightCm}
+      onWeightChange={setWeightKg}
+      onUpdateBody={handleUpdateBody}
+      designLocked={isDesignLocked}
+      submitLabel={isContestMode ? "確認投稿" : "確認送出"}
+      onSubmit={handleSubmitRequest}
+    />
+  ) : (
+    resultPanelNode
+  );
+
   return (
     <LiveDesignStateProvider
       size={size}
@@ -1655,60 +1963,88 @@ export function DesignerApp({
     <PlacementPresetSizeProvider size={size}>
     <div className="flex h-full flex-col bg-zinc-50 text-zinc-900">
       <div className="flex min-h-0 flex-1">
-        <IconNav active={activeTab} onChange={setActiveTab} />
+        <div className="hidden shrink-0 lg:flex">
+          <IconNav active={activeTab} onChange={setActiveTab} />
+        </div>
 
         {activeTab === "product" && (
-          <ProductPanel
-            shirtColor={shirtColor}
-            material={material}
-            size={size}
-            onColorChange={handleShirtColorChange}
-            onMaterialChange={setMaterial}
-            onSizeChange={setSize}
-            hideColorPicker={isContestMode}
-          />
+          <div className="hidden shrink-0 lg:contents" data-layout-zone="product-desktop">
+            {productPanelNode}
+          </div>
         )}
 
-        <DesignPanel
-          activeTab={activeTab}
-          layers={layers}
-          selectedIds={selectedIds}
-          isBusy={isBusy}
-          showGrid={showGrid}
-          debugPrintArea={debugPrintArea}
-          gridSnapEnabled={gridSnapEnabled}
-          largePrintModeEnabled={largePrintModeEnabled}
-          elementSnapDistance={elementSnapDistance}
-          onShowGridChange={setShowGrid}
-          onDebugPrintAreaChange={setDebugPrintArea}
-          previewPrintPositionMode={previewPrintPositionMode}
-          onPreviewPrintPositionModeChange={setPreviewPrintPositionMode}
-          onGridSnapChange={setGridSnapEnabled}
-          onLargePrintModeChange={handleLargePrintModeChange}
-          onElementSnapDistanceChange={setElementSnapDistance}
-          onSelectLayer={handleSelectLayer}
-          onRenameLayer={(id, name) => updateLayer(id, { name })}
-          onToggleVisible={(id) => {
-            const layer = layers.find((l) => l.id === id);
-            if (layer) updateLayer(id, { visible: !layer.visible });
-          }}
-          onToggleLocked={(id) => {
-            const layer = layers.find((l) => l.id === id);
-            if (layer) updateLayer(id, { locked: !layer.locked });
-          }}
-          onMoveLayer={(id, action) => {
-            prepareDiscreteMutation();
-            setLayers((prev) => moveLayerZIndex(prev, id, action));
-          }}
-          onDuplicateLayer={(id) => void handleDuplicate(id)}
-          onDeleteLayer={deleteLayerById}
-          onReorderDrag={(dragId, targetId) => {
-            prepareDiscreteMutation();
-            setLayers((prev) => reorderLayersByDrag(prev, dragId, targetId));
-          }}
-        />
+        <div className="hidden shrink-0 lg:contents" data-layout-zone="design-desktop">
+          <DesignPanel
+            activeTab={activeTab}
+            layers={layers}
+            selectedIds={selectedIds}
+            isBusy={isBusy}
+            showGrid={showGrid}
+            debugPrintArea={debugPrintArea}
+            gridSnapEnabled={gridSnapEnabled}
+            largePrintModeEnabled={largePrintModeEnabled}
+            elementSnapDistance={elementSnapDistance}
+            onShowGridChange={setShowGrid}
+            onDebugPrintAreaChange={setDebugPrintArea}
+            previewPrintPositionMode={previewPrintPositionMode}
+            onPreviewPrintPositionModeChange={setPreviewPrintPositionMode}
+            onGridSnapChange={setGridSnapEnabled}
+            onLargePrintModeChange={handleLargePrintModeChange}
+            onElementSnapDistanceChange={setElementSnapDistance}
+            onSelectLayer={handleSelectLayer}
+            onRenameLayer={(id, name) => updateLayer(id, { name })}
+            onToggleVisible={(id) => {
+              const layer = layers.find((l) => l.id === id);
+              if (layer) updateLayer(id, { visible: !layer.visible });
+            }}
+            onToggleLocked={(id) => {
+              const layer = layers.find((l) => l.id === id);
+              if (layer) updateLayer(id, { locked: !layer.locked });
+            }}
+            onMoveLayer={(id, action) => {
+              prepareDiscreteMutation();
+              setLayers((prev) => moveLayerZIndex(prev, id, action));
+            }}
+            onDuplicateLayer={(id) => void handleDuplicate(id)}
+            onDeleteLayer={deleteLayerById}
+            onReorderDrag={(dragId, targetId) => {
+              prepareDiscreteMutation();
+              setLayers((prev) => reorderLayersByDrag(prev, dragId, targetId));
+            }}
+          />
+        </div>
 
-        <DesignCanvas
+        <div
+          className={`relative flex min-h-0 min-w-0 flex-col max-md:pb-28 ${ds.layout.canvas}`}
+          data-layout-zone="canvas"
+        >
+          <div
+            className={`hidden items-center ${ds.space.gap2} border-b border-zinc-200 bg-white px-3 py-2 md:flex lg:hidden`}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                setLeftDrawerOpen(true);
+                setRightDrawerOpen(false);
+              }}
+              className={ds.button.secondary}
+            >
+              商品設定
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setRightDrawerOpen(true);
+                setLeftDrawerOpen(false);
+              }}
+              className={ds.button.secondary}
+            >
+              預覽・下單
+            </button>
+          </div>
+
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col max-md:rounded-none max-md:[&>div]:rounded-none max-md:[&>div]:border-0 max-md:[&>div]:p-0">
+          <DesignCanvas
           gender={gender}
           shirtColor={shirtColor}
           size={size}
@@ -1752,6 +2088,12 @@ export function DesignerApp({
             }
             applyLayerResize(id, next, lockAspect);
           }}
+          onLayerToolbarScale={(id, factor) => {
+            if (isDesignLocked || layers.find((l) => l.id === id)?.locked) {
+              return;
+            }
+            applyLayerToolbarScale(id, factor);
+          }}
           onClearSelection={() => setSelectedIds([])}
           onFocusTextEditorConsumed={() => setFocusTextEditor(false)}
           onSideChange={setSide}
@@ -1761,6 +2103,20 @@ export function DesignerApp({
             if (isDesignLocked) return;
             prepareDiscreteMutation();
             setLayers((prev) => moveLayerZIndex(prev, id, action));
+          }}
+          onRenameLayer={(id, name) => updateLayer(id, { name })}
+          onToggleVisible={(id) => {
+            const layer = layers.find((l) => l.id === id);
+            if (layer) updateLayer(id, { visible: !layer.visible });
+          }}
+          onToggleLocked={(id) => {
+            const layer = layers.find((l) => l.id === id);
+            if (layer) updateLayer(id, { locked: !layer.locked });
+          }}
+          onReorderDrag={(dragId, targetId) => {
+            if (isDesignLocked) return;
+            prepareDiscreteMutation();
+            setLayers((prev) => reorderLayersByDrag(prev, dragId, targetId));
           }}
           onUpload={handleUpload}
           onAddText={handleAddText}
@@ -1784,41 +2140,125 @@ export function DesignerApp({
           onFitToPrintableArea={handleFitToPrintableArea}
           onClearCurrentSlotDesign={handleClearCurrentSlotDesign}
           onClearAllDesign={handleClearAllDesign}
+          canUndo={canUndo}
+          canRedo={canRedo}
+          onUndo={handleUndoClick}
+          onRedo={handleRedoClick}
         />
+          </div>
 
-        {UI_VISIBILITY.showModelPanel ? (
-          <ModelPanel
-            gender={gender}
-            heightCm={heightCm}
-            weightKg={weightKg}
-            suggestedSize={suggestedSize}
-            isBusy={isBusy}
-            hasDesign={hasDesign}
-            onGenderChange={handleGenderChange}
-            onHeightChange={setHeightCm}
-            onWeightChange={setWeightKg}
-            onUpdateBody={handleUpdateBody}
-            designLocked={isDesignLocked}
-            submitLabel={isContestMode ? "確認投稿" : "確認發送申請"}
-            onSubmit={handleSubmitRequest}
-          />
-        ) : (
-          <GarmentInfoPanel
-            size={size}
-            onSizeChange={setSize}
-            heightCm={heightCm}
-            weightKg={weightKg}
-            suggestedSize={suggestedSize}
-            isBusy={isBusy}
-            hasDesign={hasDesign}
-            onHeightChange={setHeightCm}
-            onWeightChange={setWeightKg}
-            onUpdateBody={handleUpdateBody}
-            designLocked={isDesignLocked}
-            submitLabel={isContestMode ? "確認投稿" : "確認發送申請"}
-            onSubmit={handleSubmitRequest}
-          />
-        )}
+          {mobileNavTab === "design" ? (
+            <div
+              className={`fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-20 border-t border-zinc-200 bg-white/95 px-4 py-3 backdrop-blur-sm md:hidden ${ds.shadow.card}`}
+            >
+              <button
+                type="button"
+                disabled={isBusy || !hasDesign || isDesignLocked}
+                onClick={handleSubmitRequest}
+                className={`w-full ${ds.button.primary}`}
+              >
+                {isContestMode ? "確認投稿" : "確認送出"}
+              </button>
+            </div>
+          ) : null}
+        </div>
+
+        <div className="hidden shrink-0 lg:contents" data-layout-zone="right-desktop">
+          {garmentInfoPanel}
+        </div>
+
+        <LayoutDrawer
+          open={leftDrawerOpen}
+          onClose={() => setLeftDrawerOpen(false)}
+          side="left"
+          ariaLabel="商品設定"
+          widthClassName={ds.layout.drawer}
+        >
+          <div className={panelHostClassName}>
+            {activeTab === "product" ? productPanelNode : (
+              <DesignPanel
+                activeTab={activeTab}
+                layers={layers}
+                selectedIds={selectedIds}
+                isBusy={isBusy}
+                showGrid={showGrid}
+                debugPrintArea={debugPrintArea}
+                gridSnapEnabled={gridSnapEnabled}
+                largePrintModeEnabled={largePrintModeEnabled}
+                elementSnapDistance={elementSnapDistance}
+                onShowGridChange={setShowGrid}
+                onDebugPrintAreaChange={setDebugPrintArea}
+                previewPrintPositionMode={previewPrintPositionMode}
+                onPreviewPrintPositionModeChange={setPreviewPrintPositionMode}
+                onGridSnapChange={setGridSnapEnabled}
+                onLargePrintModeChange={handleLargePrintModeChange}
+                onElementSnapDistanceChange={setElementSnapDistance}
+                onSelectLayer={handleSelectLayer}
+                onRenameLayer={(id, name) => updateLayer(id, { name })}
+                onToggleVisible={(id) => {
+                  const layer = layers.find((l) => l.id === id);
+                  if (layer) updateLayer(id, { visible: !layer.visible });
+                }}
+                onToggleLocked={(id) => {
+                  const layer = layers.find((l) => l.id === id);
+                  if (layer) updateLayer(id, { locked: !layer.locked });
+                }}
+                onMoveLayer={(id, action) => {
+                  prepareDiscreteMutation();
+                  setLayers((prev) => moveLayerZIndex(prev, id, action));
+                }}
+                onDuplicateLayer={(id) => void handleDuplicate(id)}
+                onDeleteLayer={deleteLayerById}
+                onReorderDrag={(dragId, targetId) => {
+                  prepareDiscreteMutation();
+                  setLayers((prev) => reorderLayersByDrag(prev, dragId, targetId));
+                }}
+              />
+            )}
+          </div>
+        </LayoutDrawer>
+
+        <LayoutDrawer
+          open={rightDrawerOpen}
+          onClose={() => setRightDrawerOpen(false)}
+          side="right"
+          ariaLabel="預覽・下單"
+          widthClassName={ds.layout.drawer}
+        >
+          <div className={`flex min-h-full flex-col ${panelHostClassName}`}>
+            {resultPanelNode}
+          </div>
+        </LayoutDrawer>
+
+        <LayoutBottomSheet
+          open={mobileSheet === "product"}
+          onClose={closeMobileSheet}
+          ariaLabel="商品"
+        >
+          <div className={panelHostClassName}>{productPanelNode}</div>
+        </LayoutBottomSheet>
+
+        <LayoutBottomSheet
+          open={mobileSheet === "preview"}
+          onClose={closeMobileSheet}
+          ariaLabel="成品預覽"
+        >
+          <div className={panelHostClassName}>{mobilePreviewPanelNode}</div>
+        </LayoutBottomSheet>
+
+        <LayoutBottomSheet
+          open={mobileSheet === "checkout"}
+          onClose={closeMobileSheet}
+          ariaLabel="下單"
+          maxHeightClassName="max-h-[min(92vh,40rem)]"
+        >
+          <div className={panelHostClassName}>{mobileCheckoutPanelNode}</div>
+        </LayoutBottomSheet>
+
+        <DesignerBottomNav
+          active={mobileNavTab}
+          onChange={handleMobileNavChange}
+        />
       </div>
 
       {cloudSyncWarning && (
@@ -1831,9 +2271,10 @@ export function DesignerApp({
       )}
 
       {statusMessage && (
-        <div className="border-t border-emerald-200 bg-emerald-50 px-4 py-2 text-center text-sm text-emerald-800">
-          {statusMessage}
-        </div>
+        <DesignerToast
+          message={statusMessage}
+          onDismiss={() => setStatusMessage(null)}
+        />
       )}
 
       {isContestMode ? (
@@ -1864,6 +2305,16 @@ export function DesignerApp({
         open={uploadAlertDetail !== null}
         detail={uploadAlertDetail}
         onClose={() => setUploadAlertDetail(null)}
+      />
+
+      <ClothingBrowseModal
+        open={showClothingBrowse}
+        gender={gender}
+        shirtColor={shirtColor}
+        size={size}
+        layersByTemplate={layersByTemplate}
+        previewPrintPositionMode={previewPrintPositionMode}
+        onClose={() => setShowClothingBrowse(false)}
       />
 
       {submissionSuccess && (

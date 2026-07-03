@@ -52,10 +52,10 @@ export function StackedInspectorPanel({
   return (
     <div
       className={`flex flex-col gap-1 overflow-y-auto ${className}`}
-      aria-label="Object manager"
+      aria-label="圖層管理"
     >
       <div className="flex items-baseline justify-between px-0.5">
-        <h3 className="text-[10px] font-semibold text-zinc-800">Objects</h3>
+        <h3 className="text-[10px] font-semibold text-zinc-800">圖層</h3>
         <span className="text-[9px] text-zinc-400">{managedLayers.length}</span>
       </div>
       {readOnly && (

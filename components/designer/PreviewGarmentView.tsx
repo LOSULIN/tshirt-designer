@@ -13,6 +13,7 @@ import { sortLayersByZIndex } from "@/lib/layers";
 import type { Side } from "@/lib/constants";
 import type { DesignLayer } from "@/lib/types";
 import type { ReactNode } from "react";
+import { DesignerGarmentPresentation } from "./DesignerGarmentPresentation";
 import { PreviewDesignLayer } from "./PreviewDesignLayer";
 import { PreviewGarmentVisual } from "./PreviewGarmentVisual";
 import { ShirtContainerFrame } from "./ShirtContainerFrame";
@@ -48,7 +49,6 @@ export function PreviewGarmentView({
   const printableBoundaryStyle = getPreviewPrintableBoundaryStyle(side, size, {
     mode,
   });
-
   return (
     <ShirtContainerFrame
       className={className}
@@ -56,7 +56,9 @@ export function PreviewGarmentView({
       width={width}
       zoom={zoom}
     >
-      <PreviewGarmentVisual>{shirtVisual}</PreviewGarmentVisual>
+      <DesignerGarmentPresentation side={side}>
+        <PreviewGarmentVisual>{shirtVisual}</PreviewGarmentVisual>
+      </DesignerGarmentPresentation>
       <div
         data-preview-printable-boundary
         className="pointer-events-none absolute z-[5] overflow-hidden opacity-0"

@@ -2,6 +2,7 @@
 
 import { InspectorNumberInput } from "../InspectorNumberInput";
 import { TEXT_FONT_OPTIONS } from "@/lib/text-layer";
+import { getTextInspectorValues } from "@/lib/inspector-sync";
 import {
   isTextBold,
   toggleTextBold,
@@ -33,6 +34,7 @@ export function TextPropertiesPanel({
   const shadow = layer.shadow;
   const strokeEnabled = Boolean(stroke && stroke.width_cm > 0);
   const shadowEnabled = Boolean(shadow);
+  const effectiveFontSize_cm = getTextInspectorValues(layer).fontSize_cm;
 
   return (
     <div className="space-y-1.5 border-t border-zinc-200 pt-1.5">
@@ -63,7 +65,7 @@ export function TextPropertiesPanel({
         <InspectorNumberInput
           compact
           disabled={disabled}
-          value={layer.fontSize_cm}
+          value={effectiveFontSize_cm}
           decimals={2}
           ariaLabel="字體大小 cm"
           onCommit={(fontSize_cm) => onPatch({ fontSize_cm, scale: 1 })}

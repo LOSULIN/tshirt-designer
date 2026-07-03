@@ -3,6 +3,7 @@
 import { ELEMENT_SNAP_MAX, ELEMENT_SNAP_MIN } from "@/lib/constants";
 import type { PreviewPrintPositionMode } from "@/lib/printArea";
 import type { DesignLayer, PanelTab } from "@/lib/types";
+import { ds } from "./design-ui";
 import { LayerPanel } from "./LayerPanel";
 
 export function DesignPanel({
@@ -61,7 +62,10 @@ export function DesignPanel({
   }
 
   return (
-    <div className="flex w-72 shrink-0 flex-col gap-4 overflow-y-auto border-r border-zinc-200 bg-white p-4">
+    <div
+      data-layout-rail="design"
+      className={`flex shrink-0 flex-col gap-4 overflow-y-auto border-r border-zinc-200 bg-white p-4 ${ds.layout.designRail}`}
+    >
       {activeTab === "help" && (
         <div className="space-y-3 text-sm text-zinc-900">
           <h2 className="text-sm font-semibold text-zinc-900">使用說明</h2>
