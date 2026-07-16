@@ -41,7 +41,6 @@ import {
 import { getLayersForCanvasRender } from "@/lib/layer-system";
 import { isHistoryShortcutTarget } from "@/lib/design-history";
 import { getRasterMaxPrintSizeCm } from "@/lib/image-print-quality";
-import { buildCurrentGarmentConstraintMap } from "@/lib/current-garment-print-constraint";
 import {
   countGarmentConstraintViolations,
   formatGarmentConstraintLayerWarning,
@@ -53,9 +52,24 @@ import {
 } from "@/lib/garment-constraint-ux-polish";
 import type { PlacementPresetId } from "@/lib/placement-presets";
 import {
-  buildDesignerSnapTargetsFromLayers,
   getDesignerGridSizeCm,
 } from "@/lib/designer-coordinate-controller";
+import {
+  type DesignerSnapTargetCache,
+} from "@/lib/designer/snap-target-cache";
+import {
+  invalidateDesignerCacheStores,
+  resolveDesignerConstraintMap,
+  resolveDesignerSnapTargetCache,
+  type DesignerConstraintCacheStore,
+  type DesignerSnapTargetCacheStore,
+} from "@/lib/designer/designer-cache-version";
+import {
+  createGuideRafScheduler,
+  snapGuidesAreEmpty,
+} from "@/lib/designer/guide-raf-scheduler";
+import type { DesignerCoordinateContext } from "@/lib/designer-coordinate-facade";
+import type { GarmentConstraintBadgeMeta } from "@/lib/garment-constraint-ux-polish";
 import type {
   DesignLayer,
   ImageDesignLayer,
@@ -91,6 +105,200 @@ const EMPTY_GUIDES: SnapGuidesState = {
   elementVertical: [],
   elementHorizontal: [],
 };
+
+type PrintAreaLayerItemProps = {
+  layer: DesignLayer;
+  isActive: boolean;
+  isPrimary: boolean;
+  isEditing: boolean;
+  interactionLocked: boolean;
+  readOnly: boolean;
+  designerCoordinateContext: DesignerCoordinateContext;
+  designerSnapTargetCacheRef: React.RefObject<DesignerSnapTargetCache>;
+  printArea: PrintAreaCmBounds;
+  gridSnapEnabled: boolean;
+  elementSnapDistance: number;
+  maxResizeWidth_cm?: number;
+  maxResizeHeight_cm?: number;
+  hasPrintAreaOverflow: boolean;
+  constraintWarningLabel: string | null;
+  constraintBadge: GarmentConstraintBadgeMeta | null;
+  onLayerSelect: (layerId: string, shiftKey: boolean) => void;
+  onLayerTransform: (
+    layerId: string,
+    patch: { x_cm: number; y_cm: number; scale?: number },
+  ) => void;
+  onLayerResize: (
+    layerId: string,
+    patch: {
+      x_cm: number;
+      y_cm: number;
+      width_cm: number;
+      height_cm: number;
+    },
+    lockAspect: boolean,
+  ) => void;
+  onLayerDoubleClick: (
+    layerId: string,
+    layerType: DesignLayer["type"],
+    locked: boolean,
+  ) => void;
+  onSnapGuidesChange: (guides: SnapGuidesState) => void;
+  onDragTransformFlush?: () => void;
+  onDragTransformCancel?: () => void;
+  onTextPatch: (
+    layerId: string,
+    patch: { text: string },
+  ) => void;
+  finishTextEdit: () => void;
+};
+
+function PrintAreaLayerItem({
+  layer,
+  isActive,
+  isPrimary,
+  isEditing,
+  interactionLocked,
+  readOnly,
+  designerCoordinateContext,
+  designerSnapTargetCacheRef,
+  printArea,
+  gridSnapEnabled,
+  elementSnapDistance,
+  maxResizeWidth_cm,
+  maxResizeHeight_cm,
+  hasPrintAreaOverflow,
+  constraintWarningLabel,
+  constraintBadge,
+  onLayerSelect,
+  onLayerTransform,
+  onLayerResize,
+  onLayerDoubleClick,
+  onSnapGuidesChange,
+  onDragTransformFlush,
+  onDragTransformCancel,
+  onTextPatch,
+  finishTextEdit,
+}: PrintAreaLayerItemProps) {
+  const showControls =
+    isPrimary && !layer.locked && !interactionLocked && !isEditing;
+  const rect = useMemo(
+    () => resolveLayerCmRect(layer, { purpose: "designer" }),
+    [layer],
+  );
+  const scale =
+    layer.type === "image" || layer.type === "shape" ? layer.scale : 1;
+  const displayPercentStyle = useMemo(
+    () =>
+      getLayerDesignerDisplayCssPercent(
+        {
+          x_cm: rect.x_cm,
+          y_cm: rect.y_cm,
+          width_cm: rect.width_cm,
+          height_cm: rect.height_cm,
+        },
+        designerCoordinateContext,
+      ),
+    [
+      rect.x_cm,
+      rect.y_cm,
+      rect.width_cm,
+      rect.height_cm,
+      designerCoordinateContext,
+    ],
+  );
+
+  const onSelect = useCallback(
+    (shiftKey: boolean) => onLayerSelect(layer.id, shiftKey),
+    [layer.id, onLayerSelect],
+  );
+  const onTransformChange = useCallback(
+    (next: { x: number; y: number; scale?: number }) =>
+      onLayerTransform(layer.id, {
+        x_cm: next.x,
+        y_cm: next.y,
+        scale: next.scale,
+      }),
+    [layer.id, onLayerTransform],
+  );
+  const onResizeChange = useCallback(
+    (next: { x: number; y: number; width: number; height: number }) =>
+      onLayerResize(
+        layer.id,
+        {
+          x_cm: next.x,
+          y_cm: next.y,
+          width_cm: next.width,
+          height_cm: next.height,
+        },
+        false,
+      ),
+    [layer.id, onLayerResize],
+  );
+  const onDoubleClick = useCallback(
+    () => onLayerDoubleClick(layer.id, layer.type, layer.locked),
+    [layer.id, layer.type, layer.locked, onLayerDoubleClick],
+  );
+  const onTextChange = useCallback(
+    (text: string) => onTextPatch(layer.id, { text }),
+    [layer.id, onTextPatch],
+  );
+
+  return (
+    <PrintAreaElement
+      layer={layer}
+      layerId={layer.id}
+      designerPointerContext={designerCoordinateContext}
+      designerSnapTargetCacheRef={designerSnapTargetCacheRef}
+      printArea={printArea}
+      displayPercentStyle={displayPercentStyle}
+      maxResizeWidth_cm={maxResizeWidth_cm}
+      maxResizeHeight_cm={maxResizeHeight_cm}
+      hasPrintAreaOverflow={hasPrintAreaOverflow}
+      constraintWarningLabel={constraintWarningLabel}
+      constraintBadge={constraintBadge}
+      gridSnapEnabled={gridSnapEnabled}
+      elementSnapEnabled
+      elementSnapDistance={elementSnapDistance}
+      x={rect.x_cm}
+      y={rect.y_cm}
+      width={rect.width_cm / scale}
+      height={rect.height_cm / scale}
+      scale={scale}
+      rotation={layer.rotation}
+      isActive={isActive}
+      showControls={showControls}
+      locked={layer.locked || readOnly}
+      isEditing={isEditing}
+      onSelect={onSelect}
+      onTransformChange={onTransformChange}
+      onResizeChange={showControls ? onResizeChange : undefined}
+      onDoubleClick={onDoubleClick}
+      onSnapGuidesChange={onSnapGuidesChange}
+      onDragTransformFlush={onDragTransformFlush}
+      onDragTransformCancel={onDragTransformCancel}
+    >
+      {layer.type === "text" && isEditing ? (
+        <CanvasInlineTextEditor
+          layer={layer}
+          printAreaHeight={printArea.height}
+          onChange={onTextChange}
+          onCommit={finishTextEdit}
+          onCancel={finishTextEdit}
+        />
+      ) : layer.type === "text" && !layer.text ? (
+        <span
+          className="flex h-full w-full items-center justify-center border border-dashed border-zinc-400/60 px-1 text-center text-[10px] leading-tight text-zinc-400 select-none"
+          aria-hidden
+        >
+          雙擊輸入文字
+        </span>
+      ) : (
+        <LayerPreviewContent layer={layer} printArea={printArea} />
+      )}
+    </PrintAreaElement>
+  );
+}
 
 /** @temporary 畫布中心點十字線 debug；對位完成後移除 */
 const SHOW_CENTER_DEBUG_MARKERS = true;
@@ -128,6 +336,8 @@ export function DesignCanvas({
   onSelectLayer,
   onLayerTransformChange,
   onLayerRotationChange,
+  onDragTransformFlush,
+  onDragTransformCancel,
   onQuickRotate90,
   onLayerResize,
   onLayerToolbarScale,
@@ -189,6 +399,10 @@ export function DesignCanvas({
     next: { x_cm: number; y_cm: number; scale?: number },
   ) => void;
   onLayerRotationChange: (id: string, rotation: number) => void;
+  /** RAF scheduler: flush pending canvas drag transform on pointerup */
+  onDragTransformFlush?: () => void;
+  /** RAF scheduler: drop pending canvas drag transform on pointercancel */
+  onDragTransformCancel?: () => void;
   /** R / Shift+R：順／逆時針 90° */
   onQuickRotate90: (clockwise: boolean) => void;
   onLayerResize: (
@@ -248,6 +462,10 @@ export function DesignCanvas({
   onRedo?: () => void;
 }) {
   const [snapGuides, setSnapGuides] = useState<SnapGuidesState>(EMPTY_GUIDES);
+  const commitSnapGuidesRef = useRef<(guides: SnapGuidesState) => void>(() => {});
+  const guideSchedulerRef = useRef(
+    createGuideRafScheduler((guides) => commitSnapGuidesRef.current(guides)),
+  );
   const alignGuideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
   const [zoomIndex, setZoomIndex] = useState(DEFAULT_CANVAS_ZOOM_INDEX);
@@ -265,6 +483,7 @@ export function DesignCanvas({
   );
 
   const templateSrc = getAdultTshirtTemplateSrc(shirtColor, side);
+
   /** 目前尺碼允許的最大可印尺寸（Constraint / Status Bar Display；經 Facade） */
   const designerCoordinateContext = useMemo(
     () => createDesignerDisplayContext(side, size),
@@ -296,8 +515,30 @@ export function DesignCanvas({
     () => getLayersForCanvasRender(layers).filter((l) => l.visible),
     [layers],
   );
+  const designerSnapCacheStoreRef = useRef<DesignerSnapTargetCacheStore | null>(
+    null,
+  );
+  const designerConstraintCacheStoreRef =
+    useRef<DesignerConstraintCacheStore | null>(null);
+  const designerSnapTargetCache = useMemo(
+    () =>
+      resolveDesignerSnapTargetCache(
+        layers,
+        designerCoordinateContext,
+        designerSnapCacheStoreRef,
+      ),
+    [layers, designerCoordinateContext],
+  );
+  const designerSnapTargetCacheRef = useRef(designerSnapTargetCache);
+  designerSnapTargetCacheRef.current = designerSnapTargetCache;
   const layerConstraintById = useMemo(
-    () => buildCurrentGarmentConstraintMap(visibleLayers, side, size),
+    () =>
+      resolveDesignerConstraintMap(
+        visibleLayers,
+        side,
+        size,
+        designerConstraintCacheStoreRef,
+      ),
     [visibleLayers, side, size],
   );
   const hasWorkspaceOverflow = useMemo(
@@ -482,11 +723,12 @@ export function DesignCanvas({
       if (alignGuideTimerRef.current) {
         clearTimeout(alignGuideTimerRef.current);
       }
+      guideSchedulerRef.current.destroy();
     },
     [],
   );
 
-  const handleSnapGuides = useCallback((guides: SnapGuidesState) => {
+  const commitSnapGuides = useCallback((guides: SnapGuidesState) => {
     setSnapGuides((prev) => {
       if (
         prev.printCenterX === guides.printCenterX &&
@@ -499,6 +741,100 @@ export function DesignCanvas({
       return guides;
     });
   }, []);
+  commitSnapGuidesRef.current = commitSnapGuides;
+
+  const handleSnapGuides = useCallback((guides: SnapGuidesState) => {
+    if (snapGuidesAreEmpty(guides)) {
+      guideSchedulerRef.current.cancel();
+      commitSnapGuides(guides);
+      return;
+    }
+    guideSchedulerRef.current.schedule(guides);
+  }, [commitSnapGuides]);
+
+  const handleDragTransformFlush = useCallback(() => {
+    guideSchedulerRef.current.flush();
+    invalidateDesignerCacheStores(
+      designerSnapCacheStoreRef,
+      designerConstraintCacheStoreRef,
+    );
+    onDragTransformFlush?.();
+  }, [onDragTransformFlush]);
+
+  const handleDragTransformCancel = useCallback(() => {
+    guideSchedulerRef.current.cancel();
+    invalidateDesignerCacheStores(
+      designerSnapCacheStoreRef,
+      designerConstraintCacheStoreRef,
+    );
+    onDragTransformCancel?.();
+  }, [onDragTransformCancel]);
+
+  const layerInteractionRef = useRef({
+    onSelectLayer,
+    onLayerTransformChange,
+    onLayerResize,
+    onTextPatch,
+    setEditingTextId,
+    interactionLocked: false,
+  });
+  layerInteractionRef.current = {
+    onSelectLayer,
+    onLayerTransformChange,
+    onLayerResize,
+    onTextPatch,
+    setEditingTextId,
+    interactionLocked: isBusy || readOnly,
+  };
+
+  const handleLayerSelect = useCallback((layerId: string, shiftKey: boolean) => {
+    layerInteractionRef.current.onSelectLayer(layerId, shiftKey);
+  }, []);
+
+  const handleLayerTransform = useCallback(
+    (
+      layerId: string,
+      patch: { x_cm: number; y_cm: number; scale?: number },
+    ) => {
+      layerInteractionRef.current.onLayerTransformChange(layerId, patch);
+    },
+    [],
+  );
+
+  const handleLayerResize = useCallback(
+    (
+      layerId: string,
+      patch: {
+        x_cm: number;
+        y_cm: number;
+        width_cm: number;
+        height_cm: number;
+      },
+      lockAspect: boolean,
+    ) => {
+      layerInteractionRef.current.onLayerResize(layerId, patch, lockAspect);
+    },
+    [],
+  );
+
+  const handleLayerDoubleClick = useCallback(
+    (layerId: string, layerType: DesignLayer["type"], locked: boolean) => {
+      const { interactionLocked, setEditingTextId, onSelectLayer } =
+        layerInteractionRef.current;
+      if (layerType === "text" && !locked && !interactionLocked) {
+        setEditingTextId(layerId);
+        onSelectLayer(layerId, false);
+      }
+    },
+    [],
+  );
+
+  const handleTextPatch = useCallback(
+    (layerId: string, patch: { text: string }) => {
+      layerInteractionRef.current.onTextPatch(layerId, patch);
+    },
+    [],
+  );
 
   return (
     <div className={`flex min-h-0 min-w-0 flex-1 flex-col ${ds.space.p2}`}>
@@ -767,23 +1103,6 @@ export function DesignCanvas({
                 const isActive = selectedIds.includes(layer.id);
                 const isPrimary = layer.id === primaryId;
                 const isEditing = editingTextId === layer.id;
-                const showControls =
-                  isPrimary &&
-                  !layer.locked &&
-                  !interactionLocked &&
-                  !isEditing;
-                const rect = resolveLayerCmRect(layer, { purpose: "designer" });
-                const scale =
-                  layer.type === "image" || layer.type === "shape"
-                    ? layer.scale
-                    : 1;
-                const imageMaxResize =
-                  layer.type === "image"
-                    ? {
-                        maxResizeWidth_cm: rasterMaxPrintSize.width_cm,
-                        maxResizeHeight_cm: rasterMaxPrintSize.height_cm,
-                      }
-                    : {};
                 const layerConstraint = layerConstraintById.get(layer.id);
                 const constraintWarningLabel =
                   layerConstraint != null
@@ -804,103 +1123,45 @@ export function DesignCanvas({
                         layer.name,
                       )
                     : null;
-                const layerDisplayPercentStyle = getLayerDesignerDisplayCssPercent(
-                  {
-                    x_cm: rect.x_cm,
-                    y_cm: rect.y_cm,
-                    width_cm: rect.width_cm,
-                    height_cm: rect.height_cm,
-                  },
-                  designerCoordinateContext,
-                );
+                const imageMaxResize =
+                  layer.type === "image"
+                    ? {
+                        maxResizeWidth_cm: rasterMaxPrintSize.width_cm,
+                        maxResizeHeight_cm: rasterMaxPrintSize.height_cm,
+                      }
+                    : null;
 
                 return (
-                  <PrintAreaElement
+                  <PrintAreaLayerItem
                     key={layer.id}
                     layer={layer}
-                    designerPointerContext={designerCoordinateContext}
+                    isActive={isActive}
+                    isPrimary={isPrimary}
+                    isEditing={isEditing}
+                    interactionLocked={interactionLocked}
+                    readOnly={readOnly}
+                    designerCoordinateContext={designerCoordinateContext}
+                    designerSnapTargetCacheRef={designerSnapTargetCacheRef}
                     printArea={printArea}
-                    displayPercentStyle={layerDisplayPercentStyle}
-                    {...imageMaxResize}
+                    gridSnapEnabled={gridSnapEnabled}
+                    elementSnapDistance={elementSnapDistance}
+                    maxResizeWidth_cm={imageMaxResize?.maxResizeWidth_cm}
+                    maxResizeHeight_cm={imageMaxResize?.maxResizeHeight_cm}
                     hasPrintAreaOverflow={
                       layerConstraint?.exceedsGarmentPrintArea ?? false
                     }
-                    constraintWarningLabel={
-                      constraintWarningLabel || null
-                    }
+                    constraintWarningLabel={constraintWarningLabel || null}
                     constraintBadge={constraintBadge}
-                    gridSnapEnabled={gridSnapEnabled}
-                    elementSnapEnabled
-                    elementSnapDistance={elementSnapDistance}
-                    otherElements={buildDesignerSnapTargetsFromLayers(
-                      layer.id,
-                      layers,
-                      designerCoordinateContext,
-                    )}
-                    x={rect.x_cm}
-                    y={rect.y_cm}
-                    width={rect.width_cm / scale}
-                    height={rect.height_cm / scale}
-                    scale={scale}
-                    rotation={layer.rotation}
-                    isActive={isActive}
-                    showControls={showControls}
-                    locked={layer.locked || readOnly}
-                    isEditing={isEditing}
-                    onSelect={(shiftKey) => onSelectLayer(layer.id, shiftKey)}
-                    onTransformChange={(next) =>
-                      onLayerTransformChange(layer.id, {
-                        x_cm: next.x,
-                        y_cm: next.y,
-                        scale: next.scale,
-                      })
-                    }
-                    onResizeChange={
-                      showControls
-                        ? (next) =>
-                            onLayerResize(
-                              layer.id,
-                              {
-                                x_cm: next.x,
-                                y_cm: next.y,
-                                width_cm: next.width,
-                                height_cm: next.height,
-                              },
-                              false,
-                            )
-                        : undefined
-                    }
-                    onDoubleClick={() => {
-                      if (
-                        layer.type === "text" &&
-                        !layer.locked &&
-                        !interactionLocked
-                      ) {
-                        setEditingTextId(layer.id);
-                        onSelectLayer(layer.id, false);
-                      }
-                    }}
+                    onLayerSelect={handleLayerSelect}
+                    onLayerTransform={handleLayerTransform}
+                    onLayerResize={handleLayerResize}
+                    onLayerDoubleClick={handleLayerDoubleClick}
                     onSnapGuidesChange={handleSnapGuides}
-                  >
-                    {layer.type === "text" && isEditing ? (
-                      <CanvasInlineTextEditor
-                        layer={layer}
-                        printAreaHeight={printArea.height}
-                        onChange={(text) => onTextPatch(layer.id, { text })}
-                        onCommit={finishTextEdit}
-                        onCancel={finishTextEdit}
-                      />
-                    ) : layer.type === "text" && !layer.text ? (
-                      <span
-                        className="flex h-full w-full items-center justify-center border border-dashed border-zinc-400/60 px-1 text-center text-[10px] leading-tight text-zinc-400 select-none"
-                        aria-hidden
-                      >
-                        雙擊輸入文字
-                      </span>
-                    ) : (
-                      <LayerPreviewContent layer={layer} printArea={printArea} />
-                    )}
-                  </PrintAreaElement>
+                    onDragTransformFlush={handleDragTransformFlush}
+                    onDragTransformCancel={handleDragTransformCancel}
+                    onTextPatch={handleTextPatch}
+                    finishTextEdit={finishTextEdit}
+                  />
                 );
               })}
 
@@ -964,6 +1225,8 @@ export function DesignCanvas({
                     onRotateLeft90={() => onQuickRotate90(false)}
                     onRotateRight90={() => onQuickRotate90(true)}
                     onDelete={() => onDeleteLayer(primaryLayer.id)}
+                    onDragTransformFlush={handleDragTransformFlush}
+                    onDragTransformCancel={handleDragTransformCancel}
                   />
                 )}
               </div>

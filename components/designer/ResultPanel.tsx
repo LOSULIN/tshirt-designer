@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 import {
   getShirtColorName,
   type Gender,
@@ -17,6 +17,7 @@ import { ds } from "./design-ui";
 import { FlatShirtDesignView } from "./FlatShirtDesignView";
 import { getPrintStatusBadgeView } from "./print-status-badge-ui";
 import { getResultPanelDpiView } from "./result-panel-dpi-ui";
+import { ProductExportPanel } from "@/components/export/ProductExportPanel";
 
 function MagnifyIcon({ className = "" }: { className?: string }) {
   return (
@@ -41,14 +42,83 @@ function PanelDivider() {
   return <div className="shrink-0 border-t border-zinc-200" role="separator" />;
 }
 
-export type ResultPanelSection = "preview" | "print" | "cta" | "all";
+export type ResultPanelSection = "preview" | "print" | "export" | "cta" | "all";
 
-export function ResultPanel({
+function sectionsEqual(
+  a: ResultPanelSection | ResultPanelSection[] | undefined,
+  b: ResultPanelSection | ResultPanelSection[] | undefined,
+): boolean {
+  if (a === b) return true;
+  const normalize = (
+    value: ResultPanelSection | ResultPanelSection[] | undefined,
+  ) =>
+    value === "all" || value == null
+      ? ["preview", "print", "export", "cta"]
+      : Array.isArray(value)
+        ? value
+        : [value];
+  const left = normalize(a);
+  const right = normalize(b);
+  return (
+    left.length === right.length && left.every((entry, index) => entry === right[index])
+  );
+}
+
+function areResultPanelPropsEqual(
+  prev: Readonly<{
+    gender: Gender;
+    side: Side;
+    shirtColor: ShirtColor;
+    size: Size;
+    previewLayers: DesignLayer[];
+    printStatus?: GarmentPrintStatus;
+    printBounds: PrintAreaCmBounds;
+    previewPrintPositionMode?: PreviewPrintPositionMode;
+    isBusy: boolean;
+    hasDesign: boolean;
+    designLocked?: boolean;
+    submitLabel?: string;
+    sections?: ResultPanelSection | ResultPanelSection[];
+  }>,
+  next: Readonly<{
+    gender: Gender;
+    side: Side;
+    shirtColor: ShirtColor;
+    size: Size;
+    previewLayers: DesignLayer[];
+    printStatus?: GarmentPrintStatus;
+    printBounds: PrintAreaCmBounds;
+    previewPrintPositionMode?: PreviewPrintPositionMode;
+    isBusy: boolean;
+    hasDesign: boolean;
+    designLocked?: boolean;
+    submitLabel?: string;
+    sections?: ResultPanelSection | ResultPanelSection[];
+  }>,
+): boolean {
+  return (
+    prev.previewLayers === next.previewLayers &&
+    prev.gender === next.gender &&
+    prev.side === next.side &&
+    prev.shirtColor === next.shirtColor &&
+    prev.size === next.size &&
+    prev.printStatus === next.printStatus &&
+    prev.printBounds === next.printBounds &&
+    prev.previewPrintPositionMode === next.previewPrintPositionMode &&
+    prev.isBusy === next.isBusy &&
+    prev.hasDesign === next.hasDesign &&
+    prev.designLocked === next.designLocked &&
+    prev.submitLabel === next.submitLabel &&
+    sectionsEqual(prev.sections, next.sections)
+  );
+}
+
+export const ResultPanel = memo(function ResultPanel({
   gender,
   side,
   shirtColor,
   size,
-  layers,
+  previewLayers,
   printStatus,
   printBounds,
   previewPrintPositionMode = DEFAULT_PRINT_MODE,
@@ -64,7 +134,7 @@ export function ResultPanel({
   side: Side;
   shirtColor: ShirtColor;
   size: Size;
-  layers: DesignLayer[];
+  previewLayers: DesignLayer[];
   printStatus?: GarmentPrintStatus;
   printBounds: PrintAreaCmBounds;
   previewPrintPositionMode?: PreviewPrintPositionMode;
@@ -76,22 +146,26 @@ export function ResultPanel({
   submitLabel?: string;
   sections?: ResultPanelSection | ResultPanelSection[];
 }) {
-  const hasDesignContent = layers.length > 0;
+  const hasDesignContent = previewLayers.length > 0;
   const colorName = getShirtColorName(shirtColor);
   const sideLabel = side === "front" ? "正面" : "背面";
   const garmentBadge = printStatus ? getPrintStatusBadgeView(printStatus) : null;
   const printableSizeLabel = formatGarmentPrintAreaCmPair(printBounds);
 
-  const dpiView = useMemo(() => getResultPanelDpiView(layers), [layers]);
+  const dpiView = useMemo(
+    () => getResultPanelDpiView(previewLayers),
+    [previewLayers],
+  );
 
   const activeSections =
     sections === "all"
-      ? ["preview", "print", "cta"]
+      ? ["preview", "print", "export", "cta"]
       : Array.isArray(sections)
         ? sections
         : [sections];
   const showPreview = activeSections.includes("preview");
   const showPrint = activeSections.includes("print");
+  const showExport = activeSections.includes("export");
   const showCta = activeSections.includes("cta");
 
   const statusLine =
@@ -140,7 +214,7 @@ export function ResultPanel({
                         side={side}
                         shirtColor={shirtColor}
                         size={size}
-                        layers={layers}
+                        previewLayers={previewLayers}
                         previewPrintPositionMode={previewPrintPositionMode}
                         compact
                       />
@@ -210,6 +284,19 @@ export function ResultPanel({
                 </section>
               </>
             ) : null}
+
+            {showExport && hasDesignContent ? (
+              <>
+                <PanelDivider />
+                <ProductExportPanel
+                  layers={previewLayers}
+                  side={side}
+                  size={size}
+                  shirtColor={shirtColor}
+                  disabled={isBusy || designLocked}
+                />
+              </>
+            ) : null}
           </div>
 
           {showCta ? (
@@ -231,4 +318,4 @@ export function ResultPanel({
       </div>
     </aside>
   );
-}
+}, areResultPanelPropsEqual);

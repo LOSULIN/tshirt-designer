@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import {
   getAdultTshirtTemplateSrc,
   type Gender,
@@ -16,12 +17,13 @@ import { PreviewGarmentView } from "./PreviewGarmentView";
 import { ProcessedTemplateImage } from "./ProcessedTemplateImage";
 
 /** 平面衣服設計預覽（無模特；Preview Runtime 獨立於 Designer） */
-export function FlatShirtDesignView({
+export const FlatShirtDesignView = memo(function FlatShirtDesignView({
   gender: _gender,
   side,
   shirtColor,
   size = "M",
   layers,
+  previewLayers,
   previewPrintPositionMode = DEFAULT_PRINT_MODE,
   className = "",
   compact = false,
@@ -31,7 +33,10 @@ export function FlatShirtDesignView({
   side: Side;
   shirtColor: ShirtColor;
   size?: Size;
-  layers: DesignLayer[];
+  /** 非 deferred 路徑（browse modal 等） */
+  layers?: DesignLayer[];
+  /** ResultPanel deferred preview snapshot */
+  previewLayers?: DesignLayer[];
   previewPrintPositionMode?: PreviewPrintPositionMode;
   className?: string;
   /** 右側預覽欄：限制在可用高度內 */
@@ -39,6 +44,7 @@ export function FlatShirtDesignView({
   /** Camera zoom on rendered garment (not coordinate zoom). */
   zoom?: number;
 }) {
+  const renderLayers = previewLayers ?? layers ?? [];
   const assetSrc = getAdultTshirtTemplateSrc(shirtColor, side);
 
   return (
@@ -52,7 +58,7 @@ export function FlatShirtDesignView({
       <PreviewGarmentView
         side={side}
         size={size}
-        layers={layers}
+        previewLayers={renderLayers}
         previewPrintPositionMode={previewPrintPositionMode}
         zoom={zoom}
         fitRatio={compact ? 0.95 : undefined}
@@ -69,5 +75,46 @@ export function FlatShirtDesignView({
         }
       />
     </div>
+  );
+}, areFlatShirtDesignViewPropsEqual);
+
+function areFlatShirtDesignViewPropsEqual(
+  prev: Readonly<{
+    gender: Gender;
+    side: Side;
+    shirtColor: ShirtColor;
+    size?: Size;
+    layers?: DesignLayer[];
+    previewLayers?: DesignLayer[];
+    previewPrintPositionMode?: PreviewPrintPositionMode;
+    className?: string;
+    compact?: boolean;
+    zoom?: number;
+  }>,
+  next: Readonly<{
+    gender: Gender;
+    side: Side;
+    shirtColor: ShirtColor;
+    size?: Size;
+    layers?: DesignLayer[];
+    previewLayers?: DesignLayer[];
+    previewPrintPositionMode?: PreviewPrintPositionMode;
+    className?: string;
+    compact?: boolean;
+    zoom?: number;
+  }>,
+): boolean {
+  const prevLayers = prev.previewLayers ?? prev.layers ?? [];
+  const nextLayers = next.previewLayers ?? next.layers ?? [];
+  return (
+    prevLayers === nextLayers &&
+    prev.gender === next.gender &&
+    prev.side === next.side &&
+    prev.shirtColor === next.shirtColor &&
+    prev.size === next.size &&
+    prev.previewPrintPositionMode === next.previewPrintPositionMode &&
+    prev.className === next.className &&
+    prev.compact === next.compact &&
+    prev.zoom === next.zoom
   );
 }

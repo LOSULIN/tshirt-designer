@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useRef } from "react";
+import { memo, useCallback, useRef } from "react";
+import { getDesignerSnapTargetsForLayer } from "@/lib/designer/snap-target-cache";
+import { arePrintAreaElementPropsEqual } from "@/lib/designer/print-area-element-memo";
+import type {
+  PrintAreaElementProps,
+  SnapGuidesState,
+} from "@/lib/designer/print-area-element-memo";
 import type { PrintAreaCmBounds } from "@/lib/design-cm";
 import {
   applyDesignerDragSnap,
@@ -16,10 +22,8 @@ import {
 } from "@/lib/designer-coordinate-controller";
 import type {
   DesignerCoordinateContext,
-  DesignerCssPercentStyle,
 } from "@/lib/designer-coordinate-facade";
 import { toCssPercent } from "@/lib/coordinate-runtime";
-import type { GarmentConstraintBadgeMeta } from "@/lib/garment-constraint-ux-polish";
 import { GarmentConstraintLayerWarning } from "./GarmentConstraintLayerWarning";
 import type { DesignLayer } from "@/lib/types";
 import {
@@ -33,15 +37,15 @@ import {
   fitLayerTransform,
   getScaledSize,
 } from "@/lib/geometry";
+import {
+  logPointerDragDiagnostic,
+  projectDesignerSnapTargetsToWorkspace,
+} from "@/lib/designer/drag-snap-diagnostic";
+import { uiElementSnapDistanceToWorkspaceCm } from "@/lib/designer/element-snap-threshold";
 
 const POSITION_EPSILON = 0.25;
 
-export interface SnapGuidesState {
-  printCenterX: boolean;
-  printCenterY: boolean;
-  elementVertical: number[];
-  elementHorizontal: number[];
-}
+export type { SnapGuidesState } from "@/lib/designer/print-area-element-memo";
 
 const EMPTY_GUIDES: SnapGuidesState = {
   printCenterX: false,
@@ -105,9 +109,13 @@ function ResizeHandleGrip({
   );
 }
 
-export function PrintAreaElement({
+export type { PrintAreaElementProps } from "@/lib/designer/print-area-element-memo";
+
+function PrintAreaElementInner({
   layer,
+  layerId,
   designerPointerContext,
+  designerSnapTargetCacheRef,
   x,
   y,
   width,
@@ -121,12 +129,13 @@ export function PrintAreaElement({
   gridSnapEnabled,
   elementSnapEnabled,
   elementSnapDistance,
-  otherElements,
   onSelect,
   onTransformChange,
   onResizeChange,
   onDoubleClick,
   onSnapGuidesChange,
+  onDragTransformFlush,
+  onDragTransformCancel,
   printArea,
   maxResizeWidth_cm,
   maxResizeHeight_cm,
@@ -136,54 +145,7 @@ export function PrintAreaElement({
   displayPercentStyle,
   children,
   className = "",
-}: {
-  /** Step 13.0F：Drag 經 Controller 寫入 Storage */
-  layer: DesignLayer;
-  designerPointerContext: DesignerCoordinateContext;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  scale: number;
-  rotation: number;
-  isActive: boolean;
-  showControls: boolean;
-  locked: boolean;
-  isEditing?: boolean;
-  gridSnapEnabled: boolean;
-  elementSnapEnabled: boolean;
-  elementSnapDistance: number;
-  otherElements: SnapTarget[];
-  onSelect: (shiftKey: boolean) => void;
-  onTransformChange: (next: {
-    x: number;
-    y: number;
-    scale?: number;
-  }) => void;
-  onResizeChange?: (next: {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-  }) => void;
-  onDoubleClick?: () => void;
-  onSnapGuidesChange: (guides: SnapGuidesState) => void;
-  printArea: PrintAreaCmBounds;
-  /** 點陣圖最大印刷寬（cm）；省略則不限制 */
-  maxResizeWidth_cm?: number;
-  /** 點陣圖最大印刷高（cm）；省略則不限制 */
-  maxResizeHeight_cm?: number;
-  /** 超出 Blue Print Area — 僅 UI 警示，不修改 layer */
-  hasPrintAreaOverflow?: boolean;
-  /** Current Garment Constraint 圖層警告文案 */
-  constraintWarningLabel?: string | null;
-  /** Step 12.9D：圖層 badge 等級與 tooltip */
-  constraintBadge?: GarmentConstraintBadgeMeta | null;
-  /** Step 13.0D：Display Layer CSS %（Drag 使用 Designer Pointer + Controller） */
-  displayPercentStyle?: DesignerCssPercentStyle;
-  children: React.ReactNode;
-  className?: string;
-}) {
+}: PrintAreaElementProps) {
   const dragRef = useRef<{
     startX: number;
     startY: number;
@@ -197,11 +159,26 @@ export function PrintAreaElement({
   const gridSnapRef = useRef(gridSnapEnabled);
   const elementSnapRef = useRef(elementSnapEnabled);
   const elementSnapDistanceRef = useRef(elementSnapDistance);
-  const otherElementsRef = useRef(otherElements);
+  const otherElementsRef = useRef<SnapTarget[]>([]);
+  const pointerDiagRef = useRef<{
+    clientX: number;
+    clientY: number;
+    deltaPx: number;
+    deltaPy: number;
+  } | null>(null);
+  const onTransformChangeRef = useRef(onTransformChange);
+  const onSnapGuidesChangeRef = useRef(onSnapGuidesChange);
   gridSnapRef.current = gridSnapEnabled;
   elementSnapRef.current = elementSnapEnabled;
   elementSnapDistanceRef.current = elementSnapDistance;
-  otherElementsRef.current = otherElements;
+  onTransformChangeRef.current = onTransformChange;
+  onSnapGuidesChangeRef.current = onSnapGuidesChange;
+
+  const refreshOtherElementsRef = useCallback(() => {
+    const cache = designerSnapTargetCacheRef.current;
+    if (!cache) return;
+    otherElementsRef.current = getDesignerSnapTargetsForLayer(cache, layerId);
+  }, [designerSnapTargetCacheRef, layerId]);
 
   const scaled = getScaledSize(width, height, scale);
   const isCompact =
@@ -220,9 +197,9 @@ export function PrintAreaElement({
         return;
       }
       lastGuidesRef.current = guides;
-      onSnapGuidesChange(guides);
+      onSnapGuidesChangeRef.current(guides);
     },
-    [onSnapGuidesChange],
+    [],
   );
 
   const layerRef = useRef(layer);
@@ -234,18 +211,32 @@ export function PrintAreaElement({
     (designerX: number, designerY: number, useSnap: boolean) => {
       let wsX = designerX;
       let wsY = designerY;
+      const layerBefore = { x, y };
 
       if (useSnap) {
+        const snapOptions = {
+          gridSnap: gridSnapRef.current,
+          elementSnap: elementSnapRef.current,
+          elementSnapThresholdCm: uiElementSnapDistanceToWorkspaceCm(
+            elementSnapDistanceRef.current,
+          ),
+          otherElements: otherElementsRef.current,
+        };
+        const unsnappedPatch = setLayerDesignerPosition(
+          layerRef.current,
+          designerPointerContextRef.current,
+          { x_cm: designerX, y_cm: designerY },
+        );
+        const workspaceBeforeSnap = {
+          x: unsnappedPatch.x_cm ?? x,
+          y: unsnappedPatch.y_cm ?? y,
+        };
+
         const snap = applyDesignerDragSnap(
           layerRef.current,
           { x_cm: designerX, y_cm: designerY },
           designerPointerContextRef.current,
-          {
-            gridSnap: gridSnapRef.current,
-            elementSnap: elementSnapRef.current,
-            elementSnapThresholdCm: elementSnapDistanceRef.current,
-            otherElements: otherElementsRef.current,
-          },
+          snapOptions,
         );
         if (
           snap.workspacePatch.x_cm === undefined ||
@@ -261,6 +252,59 @@ export function PrintAreaElement({
           elementVertical: snap.guides.elementVertical,
           elementHorizontal: snap.guides.elementHorizontal,
         });
+
+        const fitted = fitLayerTransform(
+          wsX,
+          wsY,
+          width,
+          height,
+          scale,
+          rotation,
+          printArea,
+        );
+
+        const committed =
+          Math.abs(fitted.x - x) > POSITION_EPSILON ||
+          Math.abs(fitted.y - y) > POSITION_EPSILON ||
+          Math.abs(fitted.scale - scale) > POSITION_EPSILON;
+
+        if (process.env.NODE_ENV === "development") {
+          const pointerDiag = pointerDiagRef.current;
+          if (pointerDiag) {
+            logPointerDragDiagnostic({
+              phase: "pointer",
+              layerId,
+              clientX: pointerDiag.clientX,
+              clientY: pointerDiag.clientY,
+              deltaPx: pointerDiag.deltaPx,
+              deltaPy: pointerDiag.deltaPy,
+              designerX,
+              designerY,
+              layer: layerRef.current,
+              ctx: designerPointerContextRef.current,
+              printArea,
+              snapOptions,
+              workspaceBeforeSnap,
+              workspaceAfterDesignerSnap: { x: wsX, y: wsY },
+              workspaceAfterFit: { x: fitted.x, y: fitted.y },
+              layerBefore,
+              elementSnapDistanceUi: elementSnapDistanceRef.current,
+              elementSnapThresholdCm: uiElementSnapDistanceToWorkspaceCm(
+                elementSnapDistanceRef.current,
+              ),
+              workspaceOtherElements: projectDesignerSnapTargetsToWorkspace(
+                otherElementsRef.current,
+                designerPointerContextRef.current,
+              ),
+              committed,
+            });
+          }
+        }
+
+        if (committed) {
+          onTransformChangeRef.current(fitted);
+        }
+        return;
       } else {
         const patch = setLayerDesignerPosition(
           layerRef.current,
@@ -288,20 +332,10 @@ export function PrintAreaElement({
         Math.abs(fitted.y - y) > POSITION_EPSILON ||
         Math.abs(fitted.scale - scale) > POSITION_EPSILON
       ) {
-        onTransformChange(fitted);
+        onTransformChangeRef.current(fitted);
       }
     },
-    [
-      width,
-      height,
-      scale,
-      rotation,
-      x,
-      y,
-      onTransformChange,
-      emitGuides,
-      printArea,
-    ],
+    [width, height, scale, rotation, x, y, emitGuides, printArea, layerId],
   );
 
   const getPrintAreaRect = (target: EventTarget | null) => {
@@ -315,6 +349,7 @@ export function PrintAreaElement({
     onSelect(event.shiftKey);
     if (showControls) return;
     event.currentTarget.setPointerCapture(event.pointerId);
+    refreshOtherElementsRef();
     dragRef.current = {
       startX: event.clientX,
       startY: event.clientY,
@@ -329,6 +364,7 @@ export function PrintAreaElement({
   const onPointerMove = (event: React.PointerEvent) => {
     if (resizeRef.current) return;
     if (!dragRef.current) return;
+    refreshOtherElementsRef();
     const printRect = getPrintAreaRect(event.currentTarget);
     if (!printRect) return;
 
@@ -345,10 +381,31 @@ export function PrintAreaElement({
     const designerY =
       dragRef.current.designerDrag.originDesignerY_cm + deltaDesigner.dy_cm;
 
+    pointerDiagRef.current = {
+      clientX: event.clientX,
+      clientY: event.clientY,
+      deltaPx: deltaXPx,
+      deltaPy: deltaYPx,
+    };
     applyWorkspacePosition(designerX, designerY, true);
   };
 
   const onPointerUp = (event: React.PointerEvent) => {
+    if (dragRef.current) {
+      onDragTransformFlush?.();
+    }
+    dragRef.current = null;
+    resizeRef.current = null;
+    emitGuides(EMPTY_GUIDES);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  };
+
+  const onPointerCancel = (event: React.PointerEvent) => {
+    if (dragRef.current) {
+      onDragTransformCancel?.();
+    }
     dragRef.current = null;
     resizeRef.current = null;
     emitGuides(EMPTY_GUIDES);
@@ -468,7 +525,7 @@ export function PrintAreaElement({
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
-      onPointerCancel={onPointerUp}
+      onPointerCancel={onPointerCancel}
       onDoubleClick={(e) => {
         e.stopPropagation();
         onDoubleClick?.();
@@ -522,3 +579,8 @@ export function PrintAreaElement({
     </div>
   );
 }
+
+export const PrintAreaElement = memo(
+  PrintAreaElementInner,
+  arePrintAreaElementPropsEqual,
+);

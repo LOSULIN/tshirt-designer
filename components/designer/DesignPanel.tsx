@@ -1,6 +1,10 @@
 "use client";
 
-import { ELEMENT_SNAP_MAX, ELEMENT_SNAP_MIN } from "@/lib/constants";
+import {
+  ELEMENT_SNAP_MAX,
+  ELEMENT_SNAP_MIN,
+  formatElementSnapDistanceLabel,
+} from "@/lib/designer/element-snap-threshold";
 import type { PreviewPrintPositionMode } from "@/lib/printArea";
 import type { DesignLayer, PanelTab } from "@/lib/types";
 import { ds } from "./design-ui";
@@ -180,6 +184,10 @@ export function DesignPanel({
           <p className="text-[10px] leading-relaxed text-zinc-500">
             預設點陣圖最大 21×29.7 cm（A4）；啟用後可達 29.7×42 cm（A3），超過 A3
             禁止放大。
+          </p>
+          <p className="text-[10px] leading-relaxed text-zinc-500">
+            元素吸附距離：{formatElementSnapDistanceLabel(elementSnapDistance)}
+            （滑桿為設計單位 4–24，約 0.4–2.4 cm）
           </p>
           <input
             type="range"

@@ -1,0 +1,45 @@
+{
+  "code": "UA35001",
+  "brand": "United Athle",
+  "displayName": "United Athle 經典短袖 T-Shirt",
+  "category": "t-shirt",
+  "printArea": {
+    "front": {
+      "widthCm": 35,
+      "heightCm": 50
+    },
+    "back": {
+      "widthCm": 38,
+      "heightCm": 45
+    }
+  },
+  "safeArea": {
+    "front": {
+      "widthCm": 26,
+      "heightCm": 40,
+      "referenceSize": "M"
+    },
+    "back": {
+      "widthCm": 32,
+      "heightCm": 42,
+      "referenceSize": "M"
+    }
+  },
+  "availableSides": ["front"],
+  "availableColors": [
+    { "slug": "black", "label": "Black", "hex": "#111111" },
+    { "slug": "white", "label": "White", "hex": "#FFFFFF" }
+  ],
+  "availableSizes": ["XS", "S", "M", "L", "XL", "2L"],
+  "fabricInfo": {
+    "material": "100% Cotton",
+    "weight": "5.6 oz",
+    "notes": "麻灰色為 90% Cotton · 10% Polyester"
+  },
+  "thumbnail": "assets/front-white.png",
+  "previewAssets": [
+    { "side": "front", "color": "black", "path": "assets/front-black.png" },
+    { "side": "front", "color": "white", "path": "assets/front-white.png" }
+  ],
+  "calibrationFile": "calibration.json"
+}

@@ -1,0 +1,30 @@
+{
+  "front": {
+    "designerReference": {
+      "printArea": {
+        "x": 298,
+        "y": 472,
+        "width": 428,
+        "height": 612
+      }
+    },
+    "productReference": {
+      "printArea": {
+        "x": 298,
+        "y": 472,
+        "width": 428,
+        "height": 612
+      }
+    },
+    "mapping": {
+      "offsetX": 0,
+      "offsetY": 0,
+      "scaleX": 1,
+      "scaleY": 1
+    },
+    "visualAdjustment": {
+      "offsetX": 0,
+      "offsetY": 90
+    }
+  }
+}

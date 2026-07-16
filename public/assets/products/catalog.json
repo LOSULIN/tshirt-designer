@@ -1,0 +1,9 @@
+{
+  "products": [
+    {
+      "code": "UA35001",
+      "colors": ["black", "white"],
+      "sides": ["front"]
+    }
+  ]
+}

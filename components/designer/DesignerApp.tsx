@@ -21,6 +21,12 @@ import { ProductPanel } from "./ProductPanel";
 import { ds } from "./design-ui";
 import { DesignerToast } from "./DesignerToast";
 import { buildCurrentGarmentConstraintMap } from "@/lib/current-garment-print-constraint";
+import { createDragRafScheduler } from "@/lib/designer/drag-raf-scheduler";
+import {
+  createWorkspaceSnapCache,
+  resolveWorkspaceSnapTargetsForLayer,
+  type WorkspaceSnapTargetCache,
+} from "@/lib/designer/workspace-snap-cache";
 import { countGarmentConstraintViolations } from "@/lib/garment-constraint-ux";
 import { getGarmentPrintStatus } from "@/lib/garment-constraint-ux-polish";
 import { getLayersForCanvasRender } from "@/lib/layer-system";
@@ -121,6 +127,11 @@ import {
   resizeTextLayer,
   scaleLayerFromToolbar,
 } from "@/lib/layer-constraints";
+import { logRafDragDiagnostic } from "@/lib/designer/drag-snap-diagnostic";
+import {
+  DEFAULT_ELEMENT_SNAP_UI_VALUE,
+  uiElementSnapDistanceToWorkspaceCm,
+} from "@/lib/designer/element-snap-threshold";
 import { normalizeDesignLayers } from "@/lib/layer-normalize";
 import {
   rotateClockwise90,
@@ -333,7 +344,12 @@ export function DesignerApp({
   }, [activeTab]);
   const [gridSnapEnabled, setGridSnapEnabled] = useState(true);
   const [largePrintModeEnabled, setLargePrintModeEnabled] = useState(false);
-  const [elementSnapDistance, setElementSnapDistance] = useState(10);
+  const [elementSnapDistance, setElementSnapDistance] = useState(
+    DEFAULT_ELEMENT_SNAP_UI_VALUE,
+  );
+  const elementSnapThresholdCm = uiElementSnapDistanceToWorkspaceCm(
+    elementSnapDistance,
+  );
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [showClothingBrowse, setShowClothingBrowse] = useState(false);
   const [leftDrawerOpen, setLeftDrawerOpen] = useState(false);
@@ -367,6 +383,50 @@ export function DesignerApp({
     () => getLayersForSlot(layersByTemplate, gender, side),
     [layersByTemplate, gender, side],
   );
+  const layersRef = useRef(layers);
+  layersRef.current = layers;
+
+  const [previewLayers, setPreviewLayers] = useState<DesignLayer[]>(layers);
+  const previewLayersDeferredRef = useRef(false);
+  const previewPointerUpListenerRef = useRef<(() => void) | null>(null);
+
+  const syncPreviewLayers = useCallback(() => {
+    previewLayersDeferredRef.current = false;
+    setPreviewLayers(layersRef.current);
+    if (previewPointerUpListenerRef.current) {
+      window.removeEventListener("pointerup", previewPointerUpListenerRef.current);
+      previewPointerUpListenerRef.current = null;
+    }
+  }, []);
+
+  const beginPreviewLayersDeferral = useCallback(() => {
+    previewLayersDeferredRef.current = true;
+    if (previewPointerUpListenerRef.current) return;
+    const onPointerUp = () => {
+      previewPointerUpListenerRef.current = null;
+      syncPreviewLayers();
+    };
+    previewPointerUpListenerRef.current = onPointerUp;
+    window.addEventListener("pointerup", onPointerUp, { once: true });
+  }, [syncPreviewLayers]);
+
+  useEffect(() => {
+    if (!previewLayersDeferredRef.current) {
+      setPreviewLayers(layers);
+    }
+  }, [layers]);
+
+  useEffect(() => {
+    return () => {
+      if (previewPointerUpListenerRef.current) {
+        window.removeEventListener(
+          "pointerup",
+          previewPointerUpListenerRef.current,
+        );
+        previewPointerUpListenerRef.current = null;
+      }
+    };
+  }, []);
 
   const maxPrintBounds = useMemo(
     () => resolvePrintAreaCm({ runtime: "designer", side, size }),
@@ -374,7 +434,7 @@ export function DesignerApp({
   );
 
   const previewPrintStatus = useMemo(() => {
-    const visibleLayers = getLayersForCanvasRender(layers).filter(
+    const visibleLayers = getLayersForCanvasRender(previewLayers).filter(
       (layer) => layer.visible,
     );
     const constraintMap = buildCurrentGarmentConstraintMap(
@@ -389,7 +449,7 @@ export function DesignerApp({
       })),
     );
     return getGarmentPrintStatus(violationCount, size, maxPrintBounds);
-  }, [layers, side, size, maxPrintBounds]);
+  }, [previewLayers, side, size, maxPrintBounds]);
   /** 圖層定位／clamp／對齊分母 — 固定 Design Workspace（M） */
   const workspacePrintArea = useMemo(
     () => getDesignerWorkspacePrintAreaCm(side),
@@ -598,7 +658,13 @@ export function DesignerApp({
       setLayers((prev) =>
         prev.map((layer) => {
           if (layer.id !== id) return layer;
+          const layerBefore = { x: layer.x_cm, y: layer.y_cm };
           const visibleLayers = prev.filter((l) => l.visible && !l.locked);
+          const otherElements = resolveWorkspaceSnapTargetsForLayer(
+            workspaceSnapCacheRef.current,
+            id,
+            visibleLayers,
+          );
           const workspacePatch = resolveWorkspaceGestureForApplyClamped(
             layer,
             patch,
@@ -606,24 +672,43 @@ export function DesignerApp({
             {
               gridSnap: gridSnapEnabled,
               elementSnap: true,
-              elementSnapThresholdCm: elementSnapDistance,
-              otherElements: buildSnapTargetsFromLayers(id, visibleLayers),
+              elementSnapThresholdCm: elementSnapThresholdCm,
+              otherElements,
             },
           );
-          return applyClampedLayerPatch(
+          const nextLayer = applyClampedLayerPatch(
             layer,
             workspacePatch,
             workspacePrintArea,
             {
               gridSnap: gridSnapEnabled,
-              elementSnapThreshold: elementSnapDistance,
-              otherElements: buildSnapTargetsFromLayers(id, visibleLayers),
+              elementSnapThreshold: elementSnapThresholdCm,
+              otherElements,
               rasterFit:
                 layer.type === "image"
                   ? getImageFitOptions(largePrintModeEnabled)
                   : undefined,
             },
           );
+
+          if (process.env.NODE_ENV === "development") {
+            logRafDragDiagnostic({
+              phase: "raf",
+              layerId: id,
+              patch,
+              layerBefore,
+              layerAfter: { x: nextLayer.x_cm, y: nextLayer.y_cm },
+              workspacePatch,
+              workspacePrintArea,
+              gridSnapEnabled,
+              elementSnapDistanceUi: elementSnapDistance,
+              elementSnapThresholdCm,
+              otherElements,
+              layer,
+            });
+          }
+
+          return nextLayer;
         }),
       );
     },
@@ -631,12 +716,67 @@ export function DesignerApp({
       setLayers,
       workspacePrintArea,
       gridSnapEnabled,
-      elementSnapDistance,
+      elementSnapThresholdCm,
       largePrintModeEnabled,
       markGestureMutation,
       designerGestureContext,
     ],
   );
+
+  const applyClampedLayerTransformRef = useRef(applyClampedLayerTransform);
+  applyClampedLayerTransformRef.current = applyClampedLayerTransform;
+
+  const workspaceSnapCacheRef = useRef<WorkspaceSnapTargetCache | null>(null);
+
+  const beginWorkspaceSnapCacheIfNeeded = useCallback(() => {
+    if (!workspaceSnapCacheRef.current) {
+      workspaceSnapCacheRef.current = createWorkspaceSnapCache(layersRef.current);
+    }
+  }, []);
+
+  const clearWorkspaceSnapCache = useCallback(() => {
+    workspaceSnapCacheRef.current = null;
+  }, []);
+
+  const dragTransformSchedulerRef = useRef(createDragRafScheduler());
+
+  useEffect(() => {
+    return () => {
+      dragTransformSchedulerRef.current.cancel();
+      workspaceSnapCacheRef.current = null;
+    };
+  }, []);
+
+  const scheduleClampedLayerTransform = useCallback(
+    (
+      id: string,
+      patch: Partial<{
+        x_cm: number;
+        y_cm: number;
+        scale: number;
+        rotation: number;
+      }>,
+    ) => {
+      beginPreviewLayersDeferral();
+      beginWorkspaceSnapCacheIfNeeded();
+      dragTransformSchedulerRef.current.schedule(() => {
+        applyClampedLayerTransformRef.current(id, patch);
+      });
+    },
+    [beginPreviewLayersDeferral, beginWorkspaceSnapCacheIfNeeded],
+  );
+
+  const flushDragTransformScheduler = useCallback(() => {
+    dragTransformSchedulerRef.current.flush();
+    clearWorkspaceSnapCache();
+    syncPreviewLayers();
+  }, [clearWorkspaceSnapCache, syncPreviewLayers]);
+
+  const cancelDragTransformScheduler = useCallback(() => {
+    dragTransformSchedulerRef.current.cancel();
+    clearWorkspaceSnapCache();
+    syncPreviewLayers();
+  }, [clearWorkspaceSnapCache, syncPreviewLayers]);
 
   const rotateLayersQuick90 = useCallback(
     (ids: string[], clockwise: boolean, discreteHistory = false) => {
@@ -672,7 +812,7 @@ export function DesignerApp({
             workspacePrintArea,
             {
               gridSnap: gridSnapEnabled,
-              elementSnapThreshold: elementSnapDistance,
+              elementSnapThreshold: elementSnapThresholdCm,
               otherElements: buildSnapTargetsFromLayers(
                 layer.id,
                 visibleLayers,
@@ -693,7 +833,7 @@ export function DesignerApp({
       setLayers,
       workspacePrintArea,
       gridSnapEnabled,
-      elementSnapDistance,
+      elementSnapThresholdCm,
       largePrintModeEnabled,
       designerGestureContext,
     ],
@@ -705,6 +845,7 @@ export function DesignerApp({
       next: { x_cm: number; y_cm: number; width_cm: number; height_cm: number },
       lockAspect = true,
     ) => {
+      beginPreviewLayersDeferral();
       markGestureMutation();
       setLayers((prev) =>
         prev.map((layer) => {
@@ -806,7 +947,7 @@ export function DesignerApp({
         }),
       );
     },
-    [setLayers, markGestureMutation, designerGestureContext, workspacePrintArea],
+    [setLayers, markGestureMutation, designerGestureContext, workspacePrintArea, beginPreviewLayersDeferral],
   );
 
   const applyLayerToolbarScale = useCallback(
@@ -1868,7 +2009,7 @@ export function DesignerApp({
       side={side}
       shirtColor={shirtColor}
       size={size}
-      layers={layers}
+      previewLayers={previewLayers}
       printStatus={previewPrintStatus}
       printBounds={maxPrintBounds}
       previewPrintPositionMode={previewPrintPositionMode}
@@ -1890,7 +2031,7 @@ export function DesignerApp({
       side={side}
       shirtColor={shirtColor}
       size={size}
-      layers={layers}
+      previewLayers={previewLayers}
       printStatus={previewPrintStatus}
       printBounds={maxPrintBounds}
       previewPrintPositionMode={previewPrintPositionMode}
@@ -1913,7 +2054,7 @@ export function DesignerApp({
       side={side}
       shirtColor={shirtColor}
       size={size}
-      layers={layers}
+      previewLayers={previewLayers}
       printStatus={previewPrintStatus}
       printBounds={maxPrintBounds}
       previewPrintPositionMode={previewPrintPositionMode}
@@ -2070,14 +2211,16 @@ export function DesignerApp({
             if (isDesignLocked || layers.find((l) => l.id === id)?.locked) {
               return;
             }
-            applyClampedLayerTransform(id, next);
+            scheduleClampedLayerTransform(id, next);
           }}
           onLayerRotationChange={(id, rotation) => {
             if (isDesignLocked || layers.find((l) => l.id === id)?.locked) {
               return;
             }
-            applyClampedLayerTransform(id, { rotation });
+            scheduleClampedLayerTransform(id, { rotation });
           }}
+          onDragTransformFlush={flushDragTransformScheduler}
+          onDragTransformCancel={cancelDragTransformScheduler}
           onQuickRotate90={(clockwise) => {
             if (isDesignLocked || selectedIds.length === 0) return;
             rotateLayersQuick90(selectedIds, clockwise, true);

@@ -39,6 +39,8 @@ export function LayerFloatingControls({
   displayPercentStyle,
   hasPrintAreaOverflow = false,
   onFitToPrintableArea,
+  onDragTransformFlush,
+  onDragTransformCancel,
 }: {
   printArea: PrintAreaCmBounds;
   /** Step 13.0D：Display Layer 定位 */
@@ -57,6 +59,8 @@ export function LayerFloatingControls({
   onDelete?: () => void;
   hasPrintAreaOverflow?: boolean;
   onFitToPrintableArea?: () => void;
+  onDragTransformFlush?: () => void;
+  onDragTransformCancel?: () => void;
 }) {
   const { designState } = useLiveDesignState();
   const floatingContext = useMemo(
@@ -127,6 +131,19 @@ export function LayerFloatingControls({
   };
 
   const onMovePointerUp = (event: React.PointerEvent) => {
+    if (moveRef.current) {
+      onDragTransformFlush?.();
+    }
+    moveRef.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  };
+
+  const onMovePointerCancel = (event: React.PointerEvent) => {
+    if (moveRef.current) {
+      onDragTransformCancel?.();
+    }
     moveRef.current = null;
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
@@ -162,6 +179,19 @@ export function LayerFloatingControls({
   };
 
   const onRotatePointerUp = (event: React.PointerEvent) => {
+    if (rotateRef.current) {
+      onDragTransformFlush?.();
+    }
+    rotateRef.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  };
+
+  const onRotatePointerCancel = (event: React.PointerEvent) => {
+    if (rotateRef.current) {
+      onDragTransformCancel?.();
+    }
     rotateRef.current = null;
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
@@ -223,7 +253,7 @@ export function LayerFloatingControls({
           onPointerDown={onMovePointerDown}
           onPointerMove={onMovePointerMove}
           onPointerUp={onMovePointerUp}
-          onPointerCancel={onMovePointerUp}
+          onPointerCancel={onMovePointerCancel}
         >
           ⋮⋮
         </button>
@@ -264,7 +294,7 @@ export function LayerFloatingControls({
             onPointerDown={onRotatePointerDown}
             onPointerMove={onRotatePointerMove}
             onPointerUp={onRotatePointerUp}
-            onPointerCancel={onRotatePointerUp}
+            onPointerCancel={onRotatePointerCancel}
           >
             ↻
           </button>
