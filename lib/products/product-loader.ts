@@ -74,14 +74,23 @@ export async function fetchProductCatalog(): Promise<ProductCatalogItem[]> {
 }
 
 export async function fetchProductProfile(code: string): Promise<ProductProfile> {
-  const cached = profileCache.get(code);
-  if (cached) return cached;
-  const response = await fetch(productProfileUrl(code));
+  if (isDevelopment) {
+    clearProductLoaderCache();
+  } else {
+    const cached = profileCache.get(code);
+    if (cached) return cached;
+  }
+
+  const response = await fetch(productProfileUrl(code), {
+    cache: isDevelopment ? "no-store" : "default",
+  });
   if (!response.ok) {
     throw new Error(`Failed to load profile for ${code}: ${response.status}`);
   }
   const profile = (await response.json()) as ProductProfile;
-  profileCache.set(code, profile);
+  if (!isDevelopment) {
+    profileCache.set(code, profile);
+  }
   return profile;
 }
 

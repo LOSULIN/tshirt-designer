@@ -11,6 +11,20 @@ import {
 
 export const DEFAULT_PRODUCT_EXPORT_CODE = "UA35001";
 
+/** Designer shirtColor → UA35001 product asset slug（僅商品圖 Registry） */
+const DESIGNER_SHIRT_COLOR_TO_PRODUCT_SLUG: Record<ShirtColor, string> = {
+  white: "white",
+  black: "black",
+  pink: "pink",
+  "hot-pink": "hotpink",
+  "sky-blue": "skyblue",
+  "heather-grey": "heathergray",
+  "light-yellow": "yellow",
+  "mustard-green": "mint",
+  navy: "indigo",
+  "royal-blue": "lightblue",
+};
+
 export interface ProductExportInput {
   layers: DesignLayer[];
   side: Side;
@@ -64,9 +78,9 @@ export function resolveRegistryColorSlug(
   shirtColor: ShirtColor,
   availableSlugs: string[],
 ): string {
+  const mapped = DESIGNER_SHIRT_COLOR_TO_PRODUCT_SLUG[shirtColor] ?? shirtColor;
+  if (availableSlugs.includes(mapped)) return mapped;
   if (availableSlugs.includes(shirtColor)) return shirtColor;
-  if (shirtColor === "black" && availableSlugs.includes("black")) return "black";
-  if (shirtColor === "white" && availableSlugs.includes("white")) return "white";
   if (availableSlugs.includes("white")) return "white";
   return availableSlugs[0] ?? "white";
 }
@@ -167,13 +181,14 @@ export async function downloadProductExportBundle(
   return files;
 }
 
-/** First-version variants: UA35001 front black / white */
+/** All registry colors for the active product (front/back per profile). */
 export async function buildSupportedProductVariants(
   input: Omit<ProductExportInput, "shirtColor">,
 ): Promise<Array<{ color: string; fileName: string; blob: Blob }>> {
   const productCode = await resolveExportProductCode(input.productCode);
+  const profile = await getProductProfile(productCode);
   const artwork = await exportArtworkPng({ ...input, shirtColor: "white" });
-  const colors = ["black", "white"] as const;
+  const colors = profile.availableColors.map((item) => item.slug);
   const variants: Array<{ color: string; fileName: string; blob: Blob }> = [];
 
   for (const color of colors) {

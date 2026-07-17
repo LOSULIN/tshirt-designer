@@ -11,7 +11,7 @@
     "productReference": {
       "printArea": {
         "x": 298,
-        "y": 472,
+        "y": 350,
         "width": 428,
         "height": 612
       }
@@ -24,7 +24,35 @@
     },
     "visualAdjustment": {
       "offsetX": 0,
-      "offsetY": 90
+      "offsetY": 150
+    }
+  },
+  "back": {
+    "designerReference": {
+      "printArea": {
+        "x": 279,
+        "y": 447,
+        "width": 465,
+        "height": 551
+      }
+    },
+    "productReference": {
+      "printArea": {
+        "x": 279,
+        "y": 325,
+        "width": 465,
+        "height": 551
+      }
+    },
+    "mapping": {
+      "offsetX": 0,
+      "offsetY": 0,
+      "scaleX": 1,
+      "scaleY": 1
+    },
+    "visualAdjustment": {
+      "offsetX": 0,
+      "offsetY": 63
     }
   }
 }
