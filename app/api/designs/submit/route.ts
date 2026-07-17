@@ -10,18 +10,19 @@ import {
   hasProofArtifacts,
   parseProofArtifactsFromFormData,
   SubmitTiming,
-  uploadSubmissionFiles,
   type ProofOrder,
 } from "@/lib/proof-engine/server";
 import {
-  allocateSubmissionNo,
-  isSubmissionNoConflict,
-} from "@/lib/submission-no";
-import { formatDbWriteError } from "@/lib/db-error";
+  createSubmissionLogger,
+  defaultSubmissionRepository,
+  defaultSubmissionUploadManager,
+} from "@/lib/submission";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
+
+const log = createSubmissionLogger({ phase: "designs-submit" });
 
 const PROOF_VERSION = 1;
 
@@ -96,45 +97,35 @@ export async function POST(request: Request) {
     const supabase = createAdminClient();
     const ctx = { supabase };
 
-    let submissionNo = "";
-    let insertError: { code?: string; message?: string } | null = null;
-
-    for (let attempt = 0; attempt < 8; attempt++) {
-      submissionNo = await allocateSubmissionNo(supabase, "FD");
-      const { error } = await supabase.from("design_submissions").insert({
-        id: orderId,
-        created_at: createdAt,
-        template_type: templateType,
-        side,
-        status: "submitted",
-        storage_path: buildOrderStoragePath(submissionNo),
-        expires_at: null,
-        submission_type: "normal",
-        review_status: null,
-        submission_no: submissionNo,
-        shirt_color: shirtColor,
-        proof_version: PROOF_VERSION,
-      });
-
-      if (!error) {
-        insertError = null;
-        break;
-      }
-
-      insertError = error;
-      if (!isSubmissionNoConflict(error) || attempt === 7) {
-        console.error("design_submissions insert failed:", error);
-        return NextResponse.json(
-          { error: formatDbWriteError(error) },
-          { status: 500 },
-        );
-      }
-    }
-
-    if (insertError) {
-      console.error("design_submissions insert failed:", insertError);
+    let submissionNo: string;
+    try {
+      const created = await defaultSubmissionRepository.createDesignSubmission(
+        ctx,
+        {
+          id: orderId,
+          created_at: createdAt,
+          template_type: templateType,
+          side,
+          storage_path: "",
+          submission_type: "normal",
+          submission_no: "",
+          shirt_color: shirtColor,
+          proof_version: PROOF_VERSION,
+          review_status: null,
+        },
+        {
+          prefix: "FD",
+          resolveStoragePath: buildOrderStoragePath,
+          insertFailureLog: "prefixed",
+        },
+      );
+      submissionNo = created.submissionNo;
+    } catch (error) {
       return NextResponse.json(
-        { error: formatDbWriteError(insertError) },
+        {
+          error:
+            error instanceof Error ? error.message : "寫入資料庫失敗：未知錯誤",
+        },
         { status: 500 },
       );
     }
@@ -170,12 +161,12 @@ export async function POST(request: Request) {
       original: originalFile,
     };
 
-    await uploadSubmissionFiles(
+    await defaultSubmissionUploadManager.uploadFiles({
       ctx,
       submissionNo,
       internalFiles,
       artifacts,
-    );
+    });
     syncTiming.finish("uploadFiles");
     syncTiming.setOrderRef(submissionNo);
     syncTiming.log();
@@ -208,13 +199,13 @@ export async function POST(request: Request) {
         bgTiming.log();
 
         if (!email.admin.sent) {
-          console.warn(
+          log.warnRaw(
             `[submit-background] admin email not sent for ${submissionNo}:`,
             email.admin.message ?? email.admin.reason,
           );
         }
       } catch (error) {
-        console.error(
+        log.errorRaw(
           `[submit-background] proof pipeline failed for ${submissionNo}:`,
           error,
         );
@@ -229,7 +220,7 @@ export async function POST(request: Request) {
       timing: syncTiming.getDurations(),
     });
   } catch (error) {
-    console.error(error);
+    log.errorRaw(error);
     return NextResponse.json(
       {
         error:

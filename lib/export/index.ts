@@ -1,4 +1,11 @@
 export { downloadBlob, downloadDataUrl, createObjectUrl, revokeObjectUrl } from "./download";
+export { clearImageCache, loadCachedImage } from "./image-cache";
+export {
+  clearArtifactCache,
+  computeExportFingerprint,
+  getCachedArtifacts,
+  setCachedArtifacts,
+} from "./artifact-cache";
 export {
   artworkBlobToCanvas,
   canvasToPngBlob,

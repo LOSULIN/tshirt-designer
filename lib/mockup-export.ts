@@ -25,6 +25,7 @@ import {
   logMockupOverlayDebugReport,
 } from "./mockup-export-debug";
 import { drawImageArtworkOnCanvas } from "./image-artwork-render";
+import { loadCachedImage } from "./export/image-cache";
 import { getAdultTshirtTemplateSrc } from "./shirt-template";
 import { drawRichTextOnCanvas, getRichTextRenderMetrics, serializeCanvasTransform } from "./text-style";
 import { drawShapeOnCanvas } from "./shape-layer";
@@ -44,16 +45,6 @@ export function getPrintAreaRectInContainerPx(
   side: Side = "front",
 ): MockupContainerRect {
   return getFlatMockupPrintAreaRectPx(containerWidth, containerHeight, side);
-}
-
-function loadImage(src: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error("無法載入模板圖片"));
-    img.src = src;
-  });
 }
 
 function mapLayerRectToMockupPx(
@@ -244,7 +235,7 @@ export async function renderMockupPreviewPng(params: {
 
   const templateSrc = getAdultTshirtTemplateSrc(shirtColor, side);
   try {
-    const template = await loadImage(templateSrc);
+    const template = await loadCachedImage(templateSrc);
     ctx.drawImage(template, 0, 0, canvasWidth, canvasHeight);
   } catch {
     // 模板載入失敗時維持透明畫布，不填入底色
@@ -283,14 +274,11 @@ export async function renderMockupPreviewPng(params: {
     );
   }
 
-  const imageCache = new Map<string, HTMLImageElement>();
   for (const layer of visibleLayers) {
     if (layer.type === "image") {
-      let img = imageCache.get(layer.id);
-      if (!img) {
-        img = await loadImage(layer.image.previewUrl || layer.image.originalUrl);
-        imageCache.set(layer.id, img);
-      }
+      const img = await loadCachedImage(
+        layer.image.previewUrl || layer.image.originalUrl,
+      );
       drawImageLayerOnMockup(ctx, layer, img, printRect, side, size);
     } else if (layer.type === "text" || layer.type === "shape") {
       drawDesignLayerOnMockup(ctx, layer, printRect, side, size);

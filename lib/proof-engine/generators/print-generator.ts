@@ -16,7 +16,7 @@ export async function generatePrintPng(params: {
   side: Side;
   layersByTemplate: DesignLayersByTemplate;
   size?: string;
-}): Promise<Uint8Array> {
+}): Promise<Blob> {
   const { gender, side, layersByTemplate, size = "M" } = params;
   const layers = getLayersForSlot(layersByTemplate, gender, side);
 
@@ -24,16 +24,15 @@ export async function generatePrintPng(params: {
     throw new Error(`No design on ${side} for print generation`);
   }
 
-  const blob = await renderPrintExportPng(layers, { side, size });
-  return new Uint8Array(await blob.arrayBuffer());
+  return renderPrintExportPng(layers, { side, size });
 }
 
 export async function generatePrintsForOrder(params: {
   gender: Gender;
   layersByTemplate: DesignLayersByTemplate;
   size?: string;
-}): Promise<Partial<Record<Side, Uint8Array>>> {
-  const prints: Partial<Record<Side, Uint8Array>> = {};
+}): Promise<Partial<Record<Side, Blob>>> {
+  const prints: Partial<Record<Side, Blob>> = {};
 
   await Promise.all(
     DESIGN_SIDES.map(async (side) => {

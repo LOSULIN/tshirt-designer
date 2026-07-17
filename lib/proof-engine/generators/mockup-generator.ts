@@ -17,7 +17,7 @@ export async function generateMockupPng(params: {
   shirtColor: ShirtColor;
   layersByTemplate: DesignLayersByTemplate;
   size?: string;
-}): Promise<Uint8Array> {
+}): Promise<Blob> {
   const { gender, side, shirtColor, layersByTemplate, size = "M" } = params;
   const layers = getLayersForSlot(layersByTemplate, gender, side);
 
@@ -25,13 +25,12 @@ export async function generateMockupPng(params: {
     throw new Error(`No design on ${side} for mockup generation`);
   }
 
-  const blob = await renderMockupPreviewPng({
+  return renderMockupPreviewPng({
     shirtColor,
     side,
     layers,
     size,
   });
-  return new Uint8Array(await blob.arrayBuffer());
 }
 
 export async function generateMockupsForOrder(params: {
@@ -39,8 +38,8 @@ export async function generateMockupsForOrder(params: {
   shirtColor: ShirtColor;
   layersByTemplate: DesignLayersByTemplate;
   size?: string;
-}): Promise<Partial<Record<Side, Uint8Array>>> {
-  const mockups: Partial<Record<Side, Uint8Array>> = {};
+}): Promise<Partial<Record<Side, Blob>>> {
+  const mockups: Partial<Record<Side, Blob>> = {};
 
   await Promise.all(
     DESIGN_SIDES.map(async (side) => {

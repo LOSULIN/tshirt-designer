@@ -25,9 +25,24 @@ export interface ProofOrder {
   created_at?: string;
 }
 
+export type ProofArtifact = Blob | Uint8Array | Buffer;
+
+export function proofArtifactSize(data: ProofArtifact): number {
+  if (data instanceof Blob) {
+    return data.size;
+  }
+  return data.length;
+}
+
+export function proofArtifactHasBytes(
+  data: ProofArtifact | undefined,
+): boolean {
+  return !!data && proofArtifactSize(data) > 0;
+}
+
 export interface ProofArtifactsInput {
-  mockups: Partial<Record<Side, Uint8Array | Buffer>>;
-  prints: Partial<Record<Side, Uint8Array | Buffer>>;
+  mockups: Partial<Record<Side, ProofArtifact>>;
+  prints: Partial<Record<Side, ProofArtifact>>;
 }
 
 export interface ProofInternalFiles {

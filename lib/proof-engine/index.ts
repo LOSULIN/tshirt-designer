@@ -1,6 +1,7 @@
 export type {
   ProofOrder,
   ProofPackage,
+  ProofArtifact,
   ProofArtifactsInput,
   ProofEngineContext,
   ProofOrderApplicant,

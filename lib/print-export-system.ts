@@ -22,6 +22,7 @@ import {
 } from "./coordinate-runtime";
 import type { LayerCmRect, PrintAreaCmBounds } from "./design-cm";
 import { drawImageArtworkOnCanvas } from "./image-artwork-render";
+import { loadCachedImage } from "./export/image-cache";
 import { embedPngDpi } from "./png-dpi";
 import { sortLayersByZIndex } from "./layers";
 import { drawRichTextOnCanvas, getRichTextRenderMetrics } from "./text-style";
@@ -102,16 +103,6 @@ function mapLayerRectToExportPx(
   };
 }
 
-function loadImage(src: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error("無法載入圖片"));
-    img.src = src;
-  });
-}
-
 function drawImageLayer(
   ctx: CanvasRenderingContext2D,
   layer: Extract<DesignLayer, { type: "image" }>,
@@ -174,7 +165,6 @@ export async function renderPrintExportPng(
   const textLayers = visibleLayers.filter(
     (l): l is TextDesignLayer => l.type === "text",
   );
-  const imageCache = new Map<string, HTMLImageElement>();
   const canvasSize = { widthPx, heightPx };
 
   if (textLayers.length > 0) {
@@ -203,11 +193,7 @@ export async function renderPrintExportPng(
     const exportRect = mapLayerRectToExportPx(cmRect, printAreaCm, canvasSize);
 
     if (layer.type === "image") {
-      let img = imageCache.get(layer.id);
-      if (!img) {
-        img = await loadImage(layer.image.originalUrl);
-        imageCache.set(layer.id, img);
-      }
+      const img = await loadCachedImage(layer.image.originalUrl);
       drawImageLayer(ctx, layer, img, exportRect);
     } else if (layer.type === "shape") {
       drawShapeOnCanvas(

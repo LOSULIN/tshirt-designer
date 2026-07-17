@@ -1,5 +1,5 @@
 /**
- * 驗證：工廠校稿 PDF（每面一頁 · Mockup + 印刷資訊）
+ * 驗證：工廠校稿 PDF（Factory Proof Layout v2）
  */
 
 import { existsSync, readFileSync } from "node:fs";
@@ -32,21 +32,52 @@ assert(
   "每面一頁校稿版面",
 );
 assert(
-  templateSrc.includes("getProductName"),
+  templateSrc.includes("getProductDisplayName"),
   "標題含商品名稱",
 );
 assert(
-  templateSrc.includes("computePdfMockupPlacement"),
-  "Mockup 使用 Designer 固定像素比例放置",
+  templateSrc.includes("resolveDesignerPreviewLayout") &&
+    templateSrc.includes("mapDesignerLayoutToPdf") &&
+    templateSrc.includes("drawDesignerPreviewMockup"),
+  "PDF Mockup 使用 Designer Layout Source（非 mockup PNG 重定位）",
 );
 assert(
-  templateSrc.includes("logPdfMockupPlacementDebug"),
-  "PDF Mockup 匯出前除錯資訊",
+  templateSrc.includes("loadShirtTemplateBytes") &&
+    templateSrc.includes("getAdultTshirtTemplateSrc"),
+  "PDF 衣服使用 Designer 同款模板 PNG",
 );
 assert(
-  !templateSrc.includes("drawClippedMockupImage") &&
-    templateSrc.includes("drawMockupImage"),
-  "PDF Mockup 完整繪製、不 clip 裁切",
+  !templateSrc.includes("computeDesignerAlignedPdfMockupPlacement") &&
+    !templateSrc.includes("computePdfMockupPlacement("),
+  "PDF 不再使用獨立 mockup 放置演算法",
+);
+
+const designerLayoutSrc = readFileSync(
+  join(root, "lib/proof-engine/designer-layout.ts"),
+  "utf8",
+);
+assert(
+  designerLayoutSrc.includes("getDesignerFactoryOverlayTemplatePx") &&
+    designerLayoutSrc.includes("getPreviewGarmentVisualScale") &&
+    designerLayoutSrc.includes("getDesignerMockupVisualOffsetPx") &&
+    designerLayoutSrc.includes("getCollarAnchorYPx"),
+  "designer-layout 與 PreviewGarmentView 共用定位來源",
+);
+assert(
+  designerLayoutSrc.includes("PDF_COLLAR_ANCHOR_VISUAL_OFFSET_PX_BY_SIDE") &&
+    designerLayoutSrc.includes("getPdfCollarAnchorVisualOffsetPx") &&
+    designerLayoutSrc.includes("resolvePdfCollarBottomPx"),
+  "designer-layout 含 PDF 領口定位線視覺校正（可擴充款式）",
+);
+assert(
+  designerLayoutSrc.includes("front: 0") &&
+    designerLayoutSrc.includes("BACK_COLLAR_VISUAL_COMPENSATION_PX"),
+  "Back 領口校正與背面羅紋補償常數對偶、Front 不變",
+);
+assert(
+  !templateSrc.includes("drawMockupImage") ||
+    templateSrc.includes("drawDesignerPreviewMockup"),
+  "PDF 改為分層渲染（shirt + artwork）",
 );
 
 const layoutSrc = readFileSync(
@@ -65,28 +96,63 @@ assert(
   "左側印刷資訊欄",
 );
 assert(
-  templateSrc.includes("drawMockupAnnotations"),
-  "Mockup 印刷區標示與定位線",
+  templateSrc.includes("drawMockupAnnotations") &&
+    templateSrc.includes("drawCollarOffsetGuide"),
+  "Mockup 僅保留印刷區虛線與領口定位提示",
+);
+assert(
+  templateSrc.includes("drawFactoryProofInfoCard"),
+  "右下角 Factory Proof 資訊卡",
 );
 assert(
   templateSrc.includes("drawPageFooter"),
-  "頁尾訂單／衣服／注意事項",
+  "頁尾訂單／注意事項",
 );
 assert(
   !templateSrc.includes("drawPrintInfoSection"),
   "舊版底部印刷資訊區已移除",
 );
 assert(
-  templateSrc.includes("getGarmentMaxPrintAreaCm"),
-  "印刷尺寸依面別藍框（35×50 / 38×45）",
-);
-assert(
   templateSrc.includes("getPrintAreaOffsetCm"),
-  "含領口距離",
+  "使用固定領口 offset（與 Designer 一致）",
 );
 assert(
-  templateSrc.includes("buildLiveDesignState"),
-  "物件尺寸來自 Designer cm 資料",
+  templateSrc.includes("buildPdfArtworkPositionPresentation"),
+  "Artwork 尺寸來自 design-inspector（僅資訊卡）",
+);
+assert(
+  !templateSrc.includes("PRINT AREA"),
+  "Mockup 上不顯示 PRINT AREA 尺寸文字",
+);
+assert(
+  !templateSrc.includes("drawArtworkMeasurementAnnotations"),
+  "已移除工程尺寸線（左右距離、中心尺寸）",
+);
+assert(
+  !templateSrc.includes("← ") && !templateSrc.includes(" cm →"),
+  "不含左右箭頭尺寸標示",
+);
+assert(
+  templateSrc.includes("印刷定位基準") &&
+    templateSrc.includes("領口下緣起算") &&
+    templateSrc.includes("後領下緣起算"),
+  "含工廠校稿定位標籤（正面／背面）",
+);
+assert(
+  templateSrc.includes("Collar Bottom +") &&
+    templateSrc.includes("Back Collar Bottom +") &&
+    !templateSrc.includes("Collar Offset"),
+  "資訊卡使用工廠 Position 用語、無 Collar Offset",
+);
+assert(
+  !templateSrc.includes("arrowSize") &&
+    !templateSrc.includes("印刷起始位置"),
+  "不含箭頭與工程起始位置標示",
+);
+assert(
+  templateSrc.includes("guideGray") &&
+    templateSrc.includes("FACTORY_POSITION_BADGE"),
+  "定位線採細灰線 + 黃色標籤",
 );
 assert(
   !templateSrc.includes("PRINT ARTWORK"),
@@ -148,6 +214,45 @@ assert(
   !wrapperSrc.includes("printArtwork") &&
     !templateSrc.includes("PRINT ARTWORK"),
   "校稿 PDF 不嵌入單獨 print artwork 頁",
+);
+
+assert(
+  !existsSync(join(root, "lib/proof-engine/pdf-visual-calibration.ts")),
+  "Phase 31-2B 整體 Render Calibration 已移除",
+);
+assert(
+  !existsSync(join(root, "lib/proof-engine/pdf-shirt-visual-calibration.ts")),
+  "Phase 31-2C Shirt 視覺校正已移除",
+);
+assert(
+  !existsSync(join(root, "lib/proof-engine/pdf-guide-visual-calibration.ts")),
+  "Phase 31-2D Guide 視覺校正已移除",
+);
+assert(
+  !existsSync(join(root, "lib/proof-engine/pdf-visual-collar-reference.ts")),
+  "Phase 31-3 Visual Collar Reference 已移除",
+);
+assert(
+  !existsSync(join(root, "lib/proof-engine/pdf-shirt-presentation.ts")),
+  "Phase 31-4 Shirt Presentation 已移除",
+);
+assert(
+  !templateSrc.includes("resolvePdfVisualCollarGuideYPt") &&
+    !templateSrc.includes("resolvePdfShirtPresentationDrawRect") &&
+    !templateSrc.includes("resolvePdfGuideVisualY") &&
+    !templateSrc.includes("resolvePdfShirtDrawY") &&
+    !templateSrc.includes("applyPdfVisualCalibrationToRender"),
+  "Factory Proof 無 Presentation / Calibration Runtime",
+);
+assert(
+  templateSrc.includes("y: render.shirt.y") &&
+    templateSrc.includes("render.collarCenterPt.y"),
+  "Shirt / Guide 使用 Designer Layout 原始座標（Phase 31-2A）",
+);
+assert(
+  templateSrc.includes("x: render.printAreaLeftPt") &&
+    templateSrc.includes("y: render.printAreaBottomPt"),
+  "Artwork drawImage 使用 Designer Layout 原始座標",
 );
 
 console.log("\nFactory Proof PDF Template 結構檢查完成。");

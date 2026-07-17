@@ -1,10 +1,12 @@
 /**
- * Factory Proof PDF — 工廠打樣確認稿
- * 每面一頁：左側印刷資訊 + 右側完整 T-shirt Mockup（含印刷區標示）
+ * Factory Proof PDF — 工廠打樣確認稿（Layout v2）
+ * 專業成衣印刷工廠校稿風格；定位來源 designer-layout.ts
  */
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import type { RGB } from "pdf-lib";
-import type { Side } from "../proof-domain";
+import type { ShirtColor, Side } from "../proof-domain";
 import { getShirtColorName } from "../proof-domain";
 import {
   getProductBrand,
@@ -14,7 +16,7 @@ import {
   getProductPrintMethodLabel,
   getProductWeightLabel,
 } from "../../product-metadata";
-import { formatInspectorCm } from "../../design-inspector";
+import { getPrintAreaOffsetCm } from "../../coordinates/print-area-offset";
 import {
   DESIGN_SIDES,
   getLayersForSlot,
@@ -22,14 +24,15 @@ import {
 } from "../../design-state";
 import { getExportCanvasSpec } from "../../export-coordinates";
 import { embedPdfCjkFonts } from "../../pdf-fonts";
+import { getAdultTshirtTemplateSrc } from "../../shirt-template";
 import type { PdfArtworkPositionPresentation } from "../pdf-position-presentation";
-import type { ProofOrder } from "../types";
 import {
-  computePdfMockupPlacement,
-  logPdfMockupPlacementDebug,
-  type PdfMockupContentAreaPt,
-  type PdfMockupPlacement,
-} from "./pdf-mockup-layout";
+  mapDesignerLayoutToPdf,
+  resolveDesignerPreviewLayout,
+  type DesignerPdfRenderPlacement,
+} from "../designer-layout";
+import type { ProofOrder } from "../types";
+import type { PdfMockupContentAreaPt } from "./pdf-mockup-layout";
 
 export const FACTORY_PROOF_A4_WIDTH_PT = 595.28;
 export const FACTORY_PROOF_A4_HEIGHT_PT = 841.89;
@@ -41,6 +44,19 @@ const PAGE_HEADER_H = 56;
 const FOOTER_H = 78;
 const LEFT_PANEL_W = 172;
 const PANEL_GUTTER = 14;
+
+/**
+ * PDF-only：印刷區（Artwork + 藍框）視覺 Y 微調（pt，bottom-origin；正值 = 上移）。
+ * 不寫入 render；不影響 Designer / Export / Guide / Shirt。
+ */
+const FACTORY_PROOF_PRINTAREA_PRESENTATION_OFFSET: Record<Side, number> = {
+  front: 9.3294,
+  back: 17.9914,
+};
+
+function getFactoryProofPrintAreaPresentationOffsetY(side: Side): number {
+  return FACTORY_PROOF_PRINTAREA_PRESENTATION_OFFSET[side];
+}
 
 export interface FactoryProofPdfInput {
   order: ProofOrder;
@@ -61,9 +77,12 @@ interface PageContext {
   fonts: PdfFonts;
   black: RGB;
   gray: RGB;
+  guideGray: RGB;
   accent: RGB;
   border: RGB;
   printBlue: RGB;
+  tagYellow: RGB;
+  tagText: RGB;
   white: RGB;
 }
 
@@ -78,10 +97,77 @@ const SIDE_DESIGN_FILE: Record<Side, string> = {
 };
 
 const FACTORY_NOTES = [
-  "螢幕顯示與實際印刷可能因布料、光線略有差異。",
-  "彈性布料印刷後可能產生些微位移。",
-  "請以本稿標示之 cm 尺寸為準。",
+  "本校稿僅供印刷位置確認。",
+  "實際生產依 TIIIGO 工廠規範執行。",
+  "正面印刷以領口下緣 7 cm、背面以後領下緣 5 cm 為定位基準。",
 ];
+
+/** Factory Proof Layout v2 — 工廠校稿用語 */
+const FACTORY_POSITION_BADGE: Record<
+  Side,
+  { title: string; subtitle: (offsetCm: number) => string; collarLineLabel: string }
+> = {
+  front: {
+    title: "印刷定位基準",
+    subtitle: (cm) => `領口下緣起算 ${cm} cm`,
+    collarLineLabel: "領口下緣",
+  },
+  back: {
+    title: "印刷定位基準",
+    subtitle: (cm) => `後領下緣起算 ${cm} cm`,
+    collarLineLabel: "後領下緣",
+  },
+};
+
+function formatShirtColorEnglish(color: ShirtColor): string {
+  return color
+    .split("-")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function getFactoryPositionCardLine(side: Side): string {
+  const offsetCm = getPrintAreaOffsetCm(side);
+  return side === "back"
+    ? `Back Collar Bottom +${offsetCm} cm`
+    : `Collar Bottom +${offsetCm} cm`;
+}
+
+/** TIIIGO Factory Proof v1.0 — #2563EB */
+const FACTORY_PROOF_BLUE_HEX = { r: 37 / 255, g: 99 / 255, b: 235 / 255 };
+const FACTORY_PROOF_TAG_HEX = { r: 234 / 255, g: 179 / 255, b: 8 / 255 };
+
+function loadShirtTemplateBytes(
+  shirtColor: ShirtColor,
+  side: Side,
+): Buffer | null {
+  try {
+    const src = getAdultTshirtTemplateSrc(shirtColor, side);
+    const filePath = join(process.cwd(), "public", src.replace(/^\//, ""));
+    return readFileSync(filePath);
+  } catch {
+    return null;
+  }
+}
+
+function logDesignerLayoutDebug(
+  side: Side,
+  render: DesignerPdfRenderPlacement,
+): void {
+  if (typeof console === "undefined") return;
+  console.group(`[Factory Proof Designer Layout] ${side}`);
+  console.log("viewport", render.contentArea);
+  console.log("shirt", render.shirt);
+  console.log("printArea", {
+    leftPt: render.printAreaLeftPt,
+    bottomPt: render.printAreaBottomPt,
+    topPt: render.printAreaTopPt,
+    widthPt: render.printAreaRenderWidthPt,
+    heightPt: render.printAreaRenderHeightPt,
+  });
+  console.log("collar", render.collarCenterPt);
+  console.groupEnd();
+}
 
 function toPngBuffer(bytes: Uint8Array | Buffer): Buffer {
   return Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes);
@@ -240,7 +326,6 @@ function drawLeftInfoPanel(
   order: ProofOrder,
   side: Side,
   printBytes: Uint8Array | Buffer | undefined,
-  positionPresentation: PdfArtworkPositionPresentation | null,
 ) {
   const { page, fonts, black, gray, accent, border } = ctx;
   const x = getLeftPanelX();
@@ -256,7 +341,6 @@ function drawLeftInfoPanel(
   });
 
   const printSpec = getExportCanvasSpec(side, order.size);
-  const missingPosition = "—";
   const caseNo = order.submission_no ?? order.order_id;
   const dateStr = (order.created_at ?? new Date().toISOString()).slice(0, 10);
 
@@ -298,35 +382,6 @@ function drawLeftInfoPanel(
     panelMaxW,
     accent,
   );
-
-  y = drawSectionGap(ctx, y);
-  y = drawSectionHeader(ctx, x, y, "位置資訊", panelMaxW);
-  y = drawLabelValue(
-    ctx,
-    x,
-    y,
-    "印刷位置",
-    positionPresentation?.sideLabel ?? missingPosition,
-    panelMaxW,
-  );
-  y = drawLabelValue(
-    ctx,
-    x,
-    y,
-    "印刷尺寸",
-    positionPresentation?.printSizeLabel ?? missingPosition,
-    panelMaxW,
-    accent,
-  );
-  page.drawText("距離標示見右側圖稿", {
-    x,
-    y: y - 2,
-    size: 6.5,
-    font: fonts.regular,
-    color: gray,
-    maxWidth: panelMaxW,
-  });
-  y -= 14;
 
   y = drawSectionGap(ctx, y);
   y = drawSectionHeader(ctx, x, y, "印刷規格", panelMaxW);
@@ -420,227 +475,294 @@ async function drawDashedRect(
   );
 }
 
-function drawMockupImage(
-  page: import("pdf-lib").PDFPage,
-  image: import("pdf-lib").PDFImage,
-  placement: PdfMockupPlacement,
-) {
-  page.drawImage(image, {
-    x: placement.x,
-    y: placement.y,
-    width: placement.drawWidthPt,
-    height: placement.drawHeightPt,
-  });
-}
-
-function artworkBoundsPt(
-  placement: PdfMockupPlacement,
-  position: PdfArtworkPositionPresentation,
-) {
-  const {
-    printAreaLeftPt,
-    printAreaTopPt,
-    printAreaRenderWidthPt,
-    printAreaRenderHeightPt,
-  } = placement;
-  const wCm = position.printAreaWidthCm;
-  const hCm = position.printAreaHeightCm;
-
-  const left =
-    printAreaLeftPt +
-    (position.artworkLeftCm / wCm) * printAreaRenderWidthPt;
-  const right =
-    printAreaLeftPt +
-    (position.artworkRightCm / wCm) * printAreaRenderWidthPt;
-  const top =
-    printAreaTopPt -
-    (position.artworkTopCm / hCm) * printAreaRenderHeightPt;
-  const bottom =
-    printAreaTopPt -
-    (position.artworkBottomCm / hCm) * printAreaRenderHeightPt;
-
-  return {
-    left,
-    right,
-    top,
-    bottom,
-    centerX: (left + right) / 2,
-    centerY: (top + bottom) / 2,
-  };
-}
-
-function drawArtworkMeasurementAnnotations(
+function drawCollarOffsetGuide(
   ctx: PageContext,
-  placement: PdfMockupPlacement,
-  position: PdfArtworkPositionPresentation,
+  side: Side,
+  render: DesignerPdfRenderPlacement,
 ) {
-  const { page, fonts, accent, gray } = ctx;
-  const bounds = artworkBoundsPt(placement, position);
-  const tick = 3;
-  const lineW = 0.65;
-  const labelSize = 7.5;
+  const { page, fonts, guideGray, tagYellow, tagText } = ctx;
 
-  const collarY = placement.collarCenterPt.y;
-  const neckX = bounds.centerX;
+  const offsetCm = getPrintAreaOffsetCm(side);
+  const copy = FACTORY_POSITION_BADGE[side];
+  const guideX = render.collarCenterPt.x;
+  const collarY = render.collarCenterPt.y;
+  const printTopY =
+    render.printAreaTopPt + getFactoryProofPrintAreaPresentationOffsetY(side);
+  const lineW = 0.4;
+  const tickHalf = Math.min(36, render.printAreaRenderWidthPt * 0.12);
 
-  if (collarY > bounds.top + 6) {
-    page.drawLine({
-      start: { x: neckX, y: bounds.top },
-      end: { x: neckX, y: collarY },
-      thickness: lineW,
-      color: accent,
-    });
-    page.drawLine({
-      start: { x: neckX - tick, y: bounds.top },
-      end: { x: neckX + tick, y: bounds.top },
-      thickness: lineW,
-      color: accent,
-    });
-    page.drawLine({
-      start: { x: neckX - tick, y: collarY },
-      end: { x: neckX + tick, y: collarY },
-      thickness: lineW,
-      color: accent,
-    });
-    const neckLabel = `↑ ${position.collarDistanceCm} cm`;
-    const neckLabelW = fonts.regular.widthOfTextAtSize(neckLabel, labelSize);
-    page.drawText(neckLabel, {
-      x: neckX - neckLabelW / 2,
-      y: bounds.top + 6,
-      size: labelSize,
-      font: fonts.bold,
-      color: accent,
-    });
+  if (collarY <= printTopY + 4) {
+    return;
   }
 
-  const leftY = bounds.centerY;
-  if (bounds.left > placement.printAreaLeftPt + 8) {
-    page.drawLine({
-      start: { x: placement.printAreaLeftPt, y: leftY },
-      end: { x: bounds.left, y: leftY },
-      thickness: lineW,
-      color: accent,
-    });
-    page.drawLine({
-      start: { x: placement.printAreaLeftPt, y: leftY - tick },
-      end: { x: placement.printAreaLeftPt, y: leftY + tick },
-      thickness: lineW,
-      color: accent,
-    });
-    page.drawLine({
-      start: { x: bounds.left, y: leftY - tick },
-      end: { x: bounds.left, y: leftY + tick },
-      thickness: lineW,
-      color: accent,
-    });
-    const leftLabel = `← ${position.leftDistanceCm} cm`;
-    page.drawText(leftLabel, {
-      x: placement.printAreaLeftPt - 2,
-      y: leftY + 8,
-      size: labelSize,
-      font: fonts.bold,
-      color: accent,
-    });
-  }
+  const printLeft = render.printAreaLeftPt;
+  const printRight = printLeft + render.printAreaRenderWidthPt;
 
-  const rightY = bounds.centerY;
-  const printAreaRight = placement.printAreaLeftPt + placement.printAreaRenderWidthPt;
-  if (printAreaRight > bounds.right + 8) {
-    page.drawLine({
-      start: { x: bounds.right, y: rightY },
-      end: { x: printAreaRight, y: rightY },
-      thickness: lineW,
-      color: accent,
-    });
-    page.drawLine({
-      start: { x: bounds.right, y: rightY - tick },
-      end: { x: bounds.right, y: rightY + tick },
-      thickness: lineW,
-      color: accent,
-    });
-    page.drawLine({
-      start: { x: printAreaRight, y: rightY - tick },
-      end: { x: printAreaRight, y: rightY + tick },
-      thickness: lineW,
-      color: accent,
-    });
-    const rightLabel = `${position.rightDistanceCm} cm →`;
-    const rightLabelW = fonts.regular.widthOfTextAtSize(rightLabel, labelSize);
-    page.drawText(rightLabel, {
-      x: printAreaRight - rightLabelW + 2,
-      y: rightY - 14,
-      size: labelSize,
-      font: fonts.bold,
-      color: accent,
-    });
-  }
+  page.drawLine({
+    start: { x: printLeft, y: collarY },
+    end: { x: printRight, y: collarY },
+    thickness: lineW,
+    color: guideGray,
+    opacity: 0.9,
+  });
+  page.drawLine({
+    start: { x: guideX, y: collarY },
+    end: { x: guideX, y: printTopY },
+    thickness: lineW,
+    color: guideGray,
+    opacity: 0.9,
+  });
+  page.drawLine({
+    start: { x: printLeft, y: printTopY },
+    end: { x: printRight, y: printTopY },
+    thickness: lineW,
+    color: guideGray,
+    opacity: 0.75,
+  });
+
+  page.drawText(copy.collarLineLabel, {
+    x: guideX + tickHalf + 4,
+    y: collarY - 3,
+    size: 7.5,
+    font: fonts.regular,
+    color: guideGray,
+    opacity: 0.95,
+  });
+
+  const badgeTitle = copy.title;
+  const badgeSubtitle = copy.subtitle(offsetCm);
+  const badgeTitleSize = 8;
+  const badgeSubtitleSize = 7.5;
+  const badgePadX = 8;
+  const badgePadY = 5;
+  const badgeW =
+    Math.max(
+      fonts.bold.widthOfTextAtSize(badgeTitle, badgeTitleSize),
+      fonts.regular.widthOfTextAtSize(badgeSubtitle, badgeSubtitleSize),
+    ) +
+    badgePadX * 2;
+  const badgeH = badgeTitleSize + badgeSubtitleSize + badgePadY * 2 + 2;
+  const badgeX = guideX - badgeW - 10;
+  const badgeY = (collarY + render.printAreaTopPt) / 2 - badgeH / 2;
 
   page.drawRectangle({
-    x: bounds.left,
-    y: bounds.bottom,
-    width: bounds.right - bounds.left,
-    height: bounds.top - bounds.bottom,
-    borderColor: accent,
-    borderWidth: 0.8,
-    color: undefined,
-    opacity: 0.15,
+    x: badgeX,
+    y: badgeY,
+    width: badgeW,
+    height: badgeH,
+    color: tagYellow,
+    opacity: 0.94,
+    borderWidth: 0,
+  });
+  page.drawText(badgeTitle, {
+    x: badgeX + badgePadX,
+    y: badgeY + badgePadY + badgeSubtitleSize + 1,
+    size: badgeTitleSize,
+    font: fonts.bold,
+    color: tagText,
+  });
+  page.drawText(badgeSubtitle, {
+    x: badgeX + badgePadX,
+    y: badgeY + badgePadY,
+    size: badgeSubtitleSize,
+    font: fonts.regular,
+    color: tagText,
+  });
+}
+
+function drawFactoryProofInfoCard(
+  ctx: PageContext,
+  contentArea: PdfMockupContentAreaPt,
+  order: ProofOrder,
+  side: Side,
+  positionPresentation: PdfArtworkPositionPresentation | null,
+) {
+  const { page, fonts, border, white, printBlue } = ctx;
+  const muted = ctx.gray;
+  const dark = ctx.black;
+
+  const cardW = 188;
+  const cardH = 168;
+  const cardX = contentArea.originX + contentArea.maxWidthPt - cardW - 10;
+  const cardY = contentArea.originY + 12;
+
+  page.drawRectangle({
+    x: cardX,
+    y: cardY,
+    width: cardW,
+    height: cardH,
+    color: white,
+    opacity: 0.97,
+    borderColor: border,
+    borderWidth: 0.6,
   });
 
-  const sizeLabel = position.printSizeLabel;
-  const sizeLabelW = fonts.bold.widthOfTextAtSize(sizeLabel, labelSize);
-  page.drawText(sizeLabel, {
-    x: bounds.centerX - sizeLabelW / 2,
-    y: bounds.centerY - 4,
+  let y = cardY + cardH - 16;
+  const x = cardX + 12;
+  const innerW = cardW - 24;
+  const labelSize = 8;
+  const valueSize = 10;
+  const gap = 20;
+
+  page.drawText("TIIIGO Factory Proof", {
+    x,
+    y,
+    size: 11,
+    font: fonts.bold,
+    color: printBlue,
+  });
+  y -= 16;
+
+  page.drawText(SIDE_TITLE[side], {
+    x,
+    y,
+    size: valueSize,
+    font: fonts.bold,
+    color: dark,
+  });
+  y -= 13;
+
+  page.drawText(formatShirtColorEnglish(order.shirt_color), {
+    x,
+    y,
+    size: valueSize,
+    font: fonts.regular,
+    color: dark,
+  });
+  y -= 13;
+
+  page.drawText(`Size ${order.size}`, {
+    x,
+    y,
+    size: valueSize,
+    font: fonts.regular,
+    color: dark,
+  });
+  y -= gap;
+
+  const artworkSize = positionPresentation?.printSizeLabel ?? "—";
+  page.drawText("Artwork", {
+    x,
+    y,
     size: labelSize,
     font: fonts.bold,
-    color: gray,
+    color: muted,
+  });
+  page.drawText(artworkSize, {
+    x,
+    y: y - 12,
+    size: valueSize,
+    font: fonts.regular,
+    color: dark,
+    maxWidth: innerW,
+  });
+  y -= gap;
+
+  page.drawText("Print Position", {
+    x,
+    y,
+    size: labelSize,
+    font: fonts.bold,
+    color: muted,
+  });
+  y -= 12;
+  page.drawText(SIDE_TITLE[side], {
+    x,
+    y,
+    size: valueSize,
+    font: fonts.regular,
+    color: dark,
+  });
+  y -= 14;
+  page.drawText("Position", {
+    x,
+    y,
+    size: labelSize,
+    font: fonts.bold,
+    color: muted,
+  });
+  page.drawText(getFactoryPositionCardLine(side), {
+    x,
+    y: y - 12,
+    size: valueSize,
+    font: fonts.regular,
+    color: dark,
+    maxWidth: innerW,
+  });
+  y -= gap;
+
+  const dateStr = (order.created_at ?? new Date().toISOString()).slice(0, 10);
+  page.drawText("Generated", {
+    x,
+    y,
+    size: labelSize,
+    font: fonts.bold,
+    color: muted,
+  });
+  page.drawText(dateStr, {
+    x,
+    y: y - 12,
+    size: valueSize,
+    font: fonts.regular,
+    color: dark,
   });
 }
 
 async function drawMockupAnnotations(
   ctx: PageContext,
   side: Side,
-  placement: PdfMockupPlacement,
-  positionPresentation: PdfArtworkPositionPresentation | null,
+  render: DesignerPdfRenderPlacement,
 ) {
-  const { page, fonts, accent, printBlue } = ctx;
-  const {
-    printAreaLeftPt,
-    printAreaBottomPt,
-    printAreaRenderWidthPt,
-    printAreaRenderHeightPt,
-    printAreaTopPt,
-    printAreaWidthCm,
-    printAreaHeightCm,
-  } = placement;
+  const { page, printBlue } = ctx;
+
+  drawCollarOffsetGuide(ctx, side, render);
 
   await drawDashedRect(
     page,
-    printAreaLeftPt,
-    printAreaBottomPt,
-    printAreaRenderWidthPt,
-    printAreaRenderHeightPt,
+    render.printAreaLeftPt,
+    render.printAreaBottomPt +
+      getFactoryProofPrintAreaPresentationOffsetY(side),
+    render.printAreaRenderWidthPt,
+    render.printAreaRenderHeightPt,
     printBlue,
-    1.2,
+    0.85,
   );
+}
 
-  const areaLabel = `PRINT AREA  ${formatInspectorCm(printAreaWidthCm, 0)} × ${formatInspectorCm(printAreaHeightCm, 0)} cm`;
-  const labelSize = 8;
-  const labelW = fonts.bold.widthOfTextAtSize(areaLabel, labelSize);
-  const labelX = printAreaLeftPt + (printAreaRenderWidthPt - labelW) / 2;
-  const labelY = printAreaTopPt + 6;
+async function drawDesignerPreviewMockup(
+  doc: Awaited<ReturnType<typeof import("pdf-lib")["PDFDocument"]["create"]>>,
+  ctx: PageContext,
+  order: ProofOrder,
+  side: Side,
+  panelArea: PdfMockupContentAreaPt,
+  printBytes: Uint8Array | Buffer | undefined,
+): Promise<DesignerPdfRenderPlacement> {
+  const layout = resolveDesignerPreviewLayout(side);
+  const render = mapDesignerLayoutToPdf(layout, panelArea);
+  logDesignerLayoutDebug(side, render);
 
-  page.drawText(areaLabel, {
-    x: labelX,
-    y: labelY,
-    size: labelSize,
-    font: fonts.bold,
-    color: accent,
-  });
-
-  if (positionPresentation) {
-    drawArtworkMeasurementAnnotations(ctx, placement, positionPresentation);
+  const shirtBytes = loadShirtTemplateBytes(order.shirt_color, side);
+  if (shirtBytes) {
+    const shirtImage = await doc.embedPng(shirtBytes);
+    ctx.page.drawImage(shirtImage, {
+      x: render.shirt.x,
+      y: render.shirt.y,
+      width: render.shirt.widthPt,
+      height: render.shirt.heightPt,
+    });
   }
+
+  if (printBytes && printBytes.length > 0) {
+    const artworkImage = await doc.embedPng(toPngBuffer(printBytes));
+    ctx.page.drawImage(artworkImage, {
+      x: render.printAreaLeftPt,
+      y: render.printAreaBottomPt + getFactoryProofPrintAreaPresentationOffsetY(side),
+      width: render.printAreaRenderWidthPt,
+      height: render.printAreaRenderHeightPt,
+    });
+  }
+
+  return render;
 }
 
 function drawPageFooter(ctx: PageContext, order: ProofOrder, version: number) {
@@ -737,41 +859,46 @@ async function drawSideProofPage(
     order.size,
   );
 
-  drawLeftInfoPanel(
-    ctx,
-    order,
-    side,
-    printBytes,
-    positionPresentation,
-  );
+  drawLeftInfoPanel(ctx, order, side, printBytes);
 
-  const contentArea = getRightPanelMockupArea();
+  const panelArea = getRightPanelMockupArea();
+  const hasRenderableDesign =
+    (printBytes && printBytes.length > 0) ||
+    (mockupBytes && mockupBytes.length > 0) ||
+    sideLayers.some((layer) => layer.visible);
 
-  if (mockupBytes && mockupBytes.length > 0) {
-    const pngBytes = toPngBuffer(mockupBytes);
-    const image = await doc.embedPng(pngBytes);
-    const placement = computePdfMockupPlacement(side, contentArea, {
-      width: image.width,
-      height: image.height,
-    }, order.size);
-    logPdfMockupPlacementDebug(side, placement);
-    drawMockupImage(ctx.page, image, placement);
-    await drawMockupAnnotations(ctx, side, placement, positionPresentation);
+  if (hasRenderableDesign) {
+    const render = await drawDesignerPreviewMockup(
+      doc,
+      ctx,
+      order,
+      side,
+      panelArea,
+      printBytes,
+    );
+    await drawMockupAnnotations(ctx, side, render);
+    drawFactoryProofInfoCard(
+      ctx,
+      panelArea,
+      order,
+      side,
+      positionPresentation,
+    );
   } else {
-    const placement = computePdfMockupPlacement(side, contentArea, undefined, order.size);
-    logPdfMockupPlacementDebug(side, placement);
+    const layout = resolveDesignerPreviewLayout(side);
+    const render = mapDesignerLayoutToPdf(layout, panelArea);
     ctx.page.drawRectangle({
-      x: placement.x,
-      y: placement.y,
-      width: placement.drawWidthPt,
-      height: placement.drawHeightPt,
+      x: render.contentArea.originX,
+      y: render.contentArea.originY,
+      width: render.contentArea.maxWidthPt,
+      height: render.contentArea.maxHeightPt,
       borderColor: ctx.border,
       borderWidth: 1,
       color: undefined,
     });
     ctx.page.drawText("Mockup 預覽無法載入", {
-      x: placement.x + placement.drawWidthPt / 2 - 40,
-      y: placement.y + placement.drawHeightPt / 2,
+      x: render.contentArea.originX + render.contentArea.maxWidthPt / 2 - 40,
+      y: render.contentArea.originY + render.contentArea.maxHeightPt / 2,
       size: 10,
       font: ctx.fonts.regular,
       color: ctx.gray,
@@ -821,9 +948,24 @@ export async function generateFactoryProofPdf(
   const fonts: PdfFonts = await embedPdfCjkFonts(doc);
   const black = rgb(0.1, 0.1, 0.1);
   const gray = rgb(0.45, 0.45, 0.45);
-  const accent = rgb(0.12, 0.35, 0.75);
+  const guideGray = rgb(0.62, 0.62, 0.62);
+  const accent = rgb(
+    FACTORY_PROOF_BLUE_HEX.r,
+    FACTORY_PROOF_BLUE_HEX.g,
+    FACTORY_PROOF_BLUE_HEX.b,
+  );
   const border = rgb(0.82, 0.82, 0.82);
-  const printBlue = rgb(0.2, 0.45, 0.85);
+  const printBlue = rgb(
+    FACTORY_PROOF_BLUE_HEX.r,
+    FACTORY_PROOF_BLUE_HEX.g,
+    FACTORY_PROOF_BLUE_HEX.b,
+  );
+  const tagYellow = rgb(
+    FACTORY_PROOF_TAG_HEX.r,
+    FACTORY_PROOF_TAG_HEX.g,
+    FACTORY_PROOF_TAG_HEX.b,
+  );
+  const tagText = rgb(0.2, 0.16, 0.04);
   const white = rgb(1, 1, 1);
 
   let pageIndex = 0;
@@ -840,9 +982,12 @@ export async function generateFactoryProofPdf(
       fonts,
       black,
       gray,
+      guideGray,
       accent,
       border,
       printBlue,
+      tagYellow,
+      tagText,
       white,
     };
 

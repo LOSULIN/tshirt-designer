@@ -2,10 +2,6 @@ import { NextResponse } from "next/server";
 import { nanoid } from "nanoid";
 import { sendProUploadSubmittedEmail } from "@/lib/email";
 import {
-  allocateSubmissionNo,
-  isSubmissionNoConflict,
-} from "@/lib/submission-no";
-import {
   getDesignFileContentType,
   getDesignFileExtension,
   parseSubmissionPayload,
@@ -13,10 +9,16 @@ import {
   validateDesignFile,
 } from "@/lib/pro-upload-submit";
 import { getFitLabel, getProductLabel } from "@/lib/pro-upload-proof";
-import { formatDbWriteError } from "@/lib/db-error";
+import {
+  createSubmissionLogger,
+  defaultSubmissionRepository,
+  defaultSubmissionUploadManager,
+} from "@/lib/submission";
 import { createAdminClient, DESIGNS_BUCKET } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
+
+const log = createSubmissionLogger({ phase: "pro-upload" });
 
 export async function POST(request: Request) {
   try {
@@ -45,6 +47,7 @@ export async function POST(request: Request) {
     const basePath = `pro-uploads/${submissionId}`;
     const designPath = `${basePath}/design.${ext}`;
     const supabase = createAdminClient();
+    const ctx = { supabase };
 
     const fileBuffer = Buffer.from(await file.arrayBuffer());
     const { error: uploadError } = await supabase.storage
@@ -55,63 +58,49 @@ export async function POST(request: Request) {
       });
 
     if (uploadError) {
-      console.error(uploadError);
+      log.errorRaw(uploadError);
       return NextResponse.json({ error: "檔案上傳失敗" }, { status: 500 });
     }
 
-    let submissionNo = "";
-    let insertError: { code?: string; message?: string } | null = null;
-
-    for (let attempt = 0; attempt < 8; attempt++) {
-      submissionNo = await allocateSubmissionNo(supabase, "PD");
-      const { error } = await supabase.from("submissions").insert({
-        id: submissionId,
-        created_at: createdAt,
-        status: "pending",
-        product,
-        fit,
-        print_side: PRO_UPLOAD_DEFAULT_PRINT_SIDE,
-        file_name: inspection.name,
-        file_format: inspection.format,
-        file_size_bytes: file.size,
-        file_size_label: inspection.size,
-        storage_path: basePath,
-        inspection_checks: inspection.checks,
-        applicant_name: caseForm.name.trim(),
-        applicant_email: caseForm.email.trim(),
-        applicant_phone: caseForm.phone.trim(),
-        company_name: caseForm.companyName.trim() || null,
-        tax_id: caseForm.taxId.trim() || null,
-        bulk_order: caseForm.bulkOrder,
-        quantity_range: caseForm.bulkOrder && caseForm.quantityRange
-          ? caseForm.quantityRange
-          : null,
-        marketplace_apply: caseForm.marketplaceApply,
-        notes: caseForm.notes.trim() || null,
-        submission_no: submissionNo,
-      });
-
-      if (!error) {
-        insertError = null;
-        break;
-      }
-
-      insertError = error;
-      if (!isSubmissionNoConflict(error) || attempt === 7) {
-        console.error(error);
-        await supabase.storage.from(DESIGNS_BUCKET).remove([designPath]);
-        return NextResponse.json(
-          { error: formatDbWriteError(error) },
-          { status: 500 },
-        );
-      }
-    }
-
-    if (insertError) {
-      console.error(insertError);
-      await supabase.storage.from(DESIGNS_BUCKET).remove([designPath]);
+    let submissionNo: string;
+    try {
+      const created = await defaultSubmissionRepository.createProSubmission(
+        ctx,
+        {
+          id: submissionId,
+          created_at: createdAt,
+          submission_no: "",
+          storage_path: basePath,
+          product,
+          fit,
+          print_side: PRO_UPLOAD_DEFAULT_PRINT_SIDE,
+          file_name: inspection.name,
+          file_format: inspection.format,
+          file_size_bytes: file.size,
+          file_size_label: inspection.size,
+          inspection_checks: inspection.checks,
+          applicant_name: caseForm.name.trim(),
+          applicant_email: caseForm.email.trim(),
+          applicant_phone: caseForm.phone.trim(),
+          company_name: caseForm.companyName.trim() || null,
+          tax_id: caseForm.taxId.trim() || null,
+          bulk_order: caseForm.bulkOrder,
+          quantity_range:
+            caseForm.bulkOrder && caseForm.quantityRange
+              ? caseForm.quantityRange
+              : null,
+          marketplace_apply: caseForm.marketplaceApply,
+          notes: caseForm.notes.trim() || null,
+        },
+      );
+      submissionNo = created.submissionNo;
+    } catch (error) {
+      await defaultSubmissionUploadManager.rollback(ctx, [designPath]);
       return NextResponse.json(
-        { error: formatDbWriteError(insertError) },
+        {
+          error:
+            error instanceof Error ? error.message : "寫入資料庫失敗：未知錯誤",
+        },
         { status: 500 },
       );
     }
@@ -140,7 +129,7 @@ export async function POST(request: Request) {
           },
     });
   } catch (error) {
-    console.error(error);
+    log.errorRaw(error);
     return NextResponse.json({ error: "送出失敗" }, { status: 500 });
   }
 }

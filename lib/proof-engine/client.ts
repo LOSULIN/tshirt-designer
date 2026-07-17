@@ -5,7 +5,9 @@
 import type { Gender, ShirtColor, Side, Size } from "./proof-domain";
 import type { ApplicationFormData, DesignLayersByTemplate } from "../types";
 import { generateProofArtifacts } from "./generate-artifacts";
-import type { ProofArtifactsInput, ProofOrder } from "./types";
+import type { ProofArtifact, ProofArtifactsInput, ProofOrder } from "./types";
+import { proofArtifactHasBytes } from "./types";
+import { submissionProfiler } from "../submission/profiler";
 
 export function buildProofOrder(params: {
   orderId: string;
@@ -40,10 +42,29 @@ export function buildProofOrder(params: {
 export async function prepareProofSubmission(
   order: ProofOrder,
 ): Promise<ProofArtifactsInput> {
-  return generateProofArtifacts(order);
+  try {
+    submissionProfiler.beginClientSession();
+  } catch {
+    // Profiler is passive; submit must continue even if instrumentation fails.
+  }
+
+  try {
+    return await submissionProfiler.run("Prepare", "client", async () =>
+      generateProofArtifacts(order),
+    );
+  } catch (error) {
+    if (submissionProfiler.isEnabled()) {
+      throw error;
+    }
+    return generateProofArtifacts(order);
+  }
 }
 
-function artifactToPngBlob(data: Uint8Array | Buffer): Blob {
+function artifactToPngBlob(data: ProofArtifact): Blob {
+  if (data instanceof Blob) {
+    return data;
+  }
+
   const bytes =
     data instanceof Uint8Array ? new Uint8Array(data) : new Uint8Array(data);
   return new Blob([bytes], { type: "image/png" });
@@ -53,24 +74,34 @@ export function appendProofArtifactsToFormData(
   formData: FormData,
   artifacts: ProofArtifactsInput,
 ): void {
+  const started = typeof performance !== "undefined" ? performance.now() : Date.now();
+
   for (const side of ["front", "back"] as const) {
     const mockup = artifacts.mockups[side];
-    if (mockup && mockup.length > 0) {
+    if (proofArtifactHasBytes(mockup)) {
       formData.append(
         `proof-mockup-${side}`,
-        artifactToPngBlob(mockup),
+        artifactToPngBlob(mockup!),
         `mockup-${side}.png`,
       );
     }
 
     const print = artifacts.prints[side];
-    if (print && print.length > 0) {
+    if (proofArtifactHasBytes(print)) {
       formData.append(
         `proof-print-${side}`,
-        artifactToPngBlob(print),
+        artifactToPngBlob(print!),
         `print-${side}.png`,
       );
     }
+  }
+
+  const ended = typeof performance !== "undefined" ? performance.now() : Date.now();
+  try {
+    submissionProfiler.record("Append FormData", ended - started, "client");
+    submissionProfiler.installClientNetworkWatch();
+  } catch {
+    // Profiler is passive; FormData assembly must not be blocked.
   }
 }
 

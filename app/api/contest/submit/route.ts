@@ -14,14 +14,17 @@ import {
   normalizeShirtColor,
 } from "@/lib/shirt-color";
 import { sendContestSubmittedEmails } from "@/lib/email";
+import { allocateSubmissionNo } from "@/lib/submission-no";
 import {
-  allocateSubmissionNo,
-  isSubmissionNoConflict,
-} from "@/lib/submission-no";
-import { formatDbWriteError } from "@/lib/db-error";
+  createSubmissionLogger,
+  defaultSubmissionRepository,
+  defaultSubmissionUploadManager,
+} from "@/lib/submission";
 import { createAdminClient, DESIGNS_BUCKET } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
+
+const log = createSubmissionLogger({ phase: "contest" });
 
 const SIGNED_URL_TTL_SECONDS = 60 * 60 * 24 * 7;
 
@@ -119,6 +122,7 @@ export async function POST(request: Request) {
     const date = createdAt.slice(0, 10).replace(/-/g, "");
 
     const supabase = createAdminClient();
+    const ctx = { supabase };
 
     const resolvedProductType =
       typeof productType === "string" && productType.trim()
@@ -202,51 +206,40 @@ export async function POST(request: Request) {
     // ======================================================
     // 5. DB insert（帶 submissionNo + storagePath）
     // ======================================================
-    let insertError: any = null;
-
-    for (let attempt = 0; attempt < 8; attempt++) {
-      const { error } = await supabase.from("design_submissions").insert({
-        id: submissionId,
-        created_at: createdAt,
-        template_type: templateType,
-        side,
-        status: "submitted",
-        storage_path: basePath,
-        expires_at: null,
-        preview_front_url: previewFrontUrl,
-        preview_back_url: previewBackUrl,
-        submission_no: submissionNo,
-        shirt_color: shirtColor,
-        ...dbFields,
-      });
-
-      if (!error) {
-        insertError = null;
-        break;
+    try {
+      await defaultSubmissionRepository.createDesignSubmission(
+        ctx,
+        {
+          id: submissionId,
+          created_at: createdAt,
+          template_type: templateType,
+          side,
+          storage_path: basePath,
+          expires_at: null,
+          submission_no: submissionNo,
+          shirt_color: shirtColor,
+          preview_front_url: previewFrontUrl,
+          preview_back_url: previewBackUrl,
+          submission_type: dbFields.submission_type,
+          review_status: dbFields.review_status,
+          design_name: dbFields.design_name,
+          description: dbFields.description,
+          author_name: dbFields.author_name,
+          author_email: dbFields.author_email,
+          product_type: dbFields.product_type,
+        },
+        { prefix: "CT", fixedSubmissionNo: true },
+      );
+    } catch (error) {
+      if (uploadedPaths.length > 0) {
+        await defaultSubmissionUploadManager.rollback(ctx, uploadedPaths);
       }
 
-      insertError = error;
-
-      if (!isSubmissionNoConflict(error) || attempt === 7) {
-        console.error(error);
-
-        if (uploadedPaths.length > 0) {
-          await supabase.storage
-            .from(DESIGNS_BUCKET)
-            .remove(uploadedPaths);
-        }
-
-        return NextResponse.json(
-          { error: formatDbWriteError(error) },
-          { status: 500 },
-        );
-      }
-    }
-
-    if (insertError) {
-      console.error("design_submissions contest insert failed:", insertError);
       return NextResponse.json(
-        { error: formatDbWriteError(insertError) },
+        {
+          error:
+            error instanceof Error ? error.message : "寫入資料庫失敗：未知錯誤",
+        },
         { status: 500 },
       );
     }
@@ -273,7 +266,7 @@ export async function POST(request: Request) {
         previewBackUrl,
       });
     } catch (error) {
-      console.error("EMAIL_FAILED", error);
+      log.errorRaw("EMAIL_FAILED", error);
 
       emailResult = {
         admin: {
@@ -300,16 +293,17 @@ export async function POST(request: Request) {
       email: emailResult,
     });
   } catch (error) {
-    console.error(error);
+    log.errorRaw(error);
 
     if (uploadedPaths.length > 0) {
       try {
         const supabase = createAdminClient();
-        await supabase.storage
-          .from(DESIGNS_BUCKET)
-          .remove(uploadedPaths);
+        await defaultSubmissionUploadManager.rollback(
+          { supabase },
+          uploadedPaths,
+        );
       } catch (cleanupError) {
-        console.error(cleanupError);
+        log.errorRaw(cleanupError);
       }
     }
 
