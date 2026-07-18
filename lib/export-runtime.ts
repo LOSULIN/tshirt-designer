@@ -14,12 +14,12 @@ import {
   workspaceRectToDesignerRect,
 } from "./designer-coordinate-facade";
 import type { LiveDesignStateElement } from "./live-design-state";
-import { getTextLayerCmRect } from "./text-layer";
+import { getTextLayerExportCmRect } from "./text-layer";
 import type { DesignLayer } from "./types";
 
 function readExportWorkspaceLayerCmRect(layer: DesignLayer): LayerCmRect {
   if (layer.type === "text") {
-    return getTextLayerCmRect(layer);
+    return getTextLayerExportCmRect(layer);
   }
   return getLayerEffectiveCmRect(layer);
 }

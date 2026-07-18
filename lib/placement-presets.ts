@@ -31,8 +31,12 @@ export type PlacementPresetId =
   | "center-chest-logo"
   | "center-chest-a4-portrait"
   | "center-chest-a4-landscape"
+  | "front-a5-portrait"
+  | "front-a5-landscape"
   | "back-center-text"
   | "back-center-a4-portrait"
+  | "back-a5-portrait"
+  | "back-a5-landscape"
   | "back-center-a3-portrait"
   | "back-center-25";
 
@@ -92,6 +96,8 @@ const CENTER_CHEST_TEXT_HEIGHT_CM = 10;
 const FRONT_CENTER_COLLAR_TO_TOP_CM = GARMENT_FRONT_CENTER_COLLAR_TO_TOP_CM;
 const A4_PORTRAIT_WIDTH_CM = 21;
 const A4_PORTRAIT_HEIGHT_CM = 29.7;
+const A5_PORTRAIT_WIDTH_CM = 15;
+const A5_PORTRAIT_HEIGHT_CM = 21;
 const A3_PORTRAIT_WIDTH_CM = 29.7;
 const A3_PORTRAIT_HEIGHT_CM = 42;
 const CENTER_LOGO_CM = 25;
@@ -238,6 +244,36 @@ export function buildPlacementPresets(size: string): PlacementPreset[] {
       orientation: "landscape",
     },
     {
+      id: "front-a5-portrait",
+      label: "A5 直式",
+      shortLabel: "A5 直式",
+      sides: ["front"],
+      width_cm: A5_PORTRAIT_WIDTH_CM,
+      height_cm: A5_PORTRAIT_HEIGHT_CM,
+      anchorX_cm: presetCenterX(ws),
+      anchorY_cm: presetAnchorYFromCollarTopCm(
+        "front",
+        FRONT_CENTER_COLLAR_TO_TOP_CM,
+        A5_PORTRAIT_HEIGHT_CM,
+      ),
+      orientation: "portrait",
+    },
+    {
+      id: "front-a5-landscape",
+      label: "A5 橫式",
+      shortLabel: "A5 橫式",
+      sides: ["front"],
+      width_cm: A5_PORTRAIT_HEIGHT_CM,
+      height_cm: A5_PORTRAIT_WIDTH_CM,
+      anchorX_cm: presetCenterX(ws),
+      anchorY_cm: presetAnchorYFromCollarTopCm(
+        "front",
+        FRONT_CENTER_COLLAR_TO_TOP_CM,
+        A5_PORTRAIT_WIDTH_CM,
+      ),
+      orientation: "landscape",
+    },
+    {
       id: "back-center-text",
       label: "背面文字",
       shortLabel: "背面 30×12",
@@ -246,6 +282,28 @@ export function buildPlacementPresets(size: string): PlacementPreset[] {
       height_cm: BACK_TEXT_HEIGHT_CM,
       anchorX_cm: presetCenterX(ws),
       anchorY_cm: backUpperDesignAnchorY(BACK_TEXT_HEIGHT_CM),
+      orientation: "landscape",
+    },
+    {
+      id: "back-a5-portrait",
+      label: "A5 直式",
+      shortLabel: "A5 直式",
+      sides: ["back"],
+      width_cm: A5_PORTRAIT_WIDTH_CM,
+      height_cm: A5_PORTRAIT_HEIGHT_CM,
+      anchorX_cm: presetCenterX(ws),
+      anchorY_cm: backUpperDesignAnchorY(A5_PORTRAIT_HEIGHT_CM),
+      orientation: "portrait",
+    },
+    {
+      id: "back-a5-landscape",
+      label: "A5 橫式",
+      shortLabel: "A5 橫式",
+      sides: ["back"],
+      width_cm: A5_PORTRAIT_HEIGHT_CM,
+      height_cm: A5_PORTRAIT_WIDTH_CM,
+      anchorX_cm: presetCenterX(ws),
+      anchorY_cm: backUpperDesignAnchorY(A5_PORTRAIT_WIDTH_CM),
       orientation: "landscape",
     },
     {
@@ -353,11 +411,15 @@ function isPlacementPresetPositionOk(
     case "center-chest-logo":
     case "center-chest-a4-portrait":
     case "center-chest-a4-landscape":
+    case "front-a5-portrait":
+    case "front-a5-landscape":
       return Math.abs(collarTop - PRINT_AREA_OFFSET_CM.front) < 0.01;
     case "back-center-text":
     case "back-center-a4-portrait":
     case "back-center-a3-portrait":
     case "back-center-25":
+    case "back-a5-portrait":
+    case "back-a5-landscape":
       return collarTop >= 6 && collarTop <= 8;
     default:
       return true;

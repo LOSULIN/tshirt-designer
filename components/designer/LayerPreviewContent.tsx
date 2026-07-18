@@ -13,7 +13,7 @@ import {
   textLayerPreviewVisualEqual,
   type LayerPreviewContentProps,
 } from "@/lib/designer/layer-preview-memo";
-import { getRichTextDomStyle } from "@/lib/text-style";
+import { getArtworkPreviewDomStyle } from "@/lib/image-artwork-render";
 import type {
   ImageDesignLayer,
   ShapeDesignLayer,
@@ -26,7 +26,25 @@ const SHAPE_SVG_CLASS = "h-full w-full overflow-visible";
 
 const ImageLayerPreview = memo(
   function ImageLayerPreview({ layer }: { layer: ImageDesignLayer }) {
-    const imageStyle = useMemo(() => ({}), []);
+    const artworkStyle = useMemo(
+      () => getArtworkPreviewDomStyle(layer.image),
+      [layer.image],
+    );
+
+    if (artworkStyle) {
+      return (
+        <div className="absolute inset-0 overflow-hidden">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={layer.image.previewUrl}
+            alt={layer.name}
+            draggable={false}
+            className="select-none"
+            style={artworkStyle}
+          />
+        </div>
+      );
+    }
 
     return (
       /* eslint-disable-next-line @next/next/no-img-element */
@@ -35,7 +53,6 @@ const ImageLayerPreview = memo(
         alt={layer.name}
         draggable={false}
         className={IMAGE_PREVIEW_CLASS}
-        style={imageStyle}
       />
     );
   },

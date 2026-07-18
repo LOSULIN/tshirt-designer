@@ -1,5 +1,6 @@
 import { getProductProfile, getProducts } from "@/lib/products/product-registry";
 import type { ShirtColor, Side, Size } from "@/lib/constants";
+import { renderFactoryArtworkExportPng } from "@/lib/export-artwork-factory";
 import { hasExportablePrintableDesign } from "@/lib/print-export";
 import { renderPrintExportPng } from "@/lib/print-export-system";
 import type { DesignLayer } from "@/lib/types";
@@ -54,7 +55,7 @@ export interface ProductExportFiles {
 }
 
 export function buildArtworkFileName(): string {
-  return "Artwork.png";
+  return "Factory-Artwork.png";
 }
 
 export function buildProductExportFileName(
@@ -91,6 +92,16 @@ export async function exportArtworkPng(
   if (!hasExportablePrintableDesign(input.layers)) {
     throw new Error("尚無可匯出的設計內容");
   }
+  return renderFactoryArtworkExportPng(input.layers, {
+    side: input.side,
+    size: input.size,
+  });
+}
+
+/** Print-area artwork for product mockup compose — dimensions unchanged. */
+async function exportPrintAreaArtworkForMockup(
+  input: ProductExportInput,
+): Promise<Blob> {
   return renderPrintExportPng(input.layers, {
     side: input.side,
     size: input.size,
@@ -110,11 +121,12 @@ export async function buildProductExportFiles(
   }
 
   const artwork = await exportArtworkPng(input);
+  const mockupArtwork = await exportPrintAreaArtworkForMockup(input);
   const product = await renderProductPngFromArtwork({
     productCode,
     color,
     side: input.side,
-    artworkBlob: artwork,
+    artworkBlob: mockupArtwork,
   });
 
   return {
@@ -139,12 +151,13 @@ export async function buildProductExportPreview(
   const color = resolveRegistryColorSlug(input.shirtColor, availableSlugs);
 
   const artworkBlob = await exportArtworkPng(input);
+  const mockupArtwork = await exportPrintAreaArtworkForMockup(input);
   const artworkUrl = URL.createObjectURL(artworkBlob);
   const productUrl = await renderProductPreviewFromArtwork({
     productCode,
     color,
     side: input.side,
-    artworkBlob: artworkBlob,
+    artworkBlob: mockupArtwork,
   });
 
   return {
@@ -187,7 +200,10 @@ export async function buildSupportedProductVariants(
 ): Promise<Array<{ color: string; fileName: string; blob: Blob }>> {
   const productCode = await resolveExportProductCode(input.productCode);
   const profile = await getProductProfile(productCode);
-  const artwork = await exportArtworkPng({ ...input, shirtColor: "white" });
+  const mockupArtwork = await exportPrintAreaArtworkForMockup({
+    ...input,
+    shirtColor: "white",
+  });
   const colors = profile.availableColors.map((item) => item.slug);
   const variants: Array<{ color: string; fileName: string; blob: Blob }> = [];
 
@@ -196,7 +212,7 @@ export async function buildSupportedProductVariants(
       productCode,
       color,
       side: input.side,
-      artworkBlob: artwork,
+      artworkBlob: mockupArtwork,
     });
     variants.push({
       color,

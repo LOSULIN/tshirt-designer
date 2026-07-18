@@ -113,7 +113,9 @@ export function DesignExportModal({
           </li>
           <li className="flex gap-2">
             <span className="shrink-0 font-medium text-sky-700">Print</span>
-            <span>僅印刷區、透明背景、300 DPI</span>
+            <span>
+              Print Area Preview（校稿預覽）：全印刷區 @ 300 DPI，非工廠印刷檔
+            </span>
           </li>
           <li className="flex gap-2">
             <span className="shrink-0 font-medium text-violet-700">Proof</span>
@@ -147,7 +149,9 @@ export function DesignExportModal({
         )}
 
         <div className="mt-4">
-          <p className="text-xs font-medium text-zinc-700">Print 檔案格式</p>
+          <p className="text-xs font-medium text-zinc-700">
+            Print Area Preview 格式（校稿用）
+          </p>
           <div className="mt-1.5 flex gap-2">
             {(["png", "pdf"] as const).map((format) => (
               <button

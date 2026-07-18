@@ -2,16 +2,21 @@
 
 import { ImagePrintQualityPanel } from "../ImagePrintQualityPanel";
 import { InspectorNumberInput } from "../InspectorNumberInput";
+import type { Side } from "@/lib/constants";
 import type { ImageDesignLayer } from "@/lib/types";
 import { PropertyRow } from "./PropertyRow";
 
 export function ImagePropertiesPanel({
   layer,
+  side = "front",
+  size = "M",
   disabled,
   largePrintModeEnabled,
   onPatch,
 }: {
   layer: ImageDesignLayer;
+  side?: Side;
+  size?: string;
   disabled: boolean;
   largePrintModeEnabled: boolean;
   onPatch: (patch: Partial<ImageDesignLayer>) => void;
@@ -52,6 +57,8 @@ export function ImagePropertiesPanel({
 
       <ImagePrintQualityPanel
         layer={layer}
+        side={side}
+        size={size}
         largePrintMode={largePrintModeEnabled}
       />
     </div>

@@ -78,6 +78,7 @@ import type {
 } from "@/lib/types";
 import { DesignWorkspaceStatusBar } from "./DesignWorkspaceStatusBar";
 import { CurrentGarmentConstraintVisualization } from "./CurrentGarmentConstraintVisualization";
+import { ArtworkSizePanel } from "./ArtworkSizePanel";
 import { CanvasInfoPanel } from "./CanvasInfoPanel";
 import { LayerPreviewContent } from "./LayerPreviewContent";
 import { UI_VISIBILITY } from "./ui-visibility";
@@ -363,6 +364,8 @@ export function DesignCanvas({
   onTextPatch,
   onImageTransform,
   onImageResize,
+  onArtworkSizePatch,
+  onBoostImageResolution,
   onRotationChange,
   onAlignLayers,
   onApplyPlacementPreset,
@@ -448,6 +451,11 @@ export function DesignCanvas({
     id: string,
     next: { x_cm: number; y_cm: number; width_cm: number; height_cm: number },
   ) => void;
+  onArtworkSizePatch: (
+    id: string,
+    patch: { width_cm?: number; height_cm?: number },
+  ) => void;
+  onBoostImageResolution?: (id: string) => void | Promise<void>;
   onRotationChange: (id: string, rotation: number) => void;
   onAlignLayers: (axis: LayerAlignmentAxis) => void;
   onApplyPlacementPreset: (presetId: PlacementPresetId) => void;
@@ -918,6 +926,7 @@ export function DesignCanvas({
 
               <DesignWorkspaceStatusBar
                 size={size}
+                side={side}
                 maxPrintBounds={currentMaxPrintBounds}
                 hasOverflow={hasWorkspaceOverflow}
                 violationCount={garmentConstraintViolationCount}
@@ -1044,6 +1053,25 @@ export function DesignCanvas({
               onReorderDrag={onReorderDrag}
             />
           )}
+
+          {primaryLayer &&
+          (primaryLayer.type === "image" ||
+            primaryLayer.type === "text" ||
+            primaryLayer.type === "shape") ? (
+            <div className="pointer-events-auto absolute right-3 top-3 z-30 w-56 max-w-[calc(100%-1.5rem)]">
+              <ArtworkSizePanel
+                layer={primaryLayer}
+                disabled={isBusy || readOnly || primaryLayer.locked}
+                boostingResolution={isBusy}
+                onPatch={(patch) => onArtworkSizePatch(primaryLayer.id, patch)}
+                onBoostResolution={
+                  primaryLayer.type === "image" && onBoostImageResolution
+                    ? () => onBoostImageResolution(primaryLayer.id)
+                    : undefined
+                }
+              />
+            </div>
+          ) : null}
 
           <div className="@container relative z-0 flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden p-3">
             <ShirtContainerFrame

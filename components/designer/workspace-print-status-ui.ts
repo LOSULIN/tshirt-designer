@@ -1,4 +1,6 @@
 import { PRINT_QUALITY_TARGET_DPI } from "@/lib/image-print-quality";
+import { createDesignerCoordinateContext } from "@/lib/designer-coordinate-facade";
+import type { Side } from "@/lib/constants";
 import { getResultPanelRasterDpi } from "./result-panel-dpi-ui";
 import type { DesignLayer } from "@/lib/types";
 
@@ -18,11 +20,13 @@ export function resolveWorkspacePrintStatus({
   violationCount,
   hasOverflow,
   size,
+  side,
 }: {
   layers: DesignLayer[];
   violationCount: number;
   hasOverflow: boolean;
   size: string;
+  side: Side;
 }): WorkspacePrintStatusView {
   if (hasOverflow || violationCount > 0) {
     return {
@@ -35,7 +39,10 @@ export function resolveWorkspacePrintStatus({
     };
   }
 
-  const rasterDpi = getResultPanelRasterDpi(layers);
+  const rasterDpi = getResultPanelRasterDpi(
+    layers,
+    createDesignerCoordinateContext(side, size),
+  );
   if (rasterDpi !== null && rasterDpi < PRINT_QUALITY_TARGET_DPI) {
     return {
       kind: "dpi",
