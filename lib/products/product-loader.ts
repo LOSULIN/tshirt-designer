@@ -1,7 +1,13 @@
+import type { ProductAssetVariant } from "@/lib/export/render-quality";
+import {
+  DEFAULT_MOCKUP_VISUAL_COMPENSATION,
+  parseMockupVisualCompensation,
+  type MockupVisualCompensation,
+} from "@/lib/render/visual-compensation";
 import type {
   ProductCalibration,
   ProductCatalogItem,
-  ProductPreviewAsset,
+  ProductGarmentAsset,
   ProductProfile,
   ProductSideSlug,
 } from "./product-types";
@@ -10,6 +16,7 @@ const CATALOG_URL = "/products/catalog.json";
 
 const profileCache = new Map<string, ProductProfile>();
 const calibrationCache = new Map<string, ProductCalibration>();
+const visualCompensationCache = new Map<string, MockupVisualCompensation>();
 let catalogCache: ProductCatalogItem[] | null = null;
 
 const isDevelopment = process.env.NODE_ENV === "development";
@@ -26,6 +33,13 @@ export function productCalibrationUrl(code: string): string {
   return `${productRootPath(code)}/calibration.json`;
 }
 
+export function productVisualCompensationUrl(
+  code: string,
+  fileName = "visual-compensation.json",
+): string {
+  return resolveProductAssetUrl(code, fileName);
+}
+
 export function resolveProductAssetUrl(
   code: string,
   relativePath: string,
@@ -34,33 +48,54 @@ export function resolveProductAssetUrl(
   return `${productRootPath(code)}/${normalized}`;
 }
 
-export function findPreviewAsset(
+export function findGarmentAsset(
   profile: ProductProfile,
   side: ProductSideSlug,
   color: string,
-): ProductPreviewAsset | undefined {
+): ProductGarmentAsset | undefined {
   return profile.previewAssets.find(
     (asset) => asset.side === side && asset.color === color,
   );
 }
 
+/** @deprecated Use findGarmentAsset */
+export const findPreviewAsset = findGarmentAsset;
+
+export function resolveGarmentAssetRelativePath(
+  asset: ProductGarmentAsset,
+  variant: ProductAssetVariant,
+): string {
+  const fromAssets = asset.assets?.[variant];
+  if (fromAssets) return fromAssets;
+
+  const legacyPreview = asset.path;
+  if (variant === "preview" && legacyPreview) return legacyPreview;
+  if (variant === "export" && legacyPreview) return legacyPreview;
+
+  throw new Error(
+    `Garment asset ${asset.side}/${asset.color} 缺少 ${variant} 路徑`,
+  );
+}
+
 /**
- * Canonical garment asset URL — resolved from profile.previewAssets only.
+ * Canonical garment asset URL — resolved from profile.previewAssets.
  * Do not concatenate asset paths outside the registry.
  */
 export async function resolveRegistryGarmentAssetUrl(
   code: string,
   side: ProductSideSlug,
   color: string,
+  variant: ProductAssetVariant = "preview",
 ): Promise<string> {
   const profile = await fetchProductProfile(code);
-  const asset = findPreviewAsset(profile, side, color);
+  const asset = findGarmentAsset(profile, side, color);
   if (!asset) {
     throw new Error(
       `Product ${code}: previewAssets 缺少 ${side}/${color} 素材定義`,
     );
   }
-  return resolveProductAssetUrl(code, asset.path);
+  const relativePath = resolveGarmentAssetRelativePath(asset, variant);
+  return resolveProductAssetUrl(code, relativePath);
 }
 
 export async function fetchProductCatalog(): Promise<ProductCatalogItem[]> {
@@ -118,6 +153,43 @@ export async function fetchProductCalibrationFile(
   return calibration;
 }
 
+/**
+ * Load mockup visual compensation for a product.
+ * Missing or invalid files fall back to mockupVisualScale = 1.0 (never throws).
+ */
+export async function fetchMockupVisualCompensationFile(
+  code: string,
+  visualCompensationFile?: string,
+): Promise<MockupVisualCompensation> {
+  if (!isDevelopment) {
+    const cached = visualCompensationCache.get(code);
+    if (cached) return cached;
+  }
+
+  const profile = visualCompensationFile
+    ? null
+    : await fetchProductProfile(code).catch(() => null);
+  const fileName =
+    visualCompensationFile ??
+    profile?.visualCompensationFile ??
+    "visual-compensation.json";
+  const url = resolveProductAssetUrl(code, fileName);
+
+  try {
+    const response = await fetch(url, { cache: "no-store" });
+    if (!response.ok) {
+      return { ...DEFAULT_MOCKUP_VISUAL_COMPENSATION };
+    }
+    const parsed = parseMockupVisualCompensation(await response.json());
+    if (!isDevelopment) {
+      visualCompensationCache.set(code, parsed);
+    }
+    return parsed;
+  } catch {
+    return { ...DEFAULT_MOCKUP_VISUAL_COMPENSATION };
+  }
+}
+
 export async function checkAssetExists(url: string): Promise<boolean> {
   try {
     const response = await fetch(url, { method: "HEAD" });
@@ -131,6 +203,7 @@ export function clearProductLoaderCache(): void {
   catalogCache = null;
   profileCache.clear();
   calibrationCache.clear();
+  visualCompensationCache.clear();
 }
 
 export function getCachedProductProfile(code: string): ProductProfile | undefined {

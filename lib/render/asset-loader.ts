@@ -1,7 +1,17 @@
 import {
+  fetchMockupVisualCompensationFile,
   fetchProductCalibrationFile,
+  fetchProductProfile,
   resolveRegistryGarmentAssetUrl,
 } from "@/lib/products/product-loader";
+import {
+  renderQualityToAssetVariant,
+  type RenderQuality,
+} from "@/lib/export/render-quality";
+import {
+  resolveCalibrationScaleFromAssetSize,
+  scaleProductCalibration,
+} from "./calibration-scale";
 import type {
   GarmentColorSlug,
   ProductSide,
@@ -53,31 +63,45 @@ function naturalSize(source: CanvasImageSource): {
   return { width: 0, height: 0 };
 }
 
-async function assetImagePath(
-  productCode: string,
-  color: GarmentColorSlug,
-  side: ProductSide,
-): Promise<string> {
-  return resolveRegistryGarmentAssetUrl(productCode, side, color);
+export interface LoadAssetOptions {
+  quality?: RenderQuality;
 }
 
 /**
  * Load garment asset image + calibration for a product variant.
- * Asset paths resolved via Product Registry previewAssets.
- *
- * @example loadAsset("UA35001", "black", "front")
+ * Preview uses preview assets; export uses export assets with scaled calibration.
  */
 export async function loadAsset(
   productCode: string,
   color: GarmentColorSlug,
   side: ProductSide,
+  options?: LoadAssetOptions,
 ): Promise<RenderAsset> {
-  const imageUrl = await assetImagePath(productCode, color, side);
-  const [image, calibration] = await Promise.all([
+  const quality = options?.quality ?? "preview";
+  const variant = renderQualityToAssetVariant(quality);
+  const imageUrl = await resolveRegistryGarmentAssetUrl(
+    productCode,
+    side,
+    color,
+    variant,
+  );
+  const profile = await fetchProductProfile(productCode);
+  const [image, calibration, visualCompensation] = await Promise.all([
     loadImage(imageUrl),
     fetchProductCalibrationFile(productCode),
+    fetchMockupVisualCompensationFile(productCode),
   ]);
   const { width, height } = naturalSize(image);
+  const reference = profile.assetReferenceSize;
+  const calibrationScale =
+    quality === "export"
+      ? resolveCalibrationScaleFromAssetSize(
+          width,
+          height,
+          reference?.width,
+          reference?.height,
+        )
+      : 1;
 
   return {
     productCode,
@@ -87,8 +111,22 @@ export async function loadAsset(
     image,
     naturalWidth: width,
     naturalHeight: height,
-    calibration,
+    calibration: scaleProductCalibration(calibration, calibrationScale),
+    calibrationScale,
+    mockupVisualScale: visualCompensation.mockupVisualScale,
   };
 }
 
-export { assetImagePath };
+export async function assetImagePath(
+  productCode: string,
+  color: GarmentColorSlug,
+  side: ProductSide,
+  quality: RenderQuality = "preview",
+): Promise<string> {
+  return resolveRegistryGarmentAssetUrl(
+    productCode,
+    side,
+    color,
+    renderQualityToAssetVariant(quality),
+  );
+}

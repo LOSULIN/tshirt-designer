@@ -266,6 +266,8 @@ function drawImageLayer(
 export interface RenderFactoryArtworkExportOptions {
   side?: Side;
   size?: string;
+  /** Multiplies output canvas pixels (physical cm unchanged via pHYs). Product Export only. */
+  pixelScale?: number;
 }
 
 /**
@@ -278,8 +280,12 @@ export async function renderFactoryArtworkExportPng(
 ): Promise<Blob> {
   const side = options?.side ?? "front";
   const size = options?.size ?? "M";
+  const pixelScale = Math.max(1, options?.pixelScale ?? 1);
   const spec = resolveFactoryArtworkExportSpec(layers, side, size);
-  const { bbox, exportDpi, widthPx, heightPx } = spec;
+  const exportDpi = spec.exportDpi * pixelScale;
+  const widthPx = Math.round(spec.widthPx * pixelScale);
+  const heightPx = Math.round(spec.heightPx * pixelScale);
+  const { bbox } = spec;
   const artworkAreaCm: PrintAreaCmBounds = {
     width: bbox.width_cm,
     height: bbox.height_cm,

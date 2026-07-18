@@ -133,6 +133,8 @@ export interface RenderPrintExportOptions {
   /** 與 Designer / Preview 一致之 Garment 印刷區 */
   side?: Side;
   size?: string;
+  /** Multiplies output canvas pixels (physical cm unchanged via pHYs). Product Export only. */
+  pixelScale?: number;
 }
 
 /**
@@ -144,9 +146,12 @@ export async function renderPrintExportPng(
 ): Promise<Blob> {
   const side = options?.side ?? "front";
   const size = options?.size ?? "M";
+  const pixelScale = Math.max(1, options?.pixelScale ?? 1);
   const canvasSpec = getExportCanvasSpec(side, size);
-  const { widthPx, heightPx } = canvasSpec;
+  const widthPx = Math.round(canvasSpec.widthPx * pixelScale);
+  const heightPx = Math.round(canvasSpec.heightPx * pixelScale);
   const printAreaCm = canvasSpec.printAreaCm;
+  const exportDpi = PRINT_EXPORT_DPI * pixelScale;
 
   const canvas = document.createElement("canvas");
   canvas.width = widthPx;
@@ -225,5 +230,5 @@ export async function renderPrintExportPng(
     );
   });
 
-  return embedPngDpi(blob, PRINT_EXPORT_DPI);
+  return embedPngDpi(blob, exportDpi);
 }

@@ -3,6 +3,7 @@ import {
   fetchProductCatalog,
   fetchProductProfile,
   productCalibrationUrl,
+  resolveGarmentAssetRelativePath,
   resolveProductAssetUrl,
   resolveRegistryGarmentAssetUrl,
 } from "./product-loader";
@@ -44,12 +45,15 @@ export async function getCalibration(code: string): Promise<ProductCalibration> 
 
 export async function getAssets(code: string): Promise<ProductAssetDescriptor[]> {
   const profile = await fetchProductProfile(code);
-  return profile.previewAssets.map((preview) => ({
-    side: preview.side,
-    color: preview.color,
-    relativePath: preview.path,
-    url: resolveProductAssetUrl(code, preview.path),
-  }));
+  return profile.previewAssets.map((asset) => {
+    const relativePath = resolveGarmentAssetRelativePath(asset, "preview");
+    return {
+      side: asset.side,
+      color: asset.color,
+      relativePath,
+      url: resolveProductAssetUrl(code, relativePath),
+    };
+  });
 }
 
 export function getProductCalibrationUrl(code: string): string {

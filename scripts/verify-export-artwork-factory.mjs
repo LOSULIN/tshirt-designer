@@ -139,16 +139,16 @@ const productExportSrc = readFileSync(
   "utf8",
 );
 assert(
-  productExportSrc.includes("renderFactoryArtworkExportPng"),
-  "exportArtworkPng uses factory export",
+  productExportSrc.includes("renderProductFactoryArtworkPng"),
+  "exportArtworkPng uses factory export wrapper",
 );
 assert(
   productExportSrc.includes("exportPrintAreaArtworkForMockup"),
   "mockup keeps print-area artwork",
 );
 assert(
-  productExportSrc.includes("renderPrintExportPng"),
-  "mockup path still uses renderPrintExportPng",
+  productExportSrc.includes("renderMockupArtworkPng"),
+  "mockup path re-renders via mockup-artwork-export",
 );
 
 assert(
@@ -177,8 +177,9 @@ const printExportSrc = readFileSync(
   "utf8",
 );
 assert(
-  printExportSrc.includes("embedPngDpi(blob, PRINT_EXPORT_DPI)"),
-  "print-export-system unchanged for Factory PDF",
+  printExportSrc.includes("PRINT_EXPORT_DPI") &&
+    printExportSrc.includes("pixelScale?: number"),
+  "print-export-system keeps Factory PDF DPI with optional product export pixelScale",
 );
 
 console.log(`\n${passed} passed, ${failed} failed`);

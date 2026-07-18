@@ -25,20 +25,70 @@
       "referenceSize": "M"
     }
   },
-  "availableSides": ["front", "back"],
-  "availableColors": [
-    { "slug": "white", "label": "White", "hex": "#FFFFFF" },
-    { "slug": "black", "label": "Black", "hex": "#111111" },
-    { "slug": "pink", "label": "Pink", "hex": "#F9A8D4" },
-    { "slug": "hotpink", "label": "Hot Pink", "hex": "#EC4899" },
-    { "slug": "skyblue", "label": "Sky Blue", "hex": "#7DD3FC" },
-    { "slug": "lightblue", "label": "Light Blue", "hex": "#2563EB" },
-    { "slug": "heathergray", "label": "Heather Gray", "hex": "#B8B8B8" },
-    { "slug": "yellow", "label": "Yellow", "hex": "#FDE68A" },
-    { "slug": "mint", "label": "Mint", "hex": "#8FA84A" },
-    { "slug": "indigo", "label": "Indigo", "hex": "#1E3A5F" }
+  "availableSides": [
+    "front",
+    "back"
   ],
-  "availableSizes": ["XS", "S", "M", "L", "XL", "2L"],
+  "availableColors": [
+    {
+      "slug": "white",
+      "label": "White",
+      "hex": "#FFFFFF"
+    },
+    {
+      "slug": "black",
+      "label": "Black",
+      "hex": "#111111"
+    },
+    {
+      "slug": "pink",
+      "label": "Pink",
+      "hex": "#F9A8D4"
+    },
+    {
+      "slug": "hotpink",
+      "label": "Hot Pink",
+      "hex": "#EC4899"
+    },
+    {
+      "slug": "skyblue",
+      "label": "Sky Blue",
+      "hex": "#7DD3FC"
+    },
+    {
+      "slug": "lightblue",
+      "label": "Light Blue",
+      "hex": "#2563EB"
+    },
+    {
+      "slug": "heathergray",
+      "label": "Heather Gray",
+      "hex": "#B8B8B8"
+    },
+    {
+      "slug": "yellow",
+      "label": "Yellow",
+      "hex": "#FDE68A"
+    },
+    {
+      "slug": "mint",
+      "label": "Mint",
+      "hex": "#8FA84A"
+    },
+    {
+      "slug": "indigo",
+      "label": "Indigo",
+      "hex": "#1E3A5F"
+    }
+  ],
+  "availableSizes": [
+    "XS",
+    "S",
+    "M",
+    "L",
+    "XL",
+    "2L"
+  ],
   "fabricInfo": {
     "material": "100% Cotton",
     "weight": "5.6 oz",
@@ -46,26 +96,170 @@
   },
   "thumbnail": "assets/adult-tshirt-white-front.png",
   "previewAssets": [
-    { "side": "front", "color": "white", "path": "assets/adult-tshirt-white-front.png" },
-    { "side": "front", "color": "black", "path": "assets/adult-tshirt-black-front.png" },
-    { "side": "front", "color": "pink", "path": "assets/adult-tshirt-pink-front.png" },
-    { "side": "front", "color": "hotpink", "path": "assets/adult-tshirt-hotpink-front.png" },
-    { "side": "front", "color": "skyblue", "path": "assets/adult-tshirt-skyblue-front.png" },
-    { "side": "front", "color": "lightblue", "path": "assets/adult-tshirt-lightblue-front.png" },
-    { "side": "front", "color": "heathergray", "path": "assets/adult-tshirt-heathergray-front.png" },
-    { "side": "front", "color": "yellow", "path": "assets/adult-tshirt-yellow-front.png" },
-    { "side": "front", "color": "mint", "path": "assets/adult-tshirt-mint-front.png" },
-    { "side": "front", "color": "indigo", "path": "assets/adult-tshirt-indigo-front.png" },
-    { "side": "back", "color": "white", "path": "assets/adult-tshirt-white-back.png" },
-    { "side": "back", "color": "black", "path": "assets/adult-tshirt-black-back.png" },
-    { "side": "back", "color": "pink", "path": "assets/adult-tshirt-pink-back.png" },
-    { "side": "back", "color": "hotpink", "path": "assets/adult-tshirt-hotpink-back.png" },
-    { "side": "back", "color": "skyblue", "path": "assets/adult-tshirt-skyblue-back.png" },
-    { "side": "back", "color": "lightblue", "path": "assets/adult-tshirt-lightblue-back.png" },
-    { "side": "back", "color": "heathergray", "path": "assets/adult-tshirt-heathergray-back.png" },
-    { "side": "back", "color": "yellow", "path": "assets/adult-tshirt-yellow-back.png" },
-    { "side": "back", "color": "mint", "path": "assets/adult-tshirt-mint-back.png" },
-    { "side": "back", "color": "indigo", "path": "assets/adult-tshirt-indigo-back.png" }
+    {
+      "side": "front",
+      "color": "white",
+      "assets": {
+        "preview": "assets/adult-tshirt-white-front.png",
+        "export": "assets/export/adult-tshirt-white-front.png"
+      }
+    },
+    {
+      "side": "front",
+      "color": "black",
+      "assets": {
+        "preview": "assets/adult-tshirt-black-front.png",
+        "export": "assets/export/adult-tshirt-black-front.png"
+      }
+    },
+    {
+      "side": "front",
+      "color": "pink",
+      "assets": {
+        "preview": "assets/adult-tshirt-pink-front.png",
+        "export": "assets/export/adult-tshirt-pink-front.png"
+      }
+    },
+    {
+      "side": "front",
+      "color": "hotpink",
+      "assets": {
+        "preview": "assets/adult-tshirt-hotpink-front.png",
+        "export": "assets/export/adult-tshirt-hotpink-front.png"
+      }
+    },
+    {
+      "side": "front",
+      "color": "skyblue",
+      "assets": {
+        "preview": "assets/adult-tshirt-skyblue-front.png",
+        "export": "assets/export/adult-tshirt-skyblue-front.png"
+      }
+    },
+    {
+      "side": "front",
+      "color": "lightblue",
+      "assets": {
+        "preview": "assets/adult-tshirt-lightblue-front.png",
+        "export": "assets/export/adult-tshirt-lightblue-front.png"
+      }
+    },
+    {
+      "side": "front",
+      "color": "heathergray",
+      "assets": {
+        "preview": "assets/adult-tshirt-heathergray-front.png",
+        "export": "assets/export/adult-tshirt-heathergray-front.png"
+      }
+    },
+    {
+      "side": "front",
+      "color": "yellow",
+      "assets": {
+        "preview": "assets/adult-tshirt-yellow-front.png",
+        "export": "assets/export/adult-tshirt-yellow-front.png"
+      }
+    },
+    {
+      "side": "front",
+      "color": "mint",
+      "assets": {
+        "preview": "assets/adult-tshirt-mint-front.png",
+        "export": "assets/export/adult-tshirt-mint-front.png"
+      }
+    },
+    {
+      "side": "front",
+      "color": "indigo",
+      "assets": {
+        "preview": "assets/adult-tshirt-indigo-front.png",
+        "export": "assets/export/adult-tshirt-indigo-front.png"
+      }
+    },
+    {
+      "side": "back",
+      "color": "white",
+      "assets": {
+        "preview": "assets/adult-tshirt-white-back.png",
+        "export": "assets/export/adult-tshirt-white-back.png"
+      }
+    },
+    {
+      "side": "back",
+      "color": "black",
+      "assets": {
+        "preview": "assets/adult-tshirt-black-back.png",
+        "export": "assets/export/adult-tshirt-black-back.png"
+      }
+    },
+    {
+      "side": "back",
+      "color": "pink",
+      "assets": {
+        "preview": "assets/adult-tshirt-pink-back.png",
+        "export": "assets/export/adult-tshirt-pink-back.png"
+      }
+    },
+    {
+      "side": "back",
+      "color": "hotpink",
+      "assets": {
+        "preview": "assets/adult-tshirt-hotpink-back.png",
+        "export": "assets/export/adult-tshirt-hotpink-back.png"
+      }
+    },
+    {
+      "side": "back",
+      "color": "skyblue",
+      "assets": {
+        "preview": "assets/adult-tshirt-skyblue-back.png",
+        "export": "assets/export/adult-tshirt-skyblue-back.png"
+      }
+    },
+    {
+      "side": "back",
+      "color": "lightblue",
+      "assets": {
+        "preview": "assets/adult-tshirt-lightblue-back.png",
+        "export": "assets/export/adult-tshirt-lightblue-back.png"
+      }
+    },
+    {
+      "side": "back",
+      "color": "heathergray",
+      "assets": {
+        "preview": "assets/adult-tshirt-heathergray-back.png",
+        "export": "assets/export/adult-tshirt-heathergray-back.png"
+      }
+    },
+    {
+      "side": "back",
+      "color": "yellow",
+      "assets": {
+        "preview": "assets/adult-tshirt-yellow-back.png",
+        "export": "assets/export/adult-tshirt-yellow-back.png"
+      }
+    },
+    {
+      "side": "back",
+      "color": "mint",
+      "assets": {
+        "preview": "assets/adult-tshirt-mint-back.png",
+        "export": "assets/export/adult-tshirt-mint-back.png"
+      }
+    },
+    {
+      "side": "back",
+      "color": "indigo",
+      "assets": {
+        "preview": "assets/adult-tshirt-indigo-back.png",
+        "export": "assets/export/adult-tshirt-indigo-back.png"
+      }
+    }
   ],
-  "calibrationFile": "calibration.json"
+  "calibrationFile": "calibration.json",
+  "assetReferenceSize": {
+    "width": 1024,
+    "height": 1536
+  }
 }

@@ -6,6 +6,7 @@ import {
 } from "@/components/render/ProductMockupEngine";
 import type { ProductSideSlug } from "@/lib/products/product-types";
 import type { GarmentColorSlug, ProductSide } from "@/lib/render/render-types";
+import type { RenderQuality } from "./render-quality";
 
 export async function artworkBlobToCanvas(blob: Blob): Promise<HTMLCanvasElement> {
   const image = await loadArtworkFromBlob(blob);
@@ -35,6 +36,7 @@ export interface RenderProductExportInput {
   color: GarmentColorSlug;
   side: ProductSide | ProductSideSlug;
   artworkBlob: Blob;
+  quality?: RenderQuality;
 }
 
 export async function renderProductPngFromArtwork(
@@ -48,6 +50,7 @@ export async function renderProductPngFromArtwork(
     artwork: artworkCanvas,
     artworkWidth: artworkCanvas.width,
     artworkHeight: artworkCanvas.height,
+    quality: input.quality ?? "export",
   });
   return canvasToPngBlob(result.canvas);
 }
@@ -63,6 +66,7 @@ export async function renderProductPreviewFromArtwork(
     artwork: artworkCanvas,
     artworkWidth: artworkCanvas.width,
     artworkHeight: artworkCanvas.height,
+    quality: input.quality ?? "preview",
   });
   return result.dataUrl;
 }

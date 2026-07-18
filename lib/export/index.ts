@@ -13,6 +13,11 @@ export {
   renderProductPreviewFromArtwork,
 } from "./render-export";
 export type { RenderProductExportInput } from "./render-export";
+export type { RenderQuality, ProductAssetVariant } from "./render-quality";
+export {
+  renderQualityToAssetVariant,
+  isExportRenderQuality,
+} from "./render-quality";
 export {
   DEFAULT_PRODUCT_EXPORT_CODE,
   buildArtworkFileName,

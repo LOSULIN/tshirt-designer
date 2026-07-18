@@ -3,6 +3,8 @@
  * Independent from Designer export / canvas / coordinate runtimes.
  */
 
+import type { RenderQuality } from "@/lib/export/render-quality";
+
 export type ProductSide = "front" | "back";
 
 /** Garment color slug used in asset filenames (e.g. black, white). */
@@ -58,6 +60,9 @@ export interface RenderAsset {
   naturalWidth: number;
   naturalHeight: number;
   calibration: ProductCalibration;
+  calibrationScale: number;
+  /** Mockup-only artwork visual scale (default 1.0). */
+  mockupVisualScale: number;
 }
 
 export interface ComposeArtworkInput {
@@ -80,6 +85,7 @@ export interface RenderEngineInput {
   artwork: CanvasImageSource;
   artworkWidth: number;
   artworkHeight: number;
+  quality?: RenderQuality;
 }
 
 export interface RenderResult {

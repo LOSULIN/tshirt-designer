@@ -3,6 +3,7 @@ import {
   checkAssetExists,
   fetchProductCalibrationFile,
   fetchProductProfile,
+  resolveGarmentAssetRelativePath,
   resolveProductAssetUrl,
 } from "./product-loader";
 import type {
@@ -99,9 +100,20 @@ export async function validateProductAssets(
   }
 
   for (const asset of resolved.previewAssets) {
-    const url = resolveProductAssetUrl(code, asset.path);
-    if (!(await checkAssetExists(url))) {
-      issues.push(issue("error", `素材不存在：${asset.path}`));
+    for (const variant of ["preview", "export"] as const) {
+      let relativePath: string;
+      try {
+        relativePath = resolveGarmentAssetRelativePath(asset, variant);
+      } catch {
+        issues.push(
+          issue("error", `素材 ${asset.side}/${asset.color} 缺少 ${variant} 路徑`),
+        );
+        continue;
+      }
+      const url = resolveProductAssetUrl(code, relativePath);
+      if (!(await checkAssetExists(url))) {
+        issues.push(issue("error", `素材不存在：${relativePath}`));
+      }
     }
   }
 

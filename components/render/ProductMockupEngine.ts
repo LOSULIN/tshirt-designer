@@ -6,6 +6,11 @@ import type {
   RenderResult,
 } from "@/lib/render/render-types";
 
+export interface ProductMockupEngineInput extends RenderEngineInput {
+  /** Active garment size — scales mockup placement to match Designer blue print area. */
+  garmentSize?: string;
+}
+
 function canvasToDataUrl(canvas: HTMLCanvasElement): string {
   return canvas.toDataURL("image/png");
 }
@@ -15,15 +20,18 @@ function canvasToDataUrl(canvas: HTMLCanvasElement): string {
  * Separate from RenderEngine.composeArtwork (factory path, no visual adjustment).
  */
 export async function renderProductMockupOnProduct(
-  input: RenderEngineInput,
+  input: ProductMockupEngineInput,
 ): Promise<RenderResult> {
-  const asset = await loadAsset(input.productCode, input.color, input.side);
+  const asset = await loadAsset(input.productCode, input.color, input.side, {
+    quality: input.quality ?? "preview",
+  });
 
   const { canvas, width, height } = composeProductMockup({
     asset,
     artwork: input.artwork,
     artworkWidth: input.artworkWidth,
     artworkHeight: input.artworkHeight,
+    garmentSize: input.garmentSize,
   });
 
   return {
@@ -37,7 +45,8 @@ export async function renderProductMockupOnProduct(
   };
 }
 
-export interface RenderProductMockupWithCalibrationInput extends RenderEngineInput {
+export interface RenderProductMockupWithCalibrationInput
+  extends ProductMockupEngineInput {
   calibration: ProductCalibration;
 }
 
@@ -53,6 +62,7 @@ export async function renderProductMockupWithCalibration(
     artwork: input.artwork,
     artworkWidth: input.artworkWidth,
     artworkHeight: input.artworkHeight,
+    garmentSize: input.garmentSize,
   });
 
   return {

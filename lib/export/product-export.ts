@@ -1,16 +1,23 @@
 import { getProductProfile, getProducts } from "@/lib/products/product-registry";
 import type { ShirtColor, Side, Size } from "@/lib/constants";
-import { renderFactoryArtworkExportPng } from "@/lib/export-artwork-factory";
 import { hasExportablePrintableDesign } from "@/lib/print-export";
-import { renderPrintExportPng } from "@/lib/print-export-system";
 import type { DesignLayer } from "@/lib/types";
+import { renderProductMockupOnProduct } from "@/components/render/ProductMockupEngine";
+import type { ProductSide } from "@/lib/render/render-types";
 import { downloadBlob } from "./download";
+import { resolveProductExportPixelScale } from "./export-pixel-scale";
+import { renderProductFactoryArtworkPng } from "./factory-artwork-export";
+import { renderMockupArtworkPng } from "./mockup-artwork-export";
+import type { RenderQuality } from "./render-quality";
 import {
-  renderProductPngFromArtwork,
-  renderProductPreviewFromArtwork,
+  artworkBlobToCanvas,
+  canvasToPngBlob,
 } from "./render-export";
 
 export const DEFAULT_PRODUCT_EXPORT_CODE = "UA35001";
+
+const PREVIEW_QUALITY: RenderQuality = "preview";
+const DOWNLOAD_QUALITY: RenderQuality = "export";
 
 /** Designer shirtColor → UA35001 product asset slug（僅商品圖 Registry） */
 const DESIGNER_SHIRT_COLOR_TO_PRODUCT_SLUG: Record<ShirtColor, string> = {
@@ -66,6 +73,51 @@ export function buildProductExportFileName(
   return `${productCode}-${side}-${color}.png`;
 }
 
+/** Product mockup PNG — Preview / Download share placement; quality differs only. */
+async function renderProductMockupPngFromArtwork(input: {
+  productCode: string;
+  color: string;
+  side: Side;
+  artworkBlob: Blob;
+  quality: RenderQuality;
+  garmentSize: Size;
+}): Promise<Blob> {
+  const artworkCanvas = await artworkBlobToCanvas(input.artworkBlob);
+  const result = await renderProductMockupOnProduct({
+    productCode: input.productCode,
+    color: input.color,
+    side: input.side as ProductSide,
+    artwork: artworkCanvas,
+    artworkWidth: artworkCanvas.width,
+    artworkHeight: artworkCanvas.height,
+    quality: input.quality,
+    garmentSize: input.garmentSize,
+  });
+  return canvasToPngBlob(result.canvas);
+}
+
+async function renderProductMockupPreviewFromArtwork(input: {
+  productCode: string;
+  color: string;
+  side: Side;
+  artworkBlob: Blob;
+  quality: RenderQuality;
+  garmentSize: Size;
+}): Promise<string> {
+  const artworkCanvas = await artworkBlobToCanvas(input.artworkBlob);
+  const result = await renderProductMockupOnProduct({
+    productCode: input.productCode,
+    color: input.color,
+    side: input.side as ProductSide,
+    artwork: artworkCanvas,
+    artworkWidth: artworkCanvas.width,
+    artworkHeight: artworkCanvas.height,
+    quality: input.quality,
+    garmentSize: input.garmentSize,
+  });
+  return result.dataUrl;
+}
+
 export async function resolveExportProductCode(
   productCode?: string,
 ): Promise<string> {
@@ -86,31 +138,10 @@ export function resolveRegistryColorSlug(
   return availableSlugs[0] ?? "white";
 }
 
-export async function exportArtworkPng(
+async function resolveExportContext(
   input: ProductExportInput,
-): Promise<Blob> {
-  if (!hasExportablePrintableDesign(input.layers)) {
-    throw new Error("尚無可匯出的設計內容");
-  }
-  return renderFactoryArtworkExportPng(input.layers, {
-    side: input.side,
-    size: input.size,
-  });
-}
-
-/** Print-area artwork for product mockup compose — dimensions unchanged. */
-async function exportPrintAreaArtworkForMockup(
-  input: ProductExportInput,
-): Promise<Blob> {
-  return renderPrintExportPng(input.layers, {
-    side: input.side,
-    size: input.size,
-  });
-}
-
-export async function buildProductExportFiles(
-  input: ProductExportInput,
-): Promise<ProductExportFiles> {
+  quality: RenderQuality,
+) {
   const productCode = await resolveExportProductCode(input.productCode);
   const profile = await getProductProfile(productCode);
   const availableSlugs = profile.availableColors.map((color) => color.slug);
@@ -120,22 +151,78 @@ export async function buildProductExportFiles(
     throw new Error(`${productCode} 不支援 ${input.side} 面匯出`);
   }
 
-  const artwork = await exportArtworkPng(input);
-  const mockupArtwork = await exportPrintAreaArtworkForMockup(input);
-  const product = await renderProductPngFromArtwork({
+  const pixelScale = await resolveProductExportPixelScale(
     productCode,
+    input.side,
     color,
+    quality,
+  );
+
+  return { productCode, color, pixelScale, quality };
+}
+
+export async function exportArtworkPng(
+  input: ProductExportInput,
+  quality: RenderQuality = DOWNLOAD_QUALITY,
+): Promise<Blob> {
+  if (!hasExportablePrintableDesign(input.layers)) {
+    throw new Error("尚無可匯出的設計內容");
+  }
+
+  const ctx = await resolveExportContext(input, quality);
+
+  return renderProductFactoryArtworkPng(input.layers, {
+    side: input.side,
+    size: input.size,
+    quality: ctx.quality,
+    pixelScale: ctx.pixelScale,
+  });
+}
+
+/** Print-area artwork for product mockup compose — re-rendered per quality. */
+async function exportPrintAreaArtworkForMockup(
+  input: ProductExportInput,
+  quality: RenderQuality,
+  pixelScale: number,
+): Promise<Blob> {
+  return renderMockupArtworkPng(input.layers, {
+    side: input.side,
+    size: input.size,
+    quality,
+    pixelScale,
+  });
+}
+
+export async function buildProductExportFiles(
+  input: ProductExportInput,
+): Promise<ProductExportFiles> {
+  const ctx = await resolveExportContext(input, DOWNLOAD_QUALITY);
+  const artwork = await exportArtworkPng(input, DOWNLOAD_QUALITY);
+  const mockupArtwork = await exportPrintAreaArtworkForMockup(
+    input,
+    DOWNLOAD_QUALITY,
+    ctx.pixelScale,
+  );
+  const product = await renderProductMockupPngFromArtwork({
+    productCode: ctx.productCode,
+    color: ctx.color,
     side: input.side,
     artworkBlob: mockupArtwork,
+    quality: DOWNLOAD_QUALITY,
+    garmentSize: input.size,
   });
 
   return {
     artwork,
     product,
     artworkFileName: buildArtworkFileName(),
-    productFileName: buildProductExportFileName(productCode, input.side, color),
-    productCode,
-    color,
+    productFileName: buildProductExportFileName(
+      ctx.productCode,
+      input.side,
+      ctx.color,
+    ),
+    productCode: ctx.productCode,
+    color: ctx.color,
     side: input.side,
   };
 }
@@ -145,36 +232,42 @@ export async function buildProductExportPreview(
 ): Promise<ProductExportPreview | null> {
   if (!hasExportablePrintableDesign(input.layers)) return null;
 
-  const productCode = await resolveExportProductCode(input.productCode);
-  const profile = await getProductProfile(productCode);
-  const availableSlugs = profile.availableColors.map((color) => color.slug);
-  const color = resolveRegistryColorSlug(input.shirtColor, availableSlugs);
-
-  const artworkBlob = await exportArtworkPng(input);
-  const mockupArtwork = await exportPrintAreaArtworkForMockup(input);
+  const ctx = await resolveExportContext(input, PREVIEW_QUALITY);
+  const artworkBlob = await exportArtworkPng(input, PREVIEW_QUALITY);
+  const mockupArtwork = await exportPrintAreaArtworkForMockup(
+    input,
+    PREVIEW_QUALITY,
+    1,
+  );
   const artworkUrl = URL.createObjectURL(artworkBlob);
-  const productUrl = await renderProductPreviewFromArtwork({
-    productCode,
-    color,
+  const productUrl = await renderProductMockupPreviewFromArtwork({
+    productCode: ctx.productCode,
+    color: ctx.color,
     side: input.side,
     artworkBlob: mockupArtwork,
+    quality: PREVIEW_QUALITY,
+    garmentSize: input.size,
   });
 
   return {
-    productCode,
-    color,
+    productCode: ctx.productCode,
+    color: ctx.color,
     side: input.side,
     artworkUrl,
     productUrl,
     artworkFileName: buildArtworkFileName(),
-    productFileName: buildProductExportFileName(productCode, input.side, color),
+    productFileName: buildProductExportFileName(
+      ctx.productCode,
+      input.side,
+      ctx.color,
+    ),
   };
 }
 
 export async function downloadArtworkExport(
   input: ProductExportInput,
 ): Promise<void> {
-  const artwork = await exportArtworkPng(input);
+  const artwork = await exportArtworkPng(input, DOWNLOAD_QUALITY);
   downloadBlob(artwork, buildArtworkFileName());
 }
 
@@ -198,25 +291,31 @@ export async function downloadProductExportBundle(
 export async function buildSupportedProductVariants(
   input: Omit<ProductExportInput, "shirtColor">,
 ): Promise<Array<{ color: string; fileName: string; blob: Blob }>> {
-  const productCode = await resolveExportProductCode(input.productCode);
-  const profile = await getProductProfile(productCode);
-  const mockupArtwork = await exportPrintAreaArtworkForMockup({
-    ...input,
-    shirtColor: "white",
-  });
+  const ctx = await resolveExportContext(
+    { ...input, shirtColor: "white" },
+    DOWNLOAD_QUALITY,
+  );
+  const mockupArtwork = await exportPrintAreaArtworkForMockup(
+    { ...input, shirtColor: "white" },
+    DOWNLOAD_QUALITY,
+    ctx.pixelScale,
+  );
+  const profile = await getProductProfile(ctx.productCode);
   const colors = profile.availableColors.map((item) => item.slug);
   const variants: Array<{ color: string; fileName: string; blob: Blob }> = [];
 
   for (const color of colors) {
-    const blob = await renderProductPngFromArtwork({
-      productCode,
+    const blob = await renderProductMockupPngFromArtwork({
+      productCode: ctx.productCode,
       color,
       side: input.side,
       artworkBlob: mockupArtwork,
+      quality: DOWNLOAD_QUALITY,
+      garmentSize: input.size,
     });
     variants.push({
       color,
-      fileName: buildProductExportFileName(productCode, input.side, color),
+      fileName: buildProductExportFileName(ctx.productCode, input.side, color),
       blob,
     });
   }

@@ -36,10 +36,26 @@ export interface ProductColorOption {
   hex?: string;
 }
 
-export interface ProductPreviewAsset {
+/** Garment mockup asset paths per use-case (preview UI vs product export). */
+export interface ProductAssetPaths {
+  preview: string;
+  export: string;
+}
+
+export interface ProductGarmentAsset {
   side: ProductSideSlug;
   color: string;
-  path: string;
+  assets: ProductAssetPaths;
+  /** @deprecated Use assets.preview — kept for legacy profile.json */
+  path?: string;
+}
+
+/** @deprecated Use ProductGarmentAsset */
+export type ProductPreviewAsset = ProductGarmentAsset;
+
+export interface ProductAssetReferenceSize {
+  width: number;
+  height: number;
 }
 
 export interface ProductFabricInfo {
@@ -60,8 +76,12 @@ export interface ProductProfile {
   availableSizes: string[];
   fabricInfo: ProductFabricInfo;
   thumbnail: string;
-  previewAssets: ProductPreviewAsset[];
+  previewAssets: ProductGarmentAsset[];
   calibrationFile: string;
+  /** Mockup-only visual scale JSON (default visual-compensation.json). */
+  visualCompensationFile?: string;
+  /** Calibration.json pixel basis (typically preview garment natural size). */
+  assetReferenceSize?: ProductAssetReferenceSize;
 }
 
 export interface ProductCalibrationRect {
