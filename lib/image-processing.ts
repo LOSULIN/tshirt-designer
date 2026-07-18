@@ -1,6 +1,7 @@
 import {
   ACCEPTED_IMAGE_TYPES,
   MAX_FILE_SIZE_BYTES,
+  MAX_FILE_SIZE_MB,
   MAX_IMAGE_HEIGHT,
   MAX_IMAGE_WIDTH,
   MIN_IMAGE_HEIGHT,
@@ -125,7 +126,7 @@ export function validateImageFile(file: File): ImageValidationResult {
   }
 
   if (file.size > MAX_FILE_SIZE_BYTES) {
-    return { ok: false, error: "檔案大小超過 10MB" };
+    return { ok: false, error: `檔案大小超過 ${MAX_FILE_SIZE_MB}MB` };
   }
 
   return { ok: true, isPng: false, lowResolution: false, belowRecommended: false };

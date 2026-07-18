@@ -275,11 +275,11 @@ export const ACCEPTED_IMAGE_TYPES = [
 ] as const;
 
 export const ACCEPTED_EXTENSIONS = ".png,.jpg,.jpeg";
-export const MAX_FILE_SIZE_MB = 25;
+export const MAX_FILE_SIZE_MB = 50;
 export const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 /** 設計器圖片上傳提示（格式與 accept 一致；PDF 請使用專業交稿流程） */
 export const UPLOAD_FILE_HINT =
-  "PNG / JPG，最大尺寸：6000×6000 px，最小尺寸：500×500 px，建議使用 300 DPI 圖片以獲得較佳印刷品質";
+  "PNG / JPG，最大檔案：50MB，最大尺寸：6000×6000 px，最小尺寸：500×500 px，建議使用 300 DPI 圖片以獲得較佳印刷品質";
 export const MIN_IMAGE_WIDTH = 500;
 export const MIN_IMAGE_HEIGHT = 500;
 export const RECOMMENDED_IMAGE_WIDTH = DESIGN_AREA_WIDTH;
@@ -295,7 +295,7 @@ export const PREVIEW_MAX_EDGE = 2400;
 
 export const UPLOAD_SPEC_LINES = [
   "支援：PNG / JPG / JPEG / WEBP",
-  "最大檔案：25MB",
+  "最大檔案：50MB",
   "最低尺寸：1000×1000",
   `推薦尺寸：${DESIGN_AREA_WIDTH}×${DESIGN_AREA_HEIGHT}`,
   "最大尺寸：5000×5000",
