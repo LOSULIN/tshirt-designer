@@ -5,30 +5,30 @@
  * node --import tsx scripts/verify-artwork-size-live-36c.mts
  */
 
-import { getLayerEffectiveCmRect } from "../lib/design-cm.ts";
-import { resolveLayerCmRect } from "../lib/coordinate-runtime.ts";
+import { getLayerEffectiveCmRect } from "../lib/design-cm";
+import { resolveLayerCmRect } from "../lib/coordinate-runtime";
 import {
   createDesignerCoordinateContext,
   projectLayerPatchToWorkspace,
   workspaceRectToDesignerRect,
   toDesignerCssPercentFromWorkspace,
-} from "../lib/designer-coordinate-facade.ts";
+} from "../lib/designer-coordinate-facade";
 import {
   getDesignerBluePrintArea,
   getDesignerBackBluePrintArea,
-} from "../lib/designer-print-area-config.ts";
-import { resolveExportGarmentLayerCmRect } from "../lib/export-runtime.ts";
+} from "../lib/designer-print-area-config";
+import { resolveExportGarmentLayerCmRect } from "../lib/export-runtime";
 import {
   applyDesignerPlacementPresetPreserveSize,
   resolvePhysicalPresetWorkspaceRect,
-} from "../lib/designer-placement-ux.ts";
+} from "../lib/designer-placement-ux";
 import {
   getPlacementPresetById,
   type PlacementPresetId,
-} from "../lib/placement-presets.ts";
-import { createDefaultShapeLayer } from "../lib/shape-layer.ts";
-import { createDesignerDefaultTextLayer } from "../lib/designer-coordinate-controller.ts";
-import type { DesignLayer, ImageDesignLayer, ShapeDesignLayer } from "../lib/types.ts";
+} from "../lib/placement-presets";
+import { createDefaultShapeLayer } from "../lib/shape-layer";
+import { createDesignerDefaultTextLayer } from "../lib/designer-coordinate-controller";
+import type { DesignLayer, ImageDesignLayer, ShapeDesignLayer } from "../lib/types";
 
 const SIZES = [
   "90",
@@ -59,11 +59,11 @@ function ok(msg: string) {
   console.log(`  ✅ ${msg}`);
 }
 
-function applyArtworkSizePatch(
-  layer: DesignLayer,
+function applyArtworkSizePatch<T extends DesignLayer>(
+  layer: T,
   patch: { width_cm?: number; height_cm?: number },
   size: string,
-): DesignLayer {
+): T {
   const ctx = createDesignerCoordinateContext(SIDE, size);
   const workspacePatch = projectLayerPatchToWorkspace(patch, ctx);
   return {
@@ -75,7 +75,7 @@ function applyArtworkSizePatch(
       ? { height_cm: workspacePatch.height_cm }
       : {}),
     ...(layer.type === "text" ? { keepRatio: false as const } : {}),
-  } as DesignLayer;
+  } as T;
 }
 
 function getGarmentPrintable(size: string) {

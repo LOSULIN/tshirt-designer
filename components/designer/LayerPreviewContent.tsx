@@ -14,6 +14,7 @@ import {
   type LayerPreviewContentProps,
 } from "@/lib/designer/layer-preview-memo";
 import { getArtworkPreviewDomStyle } from "@/lib/image-artwork-render";
+import { getRichTextDomStyle } from "@/lib/text-style";
 import type {
   ImageDesignLayer,
   ShapeDesignLayer,
