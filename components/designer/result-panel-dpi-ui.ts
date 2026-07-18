@@ -1,8 +1,9 @@
 import {
-  analyzeImagePrintQuality,
   isRasterImageLayer,
   PRINT_QUALITY_TARGET_DPI,
 } from "@/lib/image-print-quality";
+import { getImageLayerDesignerPrintQuality } from "@/lib/image-print-quality-ui";
+import type { DesignerCoordinateContext } from "@/lib/designer-coordinate-facade";
 import type { DesignLayer } from "@/lib/types";
 
 export type ResultPanelDpiTier = "ok" | "caution" | "low";
@@ -16,22 +17,27 @@ export interface ResultPanelDpiView {
   dpiClassName: string;
 }
 
-/** UI-only：取所有點陣圖層最低 DPI（最差品質） */
-export function getResultPanelRasterDpi(layers: DesignLayer[]): number | null {
+/** UI-only：取所有點陣圖層最低 Designer DPI（最差品質） */
+export function getResultPanelRasterDpi(
+  layers: DesignLayer[],
+  ctx: DesignerCoordinateContext,
+): number | null {
   const rasterLayers = layers.filter(isRasterImageLayer);
   if (rasterLayers.length === 0) return null;
 
   return Math.min(
-    ...rasterLayers.map((layer) => analyzeImagePrintQuality(layer).dpi),
+    ...rasterLayers.map(
+      (layer) => getImageLayerDesignerPrintQuality(layer, ctx).dpi,
+    ),
   );
 }
 
 export function getResultPanelDpiView(
   layers: DesignLayer[],
+  ctx: DesignerCoordinateContext,
 ): ResultPanelDpiView {
-  const measured = getResultPanelRasterDpi(layers);
-  const dpi =
-    measured ?? PRINT_QUALITY_TARGET_DPI;
+  const measured = getResultPanelRasterDpi(layers, ctx);
+  const dpi = measured ?? PRINT_QUALITY_TARGET_DPI;
 
   if (dpi >= PRINT_QUALITY_TARGET_DPI) {
     return {

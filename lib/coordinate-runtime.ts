@@ -21,7 +21,7 @@ import {
   getLayerExportCmRect,
   type MockupContainerRectPx,
 } from "./export-coordinates";
-import { getTextLayerCmRect } from "./text-layer";
+import { getTextLayerPlacementCmRect } from "./text-layer";
 import type { DesignLayer } from "./types";
 
 /** Layer cm rect 解析用途（對應各 Runtime 現行讀取路徑） */
@@ -80,7 +80,7 @@ export function resolveLayerCmRect(
 
   if (purpose === "designer") {
     if (layer.type === "text") {
-      return getTextLayerCmRect(layer);
+      return getTextLayerPlacementCmRect(layer);
     }
     return getLayerEffectiveCmRect(layer);
   }

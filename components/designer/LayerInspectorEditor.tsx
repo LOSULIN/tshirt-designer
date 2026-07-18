@@ -20,6 +20,7 @@ import {
   getTextInspectorValues,
 } from "@/lib/inspector-sync";
 import type { DesignLayer } from "@/lib/types";
+import { ArtworkSizePanel } from "./ArtworkSizePanel";
 import { ImagePrintQualityPanel } from "./ImagePrintQualityPanel";
 import { InspectorProofDetails } from "./InspectorProofDetails";
 import { InspectorNumberInput } from "./InspectorNumberInput";
@@ -66,6 +67,8 @@ export function LayerInspectorEditor({
   onTextPatch,
   onImageTransform,
   onImageResize,
+  onArtworkSizePatch,
+  onBoostImageResolution,
   onRotationChange,
   largePrintModeEnabled = false,
 }: {
@@ -93,11 +96,22 @@ export function LayerInspectorEditor({
     id: string,
     next: { x_cm: number; y_cm: number; width_cm: number; height_cm: number },
   ) => void;
+  onArtworkSizePatch: (
+    id: string,
+    patch: { width_cm?: number; height_cm?: number },
+  ) => void;
+  onBoostImageResolution?: (id: string) => void | Promise<void>;
   onRotationChange: (id: string, rotation: number) => void;
 }) {
   if (layer.type === "text") {
     return (
-      <TextInspectorFields
+      <div className="space-y-2">
+        <ArtworkSizePanel
+          layer={layer}
+          disabled={disabled}
+          onPatch={(patch) => onArtworkSizePatch(layer.id, patch)}
+        />
+        <TextInspectorFields
         key={layer.id}
         layer={layer}
         side={side}
@@ -106,13 +120,20 @@ export function LayerInspectorEditor({
         compact={compact}
         onPatch={(patch) => onTextPatch(layer.id, patch)}
         onRotationChange={(rotation) => onRotationChange(layer.id, rotation)}
-      />
+        />
+      </div>
     );
   }
 
   if (layer.type === "shape") {
     return (
-      <ScalableInspectorFields
+      <div className="space-y-2">
+        <ArtworkSizePanel
+          layer={layer}
+          disabled={disabled}
+          onPatch={(patch) => onArtworkSizePatch(layer.id, patch)}
+        />
+        <ScalableInspectorFields
         key={layer.id}
         layer={layer}
         side={side}
@@ -122,12 +143,24 @@ export function LayerInspectorEditor({
         onTransform={(patch) => onImageTransform(layer.id, patch)}
         onResize={(next) => onImageResize(layer.id, next)}
         onRotationChange={(rotation) => onRotationChange(layer.id, rotation)}
-      />
+        />
+      </div>
     );
   }
 
   return (
-    <ImageInspectorFields
+    <div className="space-y-2">
+      <ArtworkSizePanel
+        layer={layer}
+        disabled={disabled}
+        onPatch={(patch) => onArtworkSizePatch(layer.id, patch)}
+        onBoostResolution={
+          onBoostImageResolution
+            ? () => onBoostImageResolution(layer.id)
+            : undefined
+        }
+      />
+      <ImageInspectorFields
       key={layer.id}
       layer={layer}
       side={side}
@@ -138,7 +171,8 @@ export function LayerInspectorEditor({
       onTransform={(patch) => onImageTransform(layer.id, patch)}
       onResize={(next) => onImageResize(layer.id, next)}
       onRotationChange={(rotation) => onRotationChange(layer.id, rotation)}
-    />
+      />
+    </div>
   );
 }
 
@@ -558,6 +592,8 @@ function ImageInspectorFields({
         />
         <ImagePrintQualityPanel
           layer={layer}
+          side={side}
+          size={size}
           largePrintMode={largePrintModeEnabled}
         />
       </div>
@@ -578,6 +614,8 @@ function ImageInspectorFields({
       />
       <ImagePrintQualityPanel
         layer={layer}
+        side={side}
+        size={size}
         largePrintMode={largePrintModeEnabled}
       />
     </div>

@@ -5,6 +5,7 @@ import type { PrintAreaCmBounds } from "@/lib/design-cm";
 import { formatGarmentPrintAreaCmPair } from "@/lib/garment-constraint-ux";
 import type { GarmentPrintStatus } from "@/lib/garment-constraint-ux-polish";
 import type { DesignLayer } from "@/lib/types";
+import type { Side } from "@/lib/constants";
 import { GarmentConstraintTooltip } from "./GarmentConstraintUxPrimitives";
 import { ds } from "./design-ui";
 import { resolveWorkspacePrintStatus } from "./workspace-print-status-ui";
@@ -41,6 +42,7 @@ function WorkspaceStatusBadge({
 
 export function DesignWorkspaceStatusBar({
   size,
+  side = "front",
   maxPrintBounds,
   hasOverflow,
   violationCount = 0,
@@ -50,6 +52,7 @@ export function DesignWorkspaceStatusBar({
   compact = false,
 }: {
   size: string;
+  side?: Side;
   maxPrintBounds: PrintAreaCmBounds;
   hasOverflow: boolean;
   violationCount?: number;
@@ -67,8 +70,9 @@ export function DesignWorkspaceStatusBar({
         violationCount,
         hasOverflow,
         size,
+        side,
       }),
-    [layers, violationCount, hasOverflow, size],
+    [layers, violationCount, hasOverflow, size, side],
   );
 
   const printSizeLabelClass = statusView.printSizeAlert

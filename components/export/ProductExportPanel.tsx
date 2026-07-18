@@ -81,7 +81,7 @@ export function ProductExportPanel({
     try {
       await downloadArtworkExport(exportInput);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Artwork 下載失敗");
+      setError(err instanceof Error ? err.message : "工廠 Artwork 下載失敗");
     } finally {
       setDownloading(null);
     }
@@ -102,12 +102,14 @@ export function ProductExportPanel({
   return (
     <>
       <section className="w-full shrink-0 px-4 py-3" aria-label="商品圖匯出">
-        <p className="text-xs leading-5 text-zinc-600">商品圖匯出</p>
+        <p className="text-xs leading-5 text-zinc-600">
+          工廠印刷檔與商品預覽圖匯出
+        </p>
         <div className="mt-2">
           <ProductRenderPreview
             artworkUrl={preview?.artworkUrl}
             productUrl={preview?.productUrl}
-            artworkLabel="Artwork"
+            artworkLabel="工廠 Artwork"
             productLabel="商品圖"
           />
         </div>
@@ -119,7 +121,8 @@ export function ProductExportPanel({
         {error ? <p className="mt-1 text-xs text-red-600">{error}</p> : null}
         <div className="mt-2 flex gap-2">
           <ProductExportButton
-            label="下載 Artwork"
+            label="下載工廠 Artwork"
+            title="工廠印刷使用：依 Artwork 實際尺寸輸出，可直接用於 Illustrator / RIP"
             onClick={() => void handleDownloadArtwork()}
             disabled={disabled}
             loading={downloading === "artwork" || loading}

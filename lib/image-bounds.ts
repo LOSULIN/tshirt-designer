@@ -82,6 +82,13 @@ export function getArtworkPixelSize(image: UploadedDesignImage): {
   };
 }
 
+/** 實際圖案（非透明區）寬高比；用於 Artwork Size 等比例調整 */
+export function getImageArtworkAspectRatio(image: UploadedDesignImage): number {
+  const bounds = resolveImageArtworkBounds(image);
+  if (bounds.visibleWidth <= 0 || bounds.visibleHeight <= 0) return 1;
+  return bounds.visibleWidth / bounds.visibleHeight;
+}
+
 function isOpaqueRasterMimeType(mimeType: string): boolean {
   const normalized = mimeType.toLowerCase();
   return normalized === "image/jpeg" || normalized === "image/jpg";

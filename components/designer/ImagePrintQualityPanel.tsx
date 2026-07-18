@@ -1,62 +1,50 @@
 "use client";
 
+import { useMemo } from "react";
+import { createDesignerCoordinateContext } from "@/lib/designer-coordinate-facade";
 import {
-  analyzeImagePrintQuality,
   getRasterMaxPrintSizeCm,
   isAtRasterPrintMaxSize,
   RASTER_PRINT_SIZE_A3_CM,
   RASTER_PRINT_SIZE_A4_CM,
 } from "@/lib/image-print-quality";
-import { formatInspectorDimensionDisplay } from "@/lib/inspector-sync";
+import { getImageLayerDesignerPrintQuality } from "@/lib/image-print-quality-ui";
+import { getImageLayerPrintReady } from "@/lib/print-ready";
+import type { Side } from "@/lib/constants";
 import type { ImageDesignLayer } from "@/lib/types";
+import { PrintReadyFactoryCheck } from "./PrintReadyFactoryCheck";
 
+/** Inspector 補充：Print Ready 工廠檢查 + 最大可印尺寸提醒 */
 export function ImagePrintQualityPanel({
   layer,
+  side,
+  size,
   largePrintMode,
 }: {
   layer: ImageDesignLayer;
+  side: Side;
+  size: string;
   largePrintMode: boolean;
 }) {
-  const report = analyzeImagePrintQuality(layer);
+  const coordinateContext = useMemo(
+    () => createDesignerCoordinateContext(side, size),
+    [side, size],
+  );
+  const printReady = useMemo(() => {
+    const quality = getImageLayerDesignerPrintQuality(layer, coordinateContext);
+    return getImageLayerPrintReady(
+      layer,
+      quality.designerWidthCm,
+      quality.designerHeightCm,
+    );
+  }, [layer, coordinateContext]);
+
   const atMax = isAtRasterPrintMaxSize(layer, largePrintMode);
   const max = getRasterMaxPrintSizeCm(largePrintMode);
 
   return (
     <div className="space-y-1.5 border-t border-zinc-200 pt-1.5">
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
-        圖片資訊
-      </p>
-
-      <InfoLine
-        label="原始尺寸"
-        value={`${report.imagePixelWidth} × ${report.imagePixelHeight} px`}
-      />
-      <InfoLine
-        label="目前印刷尺寸"
-        value={`${formatInspectorDimensionDisplay(report.printWidth_cm)} × ${formatInspectorDimensionDisplay(report.printHeight_cm)} cm`}
-      />
-      <InfoLine label="目前解析度" value={`${report.dpi} DPI`} />
-
-      <div className="rounded border border-zinc-200 bg-zinc-50 px-2 py-1.5 text-[10px] leading-relaxed">
-        <p className="font-medium text-zinc-700">
-          品質狀態：
-          {report.meetsStandard ? (
-            <span className="text-emerald-700"> 🟢 品質符合印刷需求</span>
-          ) : (
-            <span className="text-amber-700"> ⚠️ 圖片解析度不足</span>
-          )}
-        </p>
-        {report.meetsStandard ? (
-          <p className="mt-0.5 text-zinc-600">
-            目前解析度：{report.dpi} DPI。此圖片可直接進行印刷。
-          </p>
-        ) : (
-          <p className="mt-0.5 text-zinc-600">
-            目前解析度：{report.dpi} DPI。建議縮小印刷尺寸，或更換高解析圖片以符合
-            300 DPI 印刷標準。
-          </p>
-        )}
-      </div>
+      <PrintReadyFactoryCheck printReady={printReady} compact />
 
       {atMax && (
         <div className="rounded border border-amber-200 bg-amber-50 px-2 py-1.5 text-[10px] leading-relaxed text-amber-900">
@@ -74,15 +62,6 @@ export function ImagePrintQualityPanel({
           </p>
         </div>
       )}
-    </div>
-  );
-}
-
-function InfoLine({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-baseline justify-between gap-2 text-[10px] leading-tight">
-      <span className="shrink-0 text-zinc-500">{label}</span>
-      <span className="text-right font-mono tabular-nums text-zinc-800">{value}</span>
     </div>
   );
 }

@@ -8,6 +8,7 @@ import {
   type Side,
   type Size,
 } from "@/lib/constants";
+import { createDesignerCoordinateContext } from "@/lib/designer-coordinate-facade";
 import { DEFAULT_PRINT_MODE, type PreviewPrintPositionMode } from "@/lib/printArea";
 import type { PrintAreaCmBounds } from "@/lib/design-cm";
 import type { GarmentPrintStatus } from "@/lib/garment-constraint-ux-polish";
@@ -152,9 +153,14 @@ export const ResultPanel = memo(function ResultPanel({
   const garmentBadge = printStatus ? getPrintStatusBadgeView(printStatus) : null;
   const printableSizeLabel = formatGarmentPrintAreaCmPair(printBounds);
 
+  const coordinateContext = useMemo(
+    () => createDesignerCoordinateContext(side, size),
+    [side, size],
+  );
+
   const dpiView = useMemo(
-    () => getResultPanelDpiView(previewLayers),
-    [previewLayers],
+    () => getResultPanelDpiView(previewLayers, coordinateContext),
+    [previewLayers, coordinateContext],
   );
 
   const activeSections =

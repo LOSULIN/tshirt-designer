@@ -5,6 +5,7 @@
 import type { PrintAreaCmBounds } from "@/lib/design-cm";
 import type {
   DesignLayer,
+  ImageArtworkBoundsPx,
   ImageDesignLayer,
   ShapeDesignLayer,
   TextDesignLayer,
@@ -69,6 +70,22 @@ export function textLayerPreviewVisualEqual(
   );
 }
 
+function artworkBoundsEqual(
+  a?: ImageArtworkBoundsPx,
+  b?: ImageArtworkBoundsPx,
+): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return (
+    a.minX === b.minX &&
+    a.minY === b.minY &&
+    a.maxX === b.maxX &&
+    a.maxY === b.maxY &&
+    a.visibleWidth === b.visibleWidth &&
+    a.visibleHeight === b.visibleHeight
+  );
+}
+
 export function imageLayerPreviewVisualEqual(
   a: ImageDesignLayer,
   b: ImageDesignLayer,
@@ -81,6 +98,7 @@ export function imageLayerPreviewVisualEqual(
     a.width_cm === b.width_cm &&
     a.height_cm === b.height_cm &&
     a.image.previewUrl === b.image.previewUrl &&
+    artworkBoundsEqual(a.image.artworkBounds, b.image.artworkBounds) &&
     a.name === b.name
   );
 }

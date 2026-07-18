@@ -6,6 +6,7 @@ export interface ProductExportButtonProps {
   disabled?: boolean;
   loading?: boolean;
   variant?: "primary" | "secondary";
+  title?: string;
 }
 
 export function ProductExportButton({
@@ -14,6 +15,7 @@ export function ProductExportButton({
   disabled = false,
   loading = false,
   variant = "secondary",
+  title,
 }: ProductExportButtonProps) {
   const className =
     variant === "primary"
@@ -25,6 +27,7 @@ export function ProductExportButton({
       type="button"
       onClick={onClick}
       disabled={disabled || loading}
+      title={title}
       className={`h-8 flex-1 rounded-lg px-2 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
     >
       {loading ? "處理中…" : label}

@@ -16,6 +16,8 @@ import {
 import { LayoutBottomSheet } from "./LayoutBottomSheet";
 import { LayoutDrawer } from "./LayoutDrawer";
 import { ModelPanel } from "./ModelPanel";
+import { ArtworkSizeCoordinateProvider, getArtworkDesignerSizeCm } from "./ArtworkSizePanel";
+import { clampArtworkSizeCm } from "./ArtworkSizeIntegerInput";
 import { UI_VISIBILITY } from "./ui-visibility";
 import { ProductPanel } from "./ProductPanel";
 import { ds } from "./design-ui";
@@ -102,6 +104,11 @@ import {
 import { DEFAULT_PRINT_MODE } from "@/lib/printArea";
 import { getDesignerWorkspacePrintAreaCm } from "@/lib/designer-workspace";
 import {
+  designerLengthToWorkspaceLength,
+  projectLayerPatchToWorkspace,
+  workspaceRectToDesignerRect,
+} from "@/lib/designer-coordinate-facade";
+import {
   applyDesignerLayerAlignment,
   createControllerContext,
   createDesignerAlignmentContext,
@@ -120,6 +127,11 @@ import {
 } from "@/lib/designer-coordinate-controller";
 import { applyDesignerPlacementPresetPreserveSize, resolvePhysicalPresetWorkspaceRect } from "@/lib/designer-placement-ux";
 import { getLayerEffectiveCmRect } from "@/lib/design-cm";
+import {
+  analyzeImageArtworkBoundsFromFile,
+  getImageArtworkAspectRatio,
+} from "@/lib/image-bounds";
+import { boostImageLayerResolution } from "@/lib/image-resolution-booster";
 import { getTextLayerCmRect } from "@/lib/text-layer";
 import {
   applyClampedLayerPatch,
@@ -217,6 +229,10 @@ async function hydrateImageLayer(
     }),
   ]);
 
+  const artworkBounds =
+    layer.image?.artworkBounds ??
+    (await analyzeImageArtworkBoundsFromFile(original));
+
   return {
     ...layer,
     image: {
@@ -227,6 +243,9 @@ async function hydrateImageLayer(
       previewHeight: previewImg.naturalHeight,
       naturalWidth: originalImg.naturalWidth,
       naturalHeight: originalImg.naturalHeight,
+      imagePixelWidth: originalImg.naturalWidth,
+      imagePixelHeight: originalImg.naturalHeight,
+      artworkBounds,
       mimeType: original.type,
       fileName: layer.image?.fileName ?? "draft",
     },
@@ -1052,6 +1071,99 @@ export function DesignerApp({
     [guardEditable, applyLayerResize],
   );
 
+  const handleArtworkSizePatch = useCallback(
+    (id: string, patch: { width_cm?: number; height_cm?: number }) => {
+      if (!guardEditable()) return;
+      if (patch.width_cm === undefined && patch.height_cm === undefined) return;
+      prepareDiscreteMutation();
+      setLayers((prev) =>
+        prev.map((layer) => {
+          if (layer.id !== id) return layer;
+          if (
+            layer.type !== "image" &&
+            layer.type !== "text" &&
+            layer.type !== "shape"
+          ) {
+            return layer;
+          }
+
+          if (layer.type === "image") {
+            const currentEffective = getLayerEffectiveCmRect(layer);
+            const anchorCenter = {
+              x_cm: currentEffective.x_cm + currentEffective.width_cm / 2,
+              y_cm: currentEffective.y_cm + currentEffective.height_cm / 2,
+            };
+            const currentDesigner = workspaceRectToDesignerRect(
+              currentEffective,
+              designerCoordinateContext,
+            );
+            const aspect = getImageArtworkAspectRatio(layer.image);
+            let designerWidth =
+              patch.width_cm ?? currentDesigner.width_cm;
+            let designerHeight =
+              patch.height_cm ?? currentDesigner.height_cm;
+
+            if (patch.width_cm !== undefined && patch.height_cm === undefined) {
+              designerHeight = designerWidth / aspect;
+            } else if (
+              patch.height_cm !== undefined &&
+              patch.width_cm === undefined
+            ) {
+              designerWidth = designerHeight * aspect;
+            }
+
+            designerWidth = clampArtworkSizeCm(designerWidth);
+            designerHeight = clampArtworkSizeCm(designerHeight);
+
+            const width_cm = designerLengthToWorkspaceLength(
+              designerWidth,
+              designerCoordinateContext,
+              "x",
+            );
+            const height_cm = designerLengthToWorkspaceLength(
+              designerHeight,
+              designerCoordinateContext,
+              "y",
+            );
+
+            return {
+              ...layer,
+              width_cm,
+              height_cm,
+              scale: 1,
+              x_cm: anchorCenter.x_cm - width_cm / 2,
+              y_cm: anchorCenter.y_cm - height_cm / 2,
+              keepRatio: true,
+            };
+          }
+
+          const workspacePatch = projectLayerPatchToWorkspace(
+            patch,
+            designerCoordinateContext,
+          );
+          return {
+            ...layer,
+            ...(workspacePatch.width_cm !== undefined
+              ? { width_cm: workspacePatch.width_cm }
+              : {}),
+            ...(workspacePatch.height_cm !== undefined
+              ? { height_cm: workspacePatch.height_cm }
+              : {}),
+            ...(layer.type === "text"
+              ? { keepRatio: false as const }
+              : {}),
+          };
+        }),
+      );
+    },
+    [
+      guardEditable,
+      prepareDiscreteMutation,
+      setLayers,
+      designerCoordinateContext,
+    ],
+  );
+
   const handleInspectorRotation = useCallback(
     (id: string, rotation: number) => {
       if (!guardEditable()) return;
@@ -1281,6 +1393,38 @@ export function DesignerApp({
     setWarnings([]);
   }, []);
 
+  const handleBoostImageResolution = useCallback(
+    async (id: string) => {
+      if (!guardEditable()) return;
+      const layer = layers.find((l) => l.id === id);
+      if (!layer || layer.type !== "image") return;
+
+      prepareDiscreteMutation();
+      setIsBusy(true);
+      try {
+        const designerSize = getArtworkDesignerSizeCm(
+          layer,
+          designerCoordinateContext,
+        );
+        const updated = await boostImageLayerResolution(layer, undefined, {
+          width_cm: designerSize.width_cm,
+          height_cm: designerSize.height_cm,
+        });
+        if (updated === layer) return;
+        revokeLayerAssets(layer);
+        setLayers((prev) => prev.map((l) => (l.id === id ? updated : l)));
+        setStatusMessage("圖片已完成最佳化");
+      } catch (error) {
+        showUploadError(
+          error instanceof Error ? error.message : "無法最佳化圖片",
+        );
+      } finally {
+        setIsBusy(false);
+      }
+    },
+    [guardEditable, layers, prepareDiscreteMutation, setLayers, showUploadError, designerCoordinateContext],
+  );
+
   const handleUpload = async (file: File) => {
     if (!guardEditable()) return;
     setStatusMessage(null);
@@ -1303,7 +1447,10 @@ export function DesignerApp({
         return;
       }
 
-      const preview = await createPreviewFromFile(file);
+      const [preview, artworkBounds] = await Promise.all([
+        createPreviewFromFile(file),
+        analyzeImageArtworkBoundsFromFile(file),
+      ]);
       const pendingPreset = pendingPlacementPresetId
         ? getPlacementPresetById(pendingPlacementPresetId, size)
         : null;
@@ -1323,8 +1470,8 @@ export function DesignerApp({
         );
       } else {
         placement = createDesignerUploadPlacement(
-          preview.naturalWidth,
-          preview.naturalHeight,
+          artworkBounds.visibleWidth,
+          artworkBounds.visibleHeight,
           layers.length,
           designerCoordinateContext,
         );
@@ -1341,6 +1488,7 @@ export function DesignerApp({
         naturalHeight: preview.naturalHeight,
         imagePixelWidth: preview.naturalWidth,
         imagePixelHeight: preview.naturalHeight,
+        artworkBounds,
         mimeType: file.type,
         fileName: file.name,
       };
@@ -2101,6 +2249,7 @@ export function DesignerApp({
       layers={layers}
       selectedLayerId={primaryId}
     >
+    <ArtworkSizeCoordinateProvider ctx={designerCoordinateContext}>
     <PlacementPresetSizeProvider size={size}>
     <div className="flex h-full flex-col bg-zinc-50 text-zinc-900">
       <div className="flex min-h-0 flex-1">
@@ -2276,6 +2425,8 @@ export function DesignerApp({
           onTextPatch={handleTextInspectorPatch}
           onImageTransform={handleInspectorImageTransform}
           onImageResize={handleInspectorImageResize}
+          onArtworkSizePatch={handleArtworkSizePatch}
+          onBoostImageResolution={handleBoostImageResolution}
           onRotationChange={handleInspectorRotation}
           onAlignLayers={handleAlignLayers}
           onApplyPlacementPreset={handleApplyPlacementPreset}
@@ -2468,6 +2619,7 @@ export function DesignerApp({
       )}
     </div>
     </PlacementPresetSizeProvider>
+    </ArtworkSizeCoordinateProvider>
     </LiveDesignStateProvider>
   );
 }

@@ -62,6 +62,8 @@ export function PreviewInfoPanel({
   onTextPatch,
   onImageTransform,
   onImageResize,
+  onArtworkSizePatch,
+  onBoostImageResolution,
   onRotationChange,
   className = "",
 }: {
@@ -91,6 +93,11 @@ export function PreviewInfoPanel({
     id: string,
     next: { x_cm: number; y_cm: number; width_cm: number; height_cm: number },
   ) => void;
+  onArtworkSizePatch: (
+    id: string,
+    patch: { width_cm?: number; height_cm?: number },
+  ) => void;
+  onBoostImageResolution?: (id: string) => void | Promise<void>;
   onRotationChange: (id: string, rotation: number) => void;
   className?: string;
 }) {
@@ -156,6 +163,8 @@ export function PreviewInfoPanel({
               onTextPatch={onTextPatch}
               onImageTransform={onImageTransform}
               onImageResize={onImageResize}
+              onArtworkSizePatch={onArtworkSizePatch}
+              onBoostImageResolution={onBoostImageResolution}
               onRotationChange={onRotationChange}
             />
           </div>

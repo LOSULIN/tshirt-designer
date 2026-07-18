@@ -42,7 +42,7 @@ export function ProductExportDialog({
               商品圖匯出
             </h2>
             <p className="mt-0.5 text-xs text-zinc-500">
-              Artwork → Render Engine → Product Registry
+              工廠 Artwork（印刷尺寸）與商品圖預覽
             </p>
           </div>
           <button
@@ -57,11 +57,13 @@ export function ProductExportDialog({
         <ProductRenderPreview
           artworkUrl={preview?.artworkUrl}
           productUrl={preview?.productUrl}
+          artworkLabel="工廠 Artwork"
+          productLabel="商品圖"
         />
 
         {preview ? (
           <p className="mt-2 text-[10px] text-zinc-500">
-            {preview.productFileName}
+            {preview.artworkFileName} · {preview.productFileName}
           </p>
         ) : null}
 
@@ -71,7 +73,8 @@ export function ProductExportDialog({
 
         <div className="mt-3 flex gap-2">
           <ProductExportButton
-            label="下載 Artwork"
+            label="下載工廠 Artwork"
+            title="工廠印刷使用：依 Artwork 實際尺寸輸出，可直接用於 Illustrator / RIP"
             onClick={onDownloadArtwork}
             loading={loading}
           />
