@@ -3,6 +3,10 @@ import type { ShapeDesignLayer, ShapeKind } from "./types";
 import { nanoid } from "nanoid";
 import { defaultLayerName, getNextZIndex } from "./layers";
 import type { DesignLayer } from "./types";
+import {
+  DESIGNER_DEFAULTS,
+  DESIGNER_SHAPE_FALLBACK_STROKE_CM,
+} from "./designer-defaults";
 
 export const SHAPE_KIND_OPTIONS: { id: ShapeKind; label: string }[] = [
   { id: "rectangle", label: "矩形" },
@@ -43,7 +47,14 @@ export function createDefaultShapeLayer(
     rotation: 0,
     fill: kind === "line" || kind === "arrow" ? "transparent" : "#3b82f6",
     stroke: "#1e3a8a",
-    strokeWidth_cm: kind === "line" ? 0.35 : 0.25,
+    strokeWidth_cm:
+      kind === "line"
+        ? DESIGNER_DEFAULTS.line.strokeWidth_cm
+        : kind === "arrow"
+          ? DESIGNER_DEFAULTS.arrow.strokeWidth_cm
+          : kind === "rectangle"
+            ? DESIGNER_DEFAULTS.rectangle.strokeWidth_cm
+            : DESIGNER_DEFAULTS.ellipse.strokeWidth_cm,
     opacity: 1,
   };
 }
@@ -55,7 +66,7 @@ export function normalizeShapeDesignLayer(
     ...layer,
     fill: layer.fill ?? "#3b82f6",
     stroke: layer.stroke ?? "#1e3a8a",
-    strokeWidth_cm: layer.strokeWidth_cm ?? 0.25,
+    strokeWidth_cm: layer.strokeWidth_cm ?? DESIGNER_SHAPE_FALLBACK_STROKE_CM,
     opacity: layer.opacity ?? 1,
   };
 }

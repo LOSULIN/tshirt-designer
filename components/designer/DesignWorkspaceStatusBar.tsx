@@ -4,9 +4,11 @@ import { useMemo } from "react";
 import type { PrintAreaCmBounds } from "@/lib/design-cm";
 import { formatGarmentPrintAreaCmPair } from "@/lib/garment-constraint-ux";
 import type { GarmentPrintStatus } from "@/lib/garment-constraint-ux-polish";
+import { validateDesignLayers } from "@/lib/print-validation";
 import type { DesignLayer } from "@/lib/types";
 import type { Side } from "@/lib/constants";
 import { GarmentConstraintTooltip } from "./GarmentConstraintUxPrimitives";
+import { WorkspacePrintQualitySummary } from "./PrintValidationPanel";
 import { ds } from "./design-ui";
 import { resolveWorkspacePrintStatus } from "./workspace-print-status-ui";
 
@@ -82,6 +84,17 @@ export function DesignWorkspaceStatusBar({
     ? "text-red-700"
     : "text-zinc-800";
 
+  const printValidation = useMemo(
+    () => validateDesignLayers(layers, { side: side ?? "front", size }),
+    [layers, side, size],
+  );
+
+  const printIssueCount =
+    printValidation.infoCount +
+    printValidation.recommendationCount +
+    printValidation.warningCount +
+    printValidation.criticalCount;
+
   if (compact) {
     return (
       <div
@@ -119,6 +132,11 @@ export function DesignWorkspaceStatusBar({
             />
           </span>
         </GarmentConstraintTooltip>
+        <WorkspacePrintQualitySummary
+          score={printValidation.overallScore}
+          printReady={printValidation.printReady}
+          issueCount={printIssueCount}
+        />
       </div>
     );
   }
@@ -157,6 +175,11 @@ export function DesignWorkspaceStatusBar({
           />
         </span>
       </GarmentConstraintTooltip>
+      <WorkspacePrintQualitySummary
+        score={printValidation.overallScore}
+        printReady={printValidation.printReady}
+        issueCount={printIssueCount}
+      />
     </div>
   );
 }

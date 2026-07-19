@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 import { getOverlayPxPerCm } from "./design-cm";
 import type { TextDesignLayer, TextFontFamily } from "./types";
 import { buildCanvasFont, resolveCssFontFamily } from "./text-layer";
+import { DESIGNER_DEFAULTS } from "./designer-defaults";
 
 export type TextAlign = "left" | "center" | "right";
 
@@ -40,8 +41,8 @@ export const DEFAULT_TEXT_SHADOW: TextShadowStyle = {
 
 export const DEFAULT_RICH_TEXT_FIELDS: RichTextFields = {
   fontStyle: "normal",
-  letterSpacing_cm: 0,
-  lineHeight: 1.3,
+  letterSpacing_cm: DESIGNER_DEFAULTS.text.letterSpacing_cm,
+  lineHeight: DESIGNER_DEFAULTS.text.lineHeight,
   textAlign: "center",
   stroke: null,
   shadow: null,

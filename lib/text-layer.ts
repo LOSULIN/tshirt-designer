@@ -10,6 +10,7 @@ import {
 } from "./text-style";
 import type { TextFontFamily, TextLayer, TextDesignLayer } from "./types";
 import { nanoid } from "nanoid";
+import { DESIGNER_DEFAULTS } from "./designer-defaults";
 
 export const DEFAULT_NEW_TEXT = "TEST";
 
@@ -180,9 +181,9 @@ export function createDefaultTextLayer(
   printArea?: PrintAreaCmBounds,
 ): TextLayer {
   const area = printArea ?? getPrintAreaCmBounds();
-  const fontSize_cm = 4.8;
+  const fontSize_cm = DESIGNER_DEFAULTS.text.fontSize_cm;
   const fontFamily: TextFontFamily = "Inter";
-  const fontWeight = 400;
+  const fontWeight = DESIGNER_DEFAULTS.text.fontWeight;
   const { width_cm, height_cm } = measureTextBoundsCm(
     DEFAULT_NEW_TEXT,
     fontSize_cm,

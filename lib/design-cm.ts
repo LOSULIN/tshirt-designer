@@ -31,6 +31,7 @@ import type {
   TextDesignLayer,
   TextLayer,
 } from "./types";
+import { DESIGNER_DEFAULTS } from "./designer-defaults";
 
 export interface LayerCmRect {
   x_cm: number;
@@ -317,10 +318,10 @@ export function layerProductionRectToPercentStyle(
 export function createDefaultTextLayerCm(
   printArea: PrintAreaCmBounds = getPrintAreaCmBounds(),
 ): Omit<TextLayer, "id"> & LayerCmRect & { fontSize_cm: number } {
-  const fontSize_cm = 4.8;
+  const fontSize_cm = DESIGNER_DEFAULTS.text.fontSize_cm;
   const text = "TEST";
   const width_cm = Math.max(fontSize_cm * 4, 2);
-  const height_cm = fontSize_cm * 1.3;
+  const height_cm = fontSize_cm * DESIGNER_DEFAULTS.text.lineHeight;
   return {
     type: "text",
     text,
@@ -328,7 +329,7 @@ export function createDefaultTextLayerCm(
     fontFamily: "Inter",
     color: "#000000",
     opacity: 1,
-    fontWeight: 400,
+    fontWeight: DESIGNER_DEFAULTS.text.fontWeight,
     rotation: 0,
     scale: 1,
     x_cm: (printArea.width - width_cm) / 2,

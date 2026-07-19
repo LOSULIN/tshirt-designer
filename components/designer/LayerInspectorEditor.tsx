@@ -23,6 +23,7 @@ import type { DesignLayer } from "@/lib/types";
 import { ArtworkSizePanel } from "./ArtworkSizePanel";
 import { ImagePrintQualityPanel } from "./ImagePrintQualityPanel";
 import { InspectorProofDetails } from "./InspectorProofDetails";
+import { LayerPrintValidationSection } from "./LayerPrintValidationSection";
 import { InspectorNumberInput } from "./InspectorNumberInput";
 
 function Field({
@@ -121,6 +122,7 @@ export function LayerInspectorEditor({
         onPatch={(patch) => onTextPatch(layer.id, patch)}
         onRotationChange={(rotation) => onRotationChange(layer.id, rotation)}
         />
+        <LayerPrintValidationSection layer={layer} side={side} size={size} />
       </div>
     );
   }
@@ -144,6 +146,7 @@ export function LayerInspectorEditor({
         onResize={(next) => onImageResize(layer.id, next)}
         onRotationChange={(rotation) => onRotationChange(layer.id, rotation)}
         />
+        <LayerPrintValidationSection layer={layer} side={side} size={size} />
       </div>
     );
   }
@@ -172,6 +175,7 @@ export function LayerInspectorEditor({
       onResize={(next) => onImageResize(layer.id, next)}
       onRotationChange={(rotation) => onRotationChange(layer.id, rotation)}
       />
+      <LayerPrintValidationSection layer={layer} side={side} size={size} />
     </div>
   );
 }
