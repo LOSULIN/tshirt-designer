@@ -1,4 +1,5 @@
 import { renderFactoryArtworkExportPng } from "@/lib/export-artwork-factory";
+import type { ExportPipelineContext } from "@/lib/designer-geometry-v2/export-pipeline-context";
 import type { Side } from "@/lib/constants";
 import type { DesignLayer } from "@/lib/types";
 import type { RenderQuality } from "./render-quality";
@@ -9,6 +10,7 @@ export interface ProductFactoryArtworkExportOptions {
   size: string;
   quality: RenderQuality;
   pixelScale: number;
+  pipelineContext?: ExportPipelineContext;
 }
 
 /**
@@ -27,5 +29,6 @@ export async function renderProductFactoryArtworkPng(
     side: options.side,
     size: options.size,
     pixelScale,
+    pipelineContext: options.pipelineContext,
   });
 }

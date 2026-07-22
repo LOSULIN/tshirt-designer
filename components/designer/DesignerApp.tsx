@@ -4,6 +4,16 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DesignCanvas } from "./DesignCanvas";
 import { PlacementPresetSizeProvider } from "./PlacementPresetToolbar";
 import { DesignPanel } from "./DesignPanel";
+import {
+  GeometryRuntimeProvider,
+} from "@/lib/designer-geometry-v2/geometry-runtime-context";
+import {
+  createDefaultProofSubmitRuntimeContext,
+  PROOF_RUNTIME_CONTEXT_FORM_FIELD,
+  type ProofSubmitRuntimeContext,
+  serializeProofSubmitRuntimeContext,
+} from "@/lib/designer-geometry-v2/proof-submit-runtime-context";
+import { ProofSubmitRuntimeContextBridge } from "./ProofSubmitRuntimeContextBridge";
 import { LiveDesignStateProvider } from "./LiveDesignStateContext";
 import { IconNav } from "./IconNav";
 import { withAutoLayerName } from "./layer-auto-name-ui";
@@ -328,6 +338,15 @@ export function DesignerApp({
   initialPreviewPrintPositionMode,
 }: DesignerAppProps) {
   const isContestMode = mode === "contest";
+  const proofSubmitRuntimeContextRef = useRef<ProofSubmitRuntimeContext>(
+    createDefaultProofSubmitRuntimeContext(),
+  );
+  const syncProofSubmitRuntimeContext = useCallback(
+    (context: ProofSubmitRuntimeContext) => {
+      proofSubmitRuntimeContextRef.current = context;
+    },
+    [],
+  );
   const draftStorage = useMemo(() => createDraftStorage(mode), [mode]);
   const [activeTab, setActiveTab] = useState<PanelTab>("product");
   const [gender, setGender] = useState<Gender>("child-male");
@@ -1985,12 +2004,21 @@ export function DesignerApp({
       });
 
       setStatusMessage("正在產生設計預覽檔…");
-      const proofArtifacts = await prepareProofSubmission(proofOrder);
+      const proofArtifacts = await prepareProofSubmission(
+        proofOrder,
+        proofSubmitRuntimeContextRef.current,
+      );
 
       setStatusMessage("正在上傳申請…");
 
       const formData = new FormData();
       appendProofArtifactsToFormData(formData, proofArtifacts);
+      formData.append(
+        PROOF_RUNTIME_CONTEXT_FORM_FIELD,
+        serializeProofSubmitRuntimeContext(
+          proofSubmitRuntimeContextRef.current,
+        ),
+      );
       formData.append("designJson", designJson);
       formData.append("textJson", textJson);
       formData.append("applicantJson", JSON.stringify(applicantPayload));
@@ -2243,6 +2271,8 @@ export function DesignerApp({
   );
 
   return (
+    <GeometryRuntimeProvider>
+    <ProofSubmitRuntimeContextBridge onContext={syncProofSubmitRuntimeContext} />
     <LiveDesignStateProvider
       size={size}
       side={side}
@@ -2621,5 +2651,6 @@ export function DesignerApp({
     </PlacementPresetSizeProvider>
     </ArtworkSizeCoordinateProvider>
     </LiveDesignStateProvider>
+    </GeometryRuntimeProvider>
   );
 }

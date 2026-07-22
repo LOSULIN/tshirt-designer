@@ -1,0 +1,11 @@
+=== Shadow Compare (white/front) — WARNING ===
+Active=v1 Shadow=v2
+Collar: V1=(512, 386) V2=(512, 416) ΔY=30px (7.77%)
+Factory Origin: V1=(512, 386) V2=(512, 416) ΔY=30px (7.77%)
+Artwork Stage: V1=top=471.68 left=297.79999999999995 428.40000000000003×612 V2=top=501.68 left=297.8 428.4×612 ΔX=0px ΔY=30px ΔW=0px ΔH=0px (0%)
+Safe Area: V1=top=471.68 left=316.15999999999997 391.68×563.04 V2=top=501.68 left=316.16 391.68×563.04 ΔX=0px ΔY=30px ΔW=0px ΔH=0px (0%)
+Garment Width: V1=969 V2=981.5 ΔY=12.5px (1.29%)
+Garment Height: V1=924 V2=998 ΔY=74px (8.01%)
+Center: V1=(512, 768) V2=(511.95, 772.9) ΔY=4.9px (0.64%)
+Hem: V1=(512, 1215) V2=(511.95, 1270.9) ΔY=55.9px (4.6%)
+max|ΔY|=74px avg|ΔY|=33.41px

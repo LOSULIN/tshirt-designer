@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <title>Phase 60.1 Garment Shape Validation</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #f4f4f5; margin: 0; padding: 24px; }
+    h1 { font-size: 1.25rem; margin: 0 0 8px; }
+    p { color: #52525b; font-size: 0.875rem; margin: 0 0 20px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
+    .card { background: #fff; border: 1px solid #e4e4e7; border-radius: 12px; overflow: hidden; }
+    .card h2 { font-size: 0.875rem; margin: 0; padding: 10px 12px 4px; }
+    .meta { font-size: 0.7rem; color: #71717a; padding: 0 12px 8px; line-height: 1.4; }
+    canvas { display: block; width: 100%; height: auto; background: #e4e4e7; }
+    .artwork-overlay { position: relative; }
+    .badge { display: inline-block; background: #dbeafe; color: #1d4ed8; border-radius: 4px; padding: 1px 6px; font-size: 0.65rem; }
+  </style>
+</head>
+<body>
+  <h1>Phase 60.1 — Garment Shape Validation (14 sizes)</h1>
+  <p>Official ratios: width = chest/M.chest, height = length/M.length. Artwork placement frozen. Open in browser for visual review.</p>
+  <div class="grid" id="grid"></div>
+  <script>
+    const SIZES = [{"size":"90","chest":29,"length":36,"widthRatio":0.5576923076923077,"heightRatio":0.5217391304347826,"garment":{"x":226.46153846153845,"y":0,"width":571.0769230769231,"height":801.391304347826},"artwork":{"x":395.752,"y":491.6504,"width":232.49599999999998,"height":310.69919999999996},"note":"童裝：胸窄衣短，heightRatio(0.522) < widthRatio(0.558) 相對於 uniform"},{"size":"110","chest":33,"length":44,"widthRatio":0.6346153846153846,"heightRatio":0.6376811594202898,"garment":{"x":187.0769230769231,"y":0,"width":649.8461538461538,"height":979.4782608695651},"artwork":{"x":370.3604,"y":489.5772,"width":284.2792,"height":387.8456},"note":"兒童：逐步接近成人比例"},{"size":"130","chest":37,"length":51,"widthRatio":0.7115384615384616,"heightRatio":0.7391304347826086,"garment":{"x":147.69230769230768,"y":0,"width":728.6153846153846,"height":1135.304347826087},"artwork":{"x":350.30960000000005,"y":487.8448,"width":323.38079999999997,"height":452.31039999999996},"note":""},{"size":"150","chest":43,"length":59,"widthRatio":0.8269230769230769,"heightRatio":0.855072463768116,"garment":{"x":88.61538461538464,"y":0,"width":846.7692307692307,"height":1313.391304347826},"artwork":{"x":324.918,"y":485.7432,"width":375.164,"height":530.5136},"note":""},{"size":"160","chest":46,"length":62,"widthRatio":0.8846153846153846,"heightRatio":0.8985507246376812,"garment":{"x":59.076923076923094,"y":0,"width":905.8461538461538,"height":1380.1739130434783},"artwork":{"x":305.8956,"y":484.6924,"width":413.2088,"height":569.6152},"note":""},{"size":"GS","chest":43,"length":59,"widthRatio":0.8269230769230769,"heightRatio":0.855072463768116,"garment":{"x":88.61538461538464,"y":0,"width":846.7692307692307,"height":1313.391304347826},"artwork":{"x":324.918,"y":485.7432,"width":375.164,"height":530.5136},"note":""},{"size":"GM","chest":46,"length":62,"widthRatio":0.8846153846153846,"heightRatio":0.8985507246376812,"garment":{"x":59.076923076923094,"y":0,"width":905.8461538461538,"height":1380.1739130434783},"artwork":{"x":305.8956,"y":484.6924,"width":413.2088,"height":569.6152},"note":""},{"size":"GL","chest":49,"length":65,"widthRatio":0.9423076923076923,"heightRatio":0.9420289855072463,"garment":{"x":29.538461538461547,"y":0,"width":964.9230769230769,"height":1446.9565217391305},"artwork":{"x":285.8448,"y":484.0108,"width":452.31039999999996,"height":594.9784},"note":""},{"size":"S","chest":49,"length":65,"widthRatio":0.9423076923076923,"heightRatio":0.9420289855072463,"garment":{"x":29.538461538461547,"y":0,"width":964.9230769230769,"height":1446.9565217391305},"artwork":{"x":285.8448,"y":484.0108,"width":452.31039999999996,"height":594.9784},"note":""},{"size":"M","chest":52,"length":69,"widthRatio":1,"heightRatio":1,"garment":{"x":0,"y":0,"width":1024,"height":1536},"artwork":{"x":285.8448,"y":482.61920000000003,"width":452.31039999999996,"height":646.7615999999999},"note":"Baseline identity — garment + artwork 與正式版一致"},{"size":"L","chest":55,"length":73,"widthRatio":1.0576923076923077,"heightRatio":1.0579710144927537,"garment":{"x":-29.538461538461547,"y":0,"width":1083.076923076923,"height":1625.0434782608695},"artwork":{"x":266.794,"y":481.93760000000003,"width":491.412,"height":672.1247999999999},"note":""},{"size":"XL","chest":58,"length":77,"widthRatio":1.1153846153846154,"heightRatio":1.1159420289855073,"garment":{"x":-59.076923076923094,"y":0,"width":1142.1538461538462,"height":1714.0869565217392},"artwork":{"x":254.11240000000004,"y":480.8868,"width":516.7751999999999,"height":711.2264},"note":""},{"size":"XXL","chest":63,"length":81,"widthRatio":1.2115384615384615,"heightRatio":1.173913043478261,"garment":{"x":-108.30769230769226,"y":0,"width":1240.6153846153845,"height":1803.130434782609},"artwork":{"x":240.4024,"y":479.836,"width":543.1952,"height":750.328},"note":""},{"size":"XXXL","chest":68,"length":84,"widthRatio":1.3076923076923077,"heightRatio":1.2173913043478262,"garment":{"x":-157.53846153846155,"y":0,"width":1339.076923076923,"height":1869.913043478261},"artwork":{"x":221.38,"y":479.1544,"width":581.24,"height":775.6912},"note":"大尺碼：widthRatio(1.308) > heightRatio(1.217)，胸寬增幅較大"}];
+    const GARMENT_URL = "/products/UA35001/assets/adult-tshirt-white-front.png";
+    const ASSET_W = 1024;
+    const ASSET_H = 1536;
+
+    function makeSampleArtwork(w, h) {
+      const c = document.createElement("canvas");
+      c.width = w; c.height = h;
+      const ctx = c.getContext("2d");
+      const g = ctx.createLinearGradient(0, 0, w, h);
+      g.addColorStop(0, "#3b82f6");
+      g.addColorStop(1, "#8b5cf6");
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, w, h);
+      ctx.strokeStyle = "#fff";
+      ctx.lineWidth = 4;
+      ctx.strokeRect(2, 2, w - 4, h - 4);
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 24px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("ART", w / 2, h / 2 + 8);
+      return c;
+    }
+
+    async function renderCard(entry) {
+      const card = document.createElement("div");
+      card.className = "card";
+      const title = document.createElement("h2");
+      title.textContent = entry.size + (entry.size === "M" ? " ★ Identity" : "");
+      const meta = document.createElement("div");
+      meta.className = "meta";
+      meta.innerHTML = [
+        "chest " + entry.chest + "cm · length " + entry.length + "cm",
+        "W " + entry.widthRatio.toFixed(3) + " · H " + entry.heightRatio.toFixed(3),
+        entry.note ? '<span class="badge">' + entry.note + '</span>' : "",
+      ].filter(Boolean).join("<br>");
+      const canvas = document.createElement("canvas");
+      canvas.width = ASSET_W;
+      canvas.height = ASSET_H;
+      card.appendChild(title);
+      card.appendChild(meta);
+      card.appendChild(canvas);
+
+      const ctx = canvas.getContext("2d");
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      await new Promise((res, rej) => {
+        img.onload = res;
+        img.onerror = rej;
+        img.src = GARMENT_URL;
+      });
+
+      const g = entry.garment;
+      ctx.drawImage(img, g.x, g.y, g.width, g.height);
+
+      if (entry.artwork) {
+        const a = entry.artwork;
+        const art = makeSampleArtwork(Math.max(1, Math.round(a.width)), Math.max(1, Math.round(a.height)));
+        ctx.globalAlpha = 0.85;
+        ctx.drawImage(art, a.x, a.y, a.width, a.height);
+        ctx.globalAlpha = 1;
+        ctx.strokeStyle = "#ef4444";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([6, 4]);
+        ctx.strokeRect(a.x, a.y, a.width, a.height);
+        ctx.setLineDash([]);
+      }
+
+      return card;
+    }
+
+  (async () => {
+    const grid = document.getElementById("grid");
+    for (const entry of SIZES) {
+      grid.appendChild(await renderCard(entry));
+    }
+  })();
+  </script>
+</body>
+</html>

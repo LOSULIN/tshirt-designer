@@ -8,6 +8,9 @@ import {
   getCachedArtifacts,
   setCachedArtifacts,
 } from "../export/artifact-cache";
+import { resolveProofMockupRuntimeForward } from "@/lib/designer-geometry-v2/product-mockup-submit-runtime";
+import { DESIGNER_GEOMETRY_VERSION } from "@/lib/designer-geometry-v2/geometry-version";
+import type { ProofSubmitRuntimeContext } from "@/lib/designer-geometry-v2/proof-submit-runtime-context";
 import { submissionProfiler } from "../submission/profiler";
 import type { ProofArtifactsInput, ProofOrder } from "./types";
 import { generateMockupsForOrder } from "./generators/mockup-generator";
@@ -20,6 +23,7 @@ import {
 
 export async function generateProofArtifacts(
   order: ProofOrder,
+  proofRuntimeContext?: ProofSubmitRuntimeContext,
 ): Promise<ProofArtifactsInput> {
   if (!hasAnyDesign(order.layers_by_template)) {
     throw new Error("尚無可產生校稿的設計內容");
@@ -32,7 +36,17 @@ export async function generateProofArtifacts(
     throw new Error("目前模板尚無可產生校稿的設計內容");
   }
 
-  const fingerprint = computeExportFingerprint(order);
+  const fingerprint = (() => {
+    const base = computeExportFingerprint(order);
+    const mockupForward = resolveProofMockupRuntimeForward(
+      order,
+      proofRuntimeContext,
+    );
+    if (mockupForward.geometryVersion === DESIGNER_GEOMETRY_VERSION.V1) {
+      return base;
+    }
+    return `${base}:mockup:${mockupForward.geometryVersion}`;
+  })();
   const cached = getCachedArtifacts(fingerprint);
   if (cached) {
     submissionProfiler.record("Generate Artifacts", 0, "client");
@@ -49,6 +63,7 @@ export async function generateProofArtifacts(
           shirtColor: order.shirt_color,
           layersByTemplate: order.layers_by_template,
           size: order.size,
+          proofRuntimeContext,
         }),
       ),
       submissionProfiler.run("Generate Prints", "client", () =>

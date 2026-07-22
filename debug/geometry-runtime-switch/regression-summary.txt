@@ -1,0 +1,18 @@
+Geometry Runtime Switch Regression — Phase 69.6
+
+PASS: ACTIVE_DESIGNER_GEOMETRY_VERSION = v1
+PASS: Geometry Runtime Context defaults to V1
+PASS: V1→V2→V1 switch normal
+PASS: Designer / ResultPanel sync (same effective version)
+PASS: Environment Variable no longer controls UI runtime
+PASS: Production fixed Geometry V1
+PASS: Development can switch (console available)
+PASS: Export Runtime Toggle defaults all OFF
+PASS: Export Runtime guard (OFF=V1, ON=V2)
+PASS: Geometry Debug Layer shapes resolve for V1/V2
+PASS: Geometry Resolver unified entry
+PASS: Runtime modules avoid React context circular imports
+PASS: Component runtime isolation (allowed adapters only)
+PASS: Frozen layers do not import runtime context
+
+ALL PASS

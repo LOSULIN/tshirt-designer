@@ -135,6 +135,7 @@ export interface RenderPrintExportOptions {
   size?: string;
   /** Multiplies output canvas pixels (physical cm unchanged via pHYs). Product Export only. */
   pixelScale?: number;
+  pipelineContext?: import("@/lib/designer-geometry-v2/export-pipeline-context").ExportPipelineContext;
 }
 
 /**
@@ -144,6 +145,7 @@ export async function renderPrintExportPng(
   layers: DesignLayer[],
   options?: RenderPrintExportOptions,
 ): Promise<Blob> {
+  void options?.pipelineContext;
   const side = options?.side ?? "front";
   const size = options?.size ?? "M";
   const pixelScale = Math.max(1, options?.pixelScale ?? 1);

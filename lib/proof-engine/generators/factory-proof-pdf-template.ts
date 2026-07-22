@@ -28,11 +28,18 @@ import { getAdultTshirtTemplateSrc } from "../../shirt-template";
 import type { PdfArtworkPositionPresentation } from "../pdf-position-presentation";
 import {
   mapDesignerLayoutToPdf,
-  resolveDesignerPreviewLayout,
   type DesignerPdfRenderPlacement,
 } from "../designer-layout";
 import type { ProofOrder } from "../types";
 import type { PdfMockupContentAreaPt } from "./pdf-mockup-layout";
+import type { ExportPipelineContext } from "@/lib/designer-geometry-v2/export-pipeline-context";
+import type { DesignerGeometryVersion } from "@/lib/designer-geometry-v2/geometry-version";
+import {
+  maybeLogPdfExportRuntimeCompare,
+  resolvePdfExportPipelineContext,
+  resolvePdfExportRuntimeLayout,
+  resolvePdfExportRuntimePresentationOffsetY,
+} from "@/lib/designer-geometry-v2/export-pdf-runtime";
 
 export const FACTORY_PROOF_A4_WIDTH_PT = 595.28;
 export const FACTORY_PROOF_A4_HEIGHT_PT = 841.89;
@@ -45,24 +52,36 @@ const FOOTER_H = 78;
 const LEFT_PANEL_W = 172;
 const PANEL_GUTTER = 14;
 
-/**
- * PDF-only：印刷區（Artwork + 藍框）視覺 Y 微調（pt，bottom-origin；正值 = 上移）。
- * 不寫入 render；不影響 Designer / Export / Guide / Shirt。
- */
-const FACTORY_PROOF_PRINTAREA_PRESENTATION_OFFSET: Record<Side, number> = {
-  front: 9.3294,
-  back: 17.9914,
-};
-
-function getFactoryProofPrintAreaPresentationOffsetY(side: Side): number {
-  return FACTORY_PROOF_PRINTAREA_PRESENTATION_OFFSET[side];
-}
-
 export interface FactoryProofPdfInput {
   order: ProofOrder;
   version: number;
   mockupImages?: Partial<Record<Side, Uint8Array | Buffer>>;
   printImages?: Partial<Record<Side, Uint8Array | Buffer>>;
+  geometryVersion?: DesignerGeometryVersion;
+  pipelineContextBySide?: Partial<Record<Side, ExportPipelineContext>>;
+  /** Single-side dev override; prefer pipelineContextBySide for multi-page proofs. */
+  pipelineContext?: ExportPipelineContext;
+}
+
+function resolveSidePdfPipelineContext(
+  side: Side,
+  order: ProofOrder,
+  input: FactoryProofPdfInput,
+): ExportPipelineContext | undefined {
+  const bySide = input.pipelineContextBySide?.[side];
+  if (bySide) {
+    return bySide;
+  }
+
+  if (input.geometryVersion != null) {
+    return resolvePdfExportPipelineContext({
+      side,
+      size: order.size ?? "M",
+      geometryVersion: input.geometryVersion,
+    });
+  }
+
+  return input.pipelineContext;
 }
 
 interface PdfFonts {
@@ -479,6 +498,7 @@ function drawCollarOffsetGuide(
   ctx: PageContext,
   side: Side,
   render: DesignerPdfRenderPlacement,
+  pipelineContext?: ExportPipelineContext,
 ) {
   const { page, fonts, guideGray, tagYellow, tagText } = ctx;
 
@@ -487,7 +507,12 @@ function drawCollarOffsetGuide(
   const guideX = render.collarCenterPt.x;
   const collarY = render.collarCenterPt.y;
   const printTopY =
-    render.printAreaTopPt + getFactoryProofPrintAreaPresentationOffsetY(side);
+    render.printAreaTopPt +
+    resolvePdfExportRuntimePresentationOffsetY(
+      side,
+      render.shirt.heightPt,
+      pipelineContext,
+    );
   const lineW = 0.4;
   const tickHalf = Math.min(36, render.printAreaRenderWidthPt * 0.12);
 
@@ -712,16 +737,21 @@ async function drawMockupAnnotations(
   ctx: PageContext,
   side: Side,
   render: DesignerPdfRenderPlacement,
+  pipelineContext?: ExportPipelineContext,
 ) {
   const { page, printBlue } = ctx;
 
-  drawCollarOffsetGuide(ctx, side, render);
+  drawCollarOffsetGuide(ctx, side, render, pipelineContext);
 
   await drawDashedRect(
     page,
     render.printAreaLeftPt,
     render.printAreaBottomPt +
-      getFactoryProofPrintAreaPresentationOffsetY(side),
+      resolvePdfExportRuntimePresentationOffsetY(
+        side,
+        render.shirt.heightPt,
+        pipelineContext,
+      ),
     render.printAreaRenderWidthPt,
     render.printAreaRenderHeightPt,
     printBlue,
@@ -736,8 +766,9 @@ async function drawDesignerPreviewMockup(
   side: Side,
   panelArea: PdfMockupContentAreaPt,
   printBytes: Uint8Array | Buffer | undefined,
+  pipelineContext?: ExportPipelineContext,
 ): Promise<DesignerPdfRenderPlacement> {
-  const layout = resolveDesignerPreviewLayout(side);
+  const layout = resolvePdfExportRuntimeLayout(side, pipelineContext);
   const render = mapDesignerLayoutToPdf(layout, panelArea);
   logDesignerLayoutDebug(side, render);
 
@@ -756,7 +787,12 @@ async function drawDesignerPreviewMockup(
     const artworkImage = await doc.embedPng(toPngBuffer(printBytes));
     ctx.page.drawImage(artworkImage, {
       x: render.printAreaLeftPt,
-      y: render.printAreaBottomPt + getFactoryProofPrintAreaPresentationOffsetY(side),
+      y: render.printAreaBottomPt +
+        resolvePdfExportRuntimePresentationOffsetY(
+          side,
+          render.shirt.heightPt,
+          pipelineContext,
+        ),
       width: render.printAreaRenderWidthPt,
       height: render.printAreaRenderHeightPt,
     });
@@ -842,7 +878,10 @@ async function drawSideProofPage(
   version: number,
   mockupBytes: Uint8Array | Buffer | undefined,
   printBytes: Uint8Array | Buffer | undefined,
+  pipelineContext?: ExportPipelineContext,
 ) {
+  maybeLogPdfExportRuntimeCompare({ side, pipelineContext });
+
   drawPageHeader(ctx, side);
 
   const sideLayers = getLayersForSlot(
@@ -875,8 +914,9 @@ async function drawSideProofPage(
       side,
       panelArea,
       printBytes,
+      pipelineContext,
     );
-    await drawMockupAnnotations(ctx, side, render);
+    await drawMockupAnnotations(ctx, side, render, pipelineContext);
     drawFactoryProofInfoCard(
       ctx,
       panelArea,
@@ -885,7 +925,7 @@ async function drawSideProofPage(
       positionPresentation,
     );
   } else {
-    const layout = resolveDesignerPreviewLayout(side);
+    const layout = resolvePdfExportRuntimeLayout(side, pipelineContext);
     const render = mapDesignerLayoutToPdf(layout, panelArea);
     ctx.page.drawRectangle({
       x: render.contentArea.originX,
@@ -999,6 +1039,7 @@ export async function generateFactoryProofPdf(
       version,
       mockupImages[side],
       printImages[side],
+      resolveSidePdfPipelineContext(side, order, input),
     );
   }
 

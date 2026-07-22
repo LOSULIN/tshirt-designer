@@ -27,6 +27,11 @@ import type {
 } from "./types";
 import { proofArtifactHasBytes, PROOF_STORAGE_FILES } from "./types";
 import { submissionProfiler } from "../submission/profiler";
+import type { ProofSubmitRuntimeContext } from "@/lib/designer-geometry-v2/proof-submit-runtime-context";
+import {
+  maybeLogProofSubmitPdfRuntimeCompare,
+  resolveProofPdfRuntimeForward,
+} from "@/lib/designer-geometry-v2/export-pdf-submit-runtime";
 
 function bufferFrom(data: Uint8Array | Buffer): Buffer {
   return Buffer.isBuffer(data) ? data : Buffer.from(data);
@@ -184,6 +189,7 @@ export async function generateProofDocuments(
   ctx: ProofEngineContext,
   internalFiles: ProofInternalFiles,
   timing?: SubmitTiming,
+  proofRuntimeContext?: ProofSubmitRuntimeContext,
 ): Promise<ProofGenerationResult> {
   return submissionProfiler.run("Background", "server-background", async () => {
     submissionProfiler.mark("submission:server:background:start");
@@ -199,6 +205,16 @@ export async function generateProofDocuments(
       submissionProfiler.record("Mockup", 0, "server-background");
       timing?.mark("generateMockup");
 
+      const pdfRuntimeForward = resolveProofPdfRuntimeForward(
+        order,
+        proofRuntimeContext,
+      );
+      maybeLogProofSubmitPdfRuntimeCompare({
+        order,
+        proofRuntimeContext,
+        forward: pdfRuntimeForward,
+      });
+
       const proofPdfBytes = await submissionProfiler.run(
         "PDF",
         "server-background",
@@ -208,6 +224,8 @@ export async function generateProofDocuments(
             version,
             mockupImages: asBufferArtifactRecord(artifacts.mockups),
             printImages: asBufferArtifactRecord(artifacts.prints),
+            geometryVersion: pdfRuntimeForward.geometryVersion,
+            pipelineContextBySide: pdfRuntimeForward.pipelineContextBySide,
           }),
       );
       timing?.mark("generatePdf");
@@ -335,5 +353,7 @@ export async function generateProof(
     artifacts,
     ctx,
     internalFiles,
+    undefined,
+    undefined,
   );
 }

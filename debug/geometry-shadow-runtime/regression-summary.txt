@@ -1,0 +1,65 @@
+=== Phase 69.3 Shadow Runtime Regression ===
+PASS: ACTIVE_DESIGNER_GEOMETRY_VERSION = v1
+PASS: getActiveDesignerGeometryVersion() = v1
+PASS: isGeometryShadowEnabled() = true (development)
+PASS: isGeometryShadowEnabled() = false (production)
+PASS: runtime isolation: 0 geometry-v2/shadow imports in render paths
+PASS: GeometryShadowRuntime created successfully
+PASS: Product Master snapshot matches live build (cross-validation)
+PASS: shadow compare executed for 20/20 assets
+PASS: overall compare: 0 PASS, 20 WARNING
+PASS: average |ΔY|=28.95px max |ΔY|=94.3px
+PASS: shadow debug report built successfully
+PASS: GeometryShadowRuntime.compare() operational
+
+--- Shadow Runtime Flow ---
+Designer Runtime
+↓
+Geometry V1 (active render)
+↓
+Geometry V2 Product Master (shadow)
+↓
+Geometry Compare
+↓
+WARNING
+
+--- White Front Compare ---
+=== Shadow Compare (white/front) — WARNING ===
+Active=v1 Shadow=v2
+Collar: V1=(512, 386) V2=(512, 416) ΔY=30px (7.77%)
+Factory Origin: V1=(512, 386) V2=(512, 416) ΔY=30px (7.77%)
+Artwork Stage: V1=top=471.68 left=297.79999999999995 428.40000000000003×612 V2=top=501.68 left=297.8 428.4×612 ΔX=0px ΔY=30px ΔW=0px ΔH=0px (0%)
+Safe Area: V1=top=471.68 left=316.15999999999997 391.68×563.04 V2=top=501.68 left=316.16 391.68×563.04 ΔX=0px ΔY=30px ΔW=0px ΔH=0px (0%)
+Garment Width: V1=969 V2=981.5 ΔY=12.5px (1.29%)
+Garment Height: V1=924 V2=998 ΔY=74px (8.01%)
+Center: V1=(512, 768) V2=(511.95, 772.9) ΔY=4.9px (0.64%)
+Hem: V1=(512, 1215) V2=(511.95, 1270.9) ΔY=55.9px (4.6%)
+max|ΔY|=74px avg|ΔY|=33.41px
+
+--- White Back Compare ---
+=== Shadow Compare (white/back) — WARNING ===
+Active=v1 Shadow=v2
+Collar: V1=(512, 386) V2=(513, 388) ΔY=2px (0.52%)
+Factory Origin: V1=(512, 386) V2=(513, 388) ΔY=2px (0.52%)
+Artwork Stage: V1=top=447.2 left=279.44 465.12×550.8 V2=top=449.2 left=280.44 465.12×550.8 ΔX=1px ΔY=2px ΔW=0px ΔH=0px (0%)
+Safe Area: V1=top=447.2 left=316.15999999999997 391.68×514.08 V2=top=449.2 left=317.16 391.68×514.08 ΔX=1px ΔY=2px ΔW=0px ΔH=0px (0%)
+Garment Width: V1=966 V2=981.5 ΔY=15.5px (1.6%)
+Garment Height: V1=926 V2=1020.3 ΔY=94.3px (10.18%)
+Center: V1=(512, 768) V2=(512.95, 775.95) ΔY=7.95px (1.04%)
+Hem: V1=(512, 1215) V2=(512.95, 1285.1) ΔY=70.1px (5.77%)
+max|ΔY|=94.3px avg|ΔY|=24.48px
+
+--- Overall Summary ---
+20 Assets: 20 evaluated
+PASS: 0
+WARNING: 20
+Average Delta (|ΔY|): 28.95px
+Maximum Delta (|ΔY|): 94.3px
+Overall: WARNING
+
+--- Runtime Isolation ---
+Designer, Photo Bridge, Projection, ResultPanel, Export, Download: 0 geometry-v2 imports
+Render path: Geometry V1 only
+Geometry V2: Shadow Compare only
+
+ALL PASS

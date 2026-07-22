@@ -1,3 +1,5 @@
+import type { ExportPipelineContext } from "@/lib/designer-geometry-v2/export-pipeline-context";
+import type { DesignerGeometryVersion } from "@/lib/designer-geometry-v2/geometry-version";
 import { getProductProfile, getProducts } from "@/lib/products/product-registry";
 import type { ShirtColor, Side, Size } from "@/lib/constants";
 import { hasExportablePrintableDesign } from "@/lib/print-export";
@@ -39,6 +41,8 @@ export interface ProductExportInput {
   size: Size;
   shirtColor: ShirtColor;
   productCode?: string;
+  geometryVersion?: DesignerGeometryVersion;
+  pipelineContext?: ExportPipelineContext;
 }
 
 export interface ProductExportPreview {
@@ -81,6 +85,7 @@ async function renderProductMockupPngFromArtwork(input: {
   artworkBlob: Blob;
   quality: RenderQuality;
   garmentSize: Size;
+  pipelineContext?: ExportPipelineContext;
 }): Promise<Blob> {
   const artworkCanvas = await artworkBlobToCanvas(input.artworkBlob);
   const result = await renderProductMockupOnProduct({
@@ -92,6 +97,7 @@ async function renderProductMockupPngFromArtwork(input: {
     artworkHeight: artworkCanvas.height,
     quality: input.quality,
     garmentSize: input.garmentSize,
+    pipelineContext: input.pipelineContext,
   });
   return canvasToPngBlob(result.canvas);
 }
@@ -103,6 +109,7 @@ async function renderProductMockupPreviewFromArtwork(input: {
   artworkBlob: Blob;
   quality: RenderQuality;
   garmentSize: Size;
+  pipelineContext?: ExportPipelineContext;
 }): Promise<string> {
   const artworkCanvas = await artworkBlobToCanvas(input.artworkBlob);
   const result = await renderProductMockupOnProduct({
@@ -114,6 +121,7 @@ async function renderProductMockupPreviewFromArtwork(input: {
     artworkHeight: artworkCanvas.height,
     quality: input.quality,
     garmentSize: input.garmentSize,
+    pipelineContext: input.pipelineContext,
   });
   return result.dataUrl;
 }
@@ -176,6 +184,7 @@ export async function exportArtworkPng(
     size: input.size,
     quality: ctx.quality,
     pixelScale: ctx.pixelScale,
+    pipelineContext: input.pipelineContext,
   });
 }
 
@@ -190,6 +199,7 @@ async function exportPrintAreaArtworkForMockup(
     size: input.size,
     quality,
     pixelScale,
+    pipelineContext: input.pipelineContext,
   });
 }
 
@@ -210,6 +220,7 @@ export async function buildProductExportFiles(
     artworkBlob: mockupArtwork,
     quality: DOWNLOAD_QUALITY,
     garmentSize: input.size,
+    pipelineContext: input.pipelineContext,
   });
 
   return {
@@ -247,6 +258,7 @@ export async function buildProductExportPreview(
     artworkBlob: mockupArtwork,
     quality: PREVIEW_QUALITY,
     garmentSize: input.size,
+    pipelineContext: input.pipelineContext,
   });
 
   return {
@@ -312,6 +324,7 @@ export async function buildSupportedProductVariants(
       artworkBlob: mockupArtwork,
       quality: DOWNLOAD_QUALITY,
       garmentSize: input.size,
+      pipelineContext: input.pipelineContext,
     });
     variants.push({
       color,

@@ -1,0 +1,102 @@
+=== Geometry V2 QA Calibration Report ===
+Phase 70.3: UA35001 product photo visual collar-bottom + frozen 7cm (front) / 5cm (back). Not aligned to V1 template anchor (386px).
+
+Calibration Flow:
+  Builder + Overlay measurement (20 assets)
+  ↓
+  Baseline vs Calibrated Product Master
+  ↓
+  Shadow Render + Heatmap + Pixel Diff
+  ↓
+  Visual UA35001 alignment QA
+
+Builder Calibration Summary:
+  expand ratio: 1.28 → 1.2
+  blend ratio: 0.55 → 0.5
+  collar Y offset: front 0→125px, back 0→106px
+  master aggregation: mean → median + visual bias
+
+=== BEFORE (baseline) ===
+Collar Y: avg=293.6 maxΔ=318.0 σ=9.29
+Factory Origin Y: avg=293.6
+Artwork Stage top: avg=367.1
+Safe Area top: avg=367.1
+Hem Y: avg=1278.0 σ=18.11
+Center Y: avg=774.4
+Shoulder width: avg=578.0 σ=13.58
+Pixel diff %: avg=4.721 max=4.799
+Torso pixel diff %: avg=9.196
+Center diff Y: avg=528.0 max=549.5
+Top diff: avg=14.0
+Bottom diff: avg=1042.0
+
+=== AFTER (calibrated) ===
+Collar Y: avg=403.0 maxΔ=436.0 σ=15.92
+Factory Origin Y: avg=403.0
+Artwork Stage top: avg=476.4
+Safe Area top: avg=476.4
+Hem Y: avg=1278.0 σ=18.11
+Center Y: avg=774.4
+Shoulder width: avg=578.0 σ=13.58
+Pixel diff %: avg=2.000 max=2.849
+Torso pixel diff %: avg=3.459
+Center diff Y: avg=536.0 max=564.5
+Top diff: avg=14.0
+Bottom diff: avg=1058.0
+
+Improvement:
+  Collar σ: +6.63px
+  Avg pixel diff: -2.721%
+  Avg torso pixel diff: -5.737%
+  Avg center diff Y: +8.0px
+
+--- White Front Calibration ---
+Product Master collar: (512, 416)
+Factory origin: (512, 416)
+Artwork stage top: 501.68
+Safe area top: 501.68
+Hem: (511.95, 1270.9)
+Center: (511.95, 772.9)
+Shoulder width: 578.9px
+Layer position ΔY (vs V1): logo=30px, title=30px, badge=30px
+Layer scale/rotation: unchanged (same design intent)
+Pixel diff: 2.849% | torso: 5.087%
+Heatmap center ΔY: 565 | top diff: 14px | bottom diff: 1115px
+
+--- White Back Calibration ---
+Product Master collar: (513, 388)
+Factory origin: (513, 388)
+Artwork stage top: 449.2
+Safe area top: 449.2
+Hem: (512.95, 1285.1)
+Center: (512.95, 775.95)
+Shoulder width: 577.1px
+Layer position ΔY (vs V1): logo=2px, title=2px, badge=2px
+Layer scale/rotation: unchanged (same design intent)
+Pixel diff: 1.171% | torso: 1.860%
+Heatmap center ΔY: 508 | top diff: 14px | bottom diff: 1001px
+
+--- 20 Asset Results ---
+white/front: collar=401px stage=487 pixel=2.85% torso=5.09% centerΔY=565
+white/back: collar=386px stage=447 pixel=1.17% torso=1.86% centerΔY=508
+black/front: collar=436px stage=522 pixel=2.85% torso=5.09% centerΔY=565
+black/back: collar=397px stage=458 pixel=1.17% torso=1.86% centerΔY=508
+pink/front: collar=411px stage=497 pixel=2.85% torso=5.08% centerΔY=565
+pink/back: collar=388px stage=449 pixel=1.17% torso=1.86% centerΔY=508
+hotpink/front: collar=404px stage=490 pixel=2.81% torso=5.06% centerΔY=565
+hotpink/back: collar=379px stage=440 pixel=1.13% torso=1.80% centerΔY=508
+heathergray/front: collar=415px stage=501 pixel=2.84% torso=5.07% centerΔY=565
+heathergray/back: collar=396px stage=457 pixel=1.16% torso=1.84% centerΔY=508
+yellow/front: collar=422px stage=508 pixel=2.85% torso=5.09% centerΔY=565
+yellow/back: collar=380px stage=441 pixel=1.17% torso=1.86% centerΔY=508
+mint/front: collar=425px stage=511 pixel=2.83% torso=5.06% centerΔY=565
+mint/back: collar=403px stage=464 pixel=1.16% torso=1.84% centerΔY=508
+skyblue/front: collar=414px stage=500 pixel=2.83% torso=5.06% centerΔY=565
+skyblue/back: collar=382px stage=443 pixel=1.16% torso=1.84% centerΔY=508
+lightblue/front: collar=416px stage=502 pixel=2.83% torso=5.06% centerΔY=565
+lightblue/back: collar=400px stage=461 pixel=1.16% torso=1.83% centerΔY=508
+indigo/front: collar=418px stage=504 pixel=2.84% torso=5.08% centerΔY=565
+indigo/back: collar=387px stage=448 pixel=1.17% torso=1.86% centerΔY=508
+
+Verdict: PASS
+Inspect debug/geometry-calibration/after/white-*-heatmap.png — collar cross and artwork stage should align with visible UA35001 collar/chest. Do not chase V1 coordinate parity.

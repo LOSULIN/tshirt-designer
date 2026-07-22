@@ -1,0 +1,205 @@
+Geometry Overlay Delta Summary
+
+==============================
+
+white/front: collar Δ-103px, origin Δy-103px, stage Δ-103px, safe Δ-103px
+
+white/back: collar Δ-100px, origin Δy-100px, stage Δ-100px, safe Δ-100px
+
+black/front: collar Δ-68px, origin Δy-68px, stage Δ-68px, safe Δ-68px
+
+black/back: collar Δ-87px, origin Δy-87px, stage Δ-87px, safe Δ-87px
+
+pink/front: collar Δ-94px, origin Δy-94px, stage Δ-94px, safe Δ-94px
+
+pink/back: collar Δ-98px, origin Δy-98px, stage Δ-98px, safe Δ-98px
+
+hotpink/front: collar Δ-99px, origin Δy-99px, stage Δ-99px, safe Δ-99px
+
+hotpink/back: collar Δ-105px, origin Δy-105px, stage Δ-105px, safe Δ-105px
+
+heathergray/front: collar Δ-90px, origin Δy-90px, stage Δ-90px, safe Δ-90px
+
+heathergray/back: collar Δ-91px, origin Δy-91px, stage Δ-91px, safe Δ-91px
+
+yellow/front: collar Δ-84px, origin Δy-84px, stage Δ-84px, safe Δ-84px
+
+yellow/back: collar Δ-106px, origin Δy-106px, stage Δ-106px, safe Δ-106px
+
+mint/front: collar Δ-81px, origin Δy-81px, stage Δ-81px, safe Δ-81px
+
+mint/back: collar Δ-84px, origin Δy-84px, stage Δ-84px, safe Δ-84px
+
+skyblue/front: collar Δ-92px, origin Δy-92px, stage Δ-92px, safe Δ-92px
+
+skyblue/back: collar Δ-103px, origin Δy-103px, stage Δ-103px, safe Δ-103px
+
+lightblue/front: collar Δ-90px, origin Δy-90px, stage Δ-90px, safe Δ-90px
+
+lightblue/back: collar Δ-86px, origin Δy-86px, stage Δ-86px, safe Δ-86px
+
+indigo/front: collar Δ-87px, origin Δy-87px, stage Δ-87px, safe Δ-87px
+
+indigo/back: collar Δ-99px, origin Δy-99px, stage Δ-99px, safe Δ-99px
+
+
+
+=== white/front Geometry Delta ===
+Collar (V1 anchor → V2 bottom): 386 → 283  Δ -103px
+Factory Origin: (512,386) → (512,283)  Δy -103px
+Artwork Stage top: 471.68 → 368.68  Δ -103px
+Artwork Stage left: 297.80 → 297.80  Δ 0px
+Safe Area top: 471.68 → 368.68  Δ -103px
+Safe Area left: 316.16 → 316.16  Δ 0px
+
+=== white/back Geometry Delta ===
+Collar (V1 anchor → V2 bottom): 386 → 286  Δ -100px
+Factory Origin: (512,386) → (515,286)  Δy -100px
+Artwork Stage top: 447.20 → 347.20  Δ -100px
+Artwork Stage left: 279.44 → 282.44  Δ 3px
+Safe Area top: 447.20 → 347.20  Δ -100px
+Safe Area left: 316.16 → 319.16  Δ 3px
+
+=== black/front Geometry Delta ===
+Collar (V1 anchor → V2 bottom): 386 → 318  Δ -68px
+Factory Origin: (512,386) → (512,318)  Δy -68px
+Artwork Stage top: 471.68 → 403.68  Δ -68px
+Artwork Stage left: 297.80 → 297.80  Δ 0px
+Safe Area top: 471.68 → 403.68  Δ -68px
+Safe Area left: 316.16 → 316.16  Δ 0px
+
+=== black/back Geometry Delta ===
+Collar (V1 anchor → V2 bottom): 386 → 299  Δ -87px
+Factory Origin: (512,386) → (513,299)  Δy -87px
+Artwork Stage top: 447.20 → 360.20  Δ -87px
+Artwork Stage left: 279.44 → 280.44  Δ 1px
+Safe Area top: 447.20 → 360.20  Δ -87px
+Safe Area left: 316.16 → 317.16  Δ 1px
+
+=== pink/front Geometry Delta ===
+Collar (V1 anchor → V2 bottom): 386 → 292  Δ -94px
+Factory Origin: (512,386) → (512,292)  Δy -94px
+Artwork Stage top: 471.68 → 377.68  Δ -94px
+Artwork Stage left: 297.80 → 297.80  Δ 0px
+Safe Area top: 471.68 → 377.68  Δ -94px
+Safe Area left: 316.16 → 316.16  Δ 0px
+
+=== pink/back Geometry Delta ===
+Collar (V1 anchor → V2 bottom): 386 → 288  Δ -98px
+Factory Origin: (512,386) → (512,288)  Δy -98px
+Artwork Stage top: 447.20 → 349.20  Δ -98px
+Artwork Stage left: 279.44 → 279.44  Δ 0px
+Safe Area top: 447.20 → 349.20  Δ -98px
+Safe Area left: 316.16 → 316.16  Δ 0px
+
+=== hotpink/front Geometry Delta ===
+Collar (V1 anchor → V2 bottom): 386 → 287  Δ -99px
+Factory Origin: (512,386) → (513,287)  Δy -99px
+Artwork Stage top: 471.68 → 372.68  Δ -99px
+Artwork Stage left: 297.80 → 298.80  Δ 1px
+Safe Area top: 471.68 → 372.68  Δ -99px
+Safe Area left: 316.16 → 317.16  Δ 1px
+
+=== hotpink/back Geometry Delta ===
+Collar (V1 anchor → V2 bottom): 386 → 281  Δ -105px
+Factory Origin: (512,386) → (514,281)  Δy -105px
+Artwork Stage top: 447.20 → 342.20  Δ -105px
+Artwork Stage left: 279.44 → 281.44  Δ 2px
+Safe Area top: 447.20 → 342.20  Δ -105px
+Safe Area left: 316.16 → 318.16  Δ 2px
+
+=== heathergray/front Geometry Delta ===
+Collar (V1 anchor → V2 bottom): 386 → 296  Δ -90px
+Factory Origin: (512,386) → (512,296)  Δy -90px
+Artwork Stage top: 471.68 → 381.68  Δ -90px
+Artwork Stage left: 297.80 → 297.80  Δ 0px
+Safe Area top: 471.68 → 381.68  Δ -90px
+Safe Area left: 316.16 → 316.16  Δ 0px
+
+=== heathergray/back Geometry Delta ===
+Collar (V1 anchor → V2 bottom): 386 → 295  Δ -91px
+Factory Origin: (512,386) → (512,295)  Δy -91px
+Artwork Stage top: 447.20 → 356.20  Δ -91px
+Artwork Stage left: 279.44 → 279.44  Δ 0px
+Safe Area top: 447.20 → 356.20  Δ -91px
+Safe Area left: 316.16 → 316.16  Δ 0px
+
+=== yellow/front Geometry Delta ===
+Collar (V1 anchor → V2 bottom): 386 → 302  Δ -84px
+Factory Origin: (512,386) → (512,302)  Δy -84px
+Artwork Stage top: 471.68 → 387.68  Δ -84px
+Artwork Stage left: 297.80 → 297.80  Δ 0px
+Safe Area top: 471.68 → 387.68  Δ -84px
+Safe Area left: 316.16 → 316.16  Δ 0px
+
+=== yellow/back Geometry Delta ===
+Collar (V1 anchor → V2 bottom): 386 → 280  Δ -106px
+Factory Origin: (512,386) → (512,280)  Δy -106px
+Artwork Stage top: 447.20 → 341.20  Δ -106px
+Artwork Stage left: 279.44 → 279.44  Δ 0px
+Safe Area top: 447.20 → 341.20  Δ -106px
+Safe Area left: 316.16 → 316.16  Δ 0px
+
+=== mint/front Geometry Delta ===
+Collar (V1 anchor → V2 bottom): 386 → 305  Δ -81px
+Factory Origin: (512,386) → (512,305)  Δy -81px
+Artwork Stage top: 471.68 → 390.68  Δ -81px
+Artwork Stage left: 297.80 → 297.80  Δ 0px
+Safe Area top: 471.68 → 390.68  Δ -81px
+Safe Area left: 316.16 → 316.16  Δ 0px
+
+=== mint/back Geometry Delta ===
+Collar (V1 anchor → V2 bottom): 386 → 302  Δ -84px
+Factory Origin: (512,386) → (514,302)  Δy -84px
+Artwork Stage top: 447.20 → 363.20  Δ -84px
+Artwork Stage left: 279.44 → 281.44  Δ 2px
+Safe Area top: 447.20 → 363.20  Δ -84px
+Safe Area left: 316.16 → 318.16  Δ 2px
+
+=== skyblue/front Geometry Delta ===
+Collar (V1 anchor → V2 bottom): 386 → 294  Δ -92px
+Factory Origin: (512,386) → (512,294)  Δy -92px
+Artwork Stage top: 471.68 → 379.68  Δ -92px
+Artwork Stage left: 297.80 → 297.80  Δ 0px
+Safe Area top: 471.68 → 379.68  Δ -92px
+Safe Area left: 316.16 → 316.16  Δ 0px
+
+=== skyblue/back Geometry Delta ===
+Collar (V1 anchor → V2 bottom): 386 → 283  Δ -103px
+Factory Origin: (512,386) → (514,283)  Δy -103px
+Artwork Stage top: 447.20 → 344.20  Δ -103px
+Artwork Stage left: 279.44 → 281.44  Δ 2px
+Safe Area top: 447.20 → 344.20  Δ -103px
+Safe Area left: 316.16 → 318.16  Δ 2px
+
+=== lightblue/front Geometry Delta ===
+Collar (V1 anchor → V2 bottom): 386 → 296  Δ -90px
+Factory Origin: (512,386) → (512,296)  Δy -90px
+Artwork Stage top: 471.68 → 381.68  Δ -90px
+Artwork Stage left: 297.80 → 297.80  Δ 0px
+Safe Area top: 471.68 → 381.68  Δ -90px
+Safe Area left: 316.16 → 316.16  Δ 0px
+
+=== lightblue/back Geometry Delta ===
+Collar (V1 anchor → V2 bottom): 386 → 300  Δ -86px
+Factory Origin: (512,386) → (513,300)  Δy -86px
+Artwork Stage top: 447.20 → 361.20  Δ -86px
+Artwork Stage left: 279.44 → 280.44  Δ 1px
+Safe Area top: 447.20 → 361.20  Δ -86px
+Safe Area left: 316.16 → 317.16  Δ 1px
+
+=== indigo/front Geometry Delta ===
+Collar (V1 anchor → V2 bottom): 386 → 299  Δ -87px
+Factory Origin: (512,386) → (512,299)  Δy -87px
+Artwork Stage top: 471.68 → 384.68  Δ -87px
+Artwork Stage left: 297.80 → 297.80  Δ 0px
+Safe Area top: 471.68 → 384.68  Δ -87px
+Safe Area left: 316.16 → 316.16  Δ 0px
+
+=== indigo/back Geometry Delta ===
+Collar (V1 anchor → V2 bottom): 386 → 287  Δ -99px
+Factory Origin: (512,386) → (513,287)  Δy -99px
+Artwork Stage top: 447.20 → 348.20  Δ -99px
+Artwork Stage left: 279.44 → 280.44  Δ 1px
+Safe Area top: 447.20 → 348.20  Δ -99px
+Safe Area left: 316.16 → 317.16  Δ 1px

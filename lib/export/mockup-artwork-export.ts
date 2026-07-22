@@ -1,4 +1,5 @@
 import { renderPrintExportPng } from "@/lib/print-export-system";
+import type { ExportPipelineContext } from "@/lib/designer-geometry-v2/export-pipeline-context";
 import type { Side, Size } from "@/lib/constants";
 import type { DesignLayer } from "@/lib/types";
 import type { RenderQuality } from "./render-quality";
@@ -9,6 +10,7 @@ export interface MockupArtworkExportOptions {
   size: Size;
   quality: RenderQuality;
   pixelScale: number;
+  pipelineContext?: ExportPipelineContext;
 }
 
 /**
@@ -26,5 +28,6 @@ export async function renderMockupArtworkPng(
     side: options.side,
     size: options.size,
     pixelScale,
+    pipelineContext: options.pipelineContext,
   });
 }

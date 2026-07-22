@@ -1,0 +1,21 @@
+=== Phase 69.3.1 Geometry Debug Overlay Regression ===
+PASS: ACTIVE_DESIGNER_GEOMETRY_VERSION = v1
+PASS: getActiveDesignerGeometryVersion() = v1
+PASS: Toggle PASS: development ON
+PASS: Toggle PASS: production OFF (all layers hidden)
+PASS: Runtime isolation: 0 geometry-debug imports in render paths
+PASS: V1 Overlay PASS (front SVG)
+PASS: V2 Overlay PASS (front SVG)
+PASS: Overlay creation PASS
+PASS: PNG render PASS: white front + back
+PASS: Overlay PASS: 20/20 asset SVG bundles
+PASS: Layer toggle PASS: independent v1/v2 switches
+
+Geometry Debug Toggle:
+  Development: ON (default)
+  Production: OFF (forced)
+
+Runtime: Geometry V1 only for render
+Geometry V2: Debug Overlay only
+
+ALL PASS

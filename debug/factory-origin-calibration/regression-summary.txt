@@ -1,0 +1,55 @@
+Phase 70.3 — Factory Origin Visual Calibration
+
+Phase 70.3: UA35001 product photo visual collar-bottom + frozen 7cm (front) / 5cm (back). Not aligned to V1 template anchor (386px).
+
+## Factory Origin Compare
+
+| Color | Side | Raw | Final | Print Top |
+|-------|------|-----|-------|-----------|
+| white | front | 276 | 401 | 486.68 |
+| white | back | 280 | 386 | 447.20 |
+| black | front | 311 | 436 | 521.68 |
+| black | back | 291 | 397 | 458.20 |
+| pink | front | 286 | 411 | 496.68 |
+| pink | back | 282 | 388 | 449.20 |
+| hotpink | front | 279 | 404 | 489.68 |
+| hotpink | back | 273 | 379 | 440.20 |
+| heathergray | front | 290 | 415 | 500.68 |
+| heathergray | back | 290 | 396 | 457.20 |
+| yellow | front | 297 | 422 | 507.68 |
+| yellow | back | 274 | 380 | 441.20 |
+| mint | front | 300 | 425 | 510.68 |
+| mint | back | 297 | 403 | 464.20 |
+| skyblue | front | 289 | 414 | 499.68 |
+| skyblue | back | 276 | 382 | 443.20 |
+| lightblue | front | 291 | 416 | 501.68 |
+| lightblue | back | 294 | 400 | 461.20 |
+| indigo | front | 293 | 418 | 503.68 |
+| indigo | back | 281 | 387 | 448.20 |
+
+## Product Master (Runtime)
+
+Front collar: (512, 416)
+Front factory origin: (512, 416)
+Front artwork stage top: 501.68
+Front safe area top: 501.68
+
+Back collar: (513, 388)
+Back factory origin: (513, 388)
+Back artwork stage top: 449.2
+Back safe area top: 449.2
+
+## Visual Outputs
+
+- /Users/leo/Desktop/tshirt-designer/debug/factory-origin-calibration/white-front-visual-compare.png
+- /Users/leo/Desktop/tshirt-designer/debug/geometry-calibration/after/white-front-heatmap.png
+
+PASS: Front-only calibration offset (front=125, back=106)
+PASS: Back geometry unchanged
+PASS: Front master stage top 501.68 (was 486.68)
+PASS: 20/20 profiles — stage/safe area/factory origin rebuilt
+PASS: White front visual compare → /Users/leo/Desktop/tshirt-designer/debug/factory-origin-calibration/white-front-visual-compare.png
+PASS: White front heatmap → /Users/leo/Desktop/tshirt-designer/debug/geometry-calibration/after/white-front-heatmap.png
+PASS: product-master-snapshot.ts regenerated
+
+ALL PASS

@@ -1,0 +1,16 @@
+Designer Template Runtime Regression — Phase 70.0
+
+PASS: ACTIVE_DESIGNER_GEOMETRY_VERSION = v1
+PASS: Geometry Builder 0 changes (resolver has no builder import)
+PASS: Runtime V1 → Designer uses public/templates
+PASS: Runtime V2 → Designer uses public/products/UA35001/assets
+PASS: V2 white-front path matches UA35001 asset naming
+PASS: DesignCanvas wired through resolveDesignerTemplateAsset()
+PASS: Projection import 0 changes
+PASS: Coordinate import 0 changes
+PASS: Factory Placement 0 changes
+PASS: ResultPanel 0 changes
+PASS: Export 0 changes
+PASS: Runtime Isolation — only DesignCanvas imports template runtime
+
+ALL PASS

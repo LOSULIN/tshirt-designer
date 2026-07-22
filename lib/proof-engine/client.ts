@@ -4,6 +4,7 @@
 
 import type { Gender, ShirtColor, Side, Size } from "./proof-domain";
 import type { ApplicationFormData, DesignLayersByTemplate } from "../types";
+import type { ProofSubmitRuntimeContext } from "@/lib/designer-geometry-v2/proof-submit-runtime-context";
 import { generateProofArtifacts } from "./generate-artifacts";
 import type { ProofArtifact, ProofArtifactsInput, ProofOrder } from "./types";
 import { proofArtifactHasBytes } from "./types";
@@ -41,6 +42,7 @@ export function buildProofOrder(params: {
 
 export async function prepareProofSubmission(
   order: ProofOrder,
+  proofRuntimeContext?: ProofSubmitRuntimeContext,
 ): Promise<ProofArtifactsInput> {
   try {
     submissionProfiler.beginClientSession();
@@ -50,13 +52,13 @@ export async function prepareProofSubmission(
 
   try {
     return await submissionProfiler.run("Prepare", "client", async () =>
-      generateProofArtifacts(order),
+      generateProofArtifacts(order, proofRuntimeContext),
     );
   } catch (error) {
     if (submissionProfiler.isEnabled()) {
       throw error;
     }
-    return generateProofArtifacts(order);
+    return generateProofArtifacts(order, proofRuntimeContext);
   }
 }
 

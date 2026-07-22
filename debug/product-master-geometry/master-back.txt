@@ -1,0 +1,12 @@
+=== UA35001 BACK Master Geometry ===
+Canvas: 1024×1536
+Collar Bottom: (513, 388) neckW=286px
+Factory Origin: (513, 388) offset=5cm pxPerCm=12.24
+Artwork Stage: top=449.2 left=280.44 465.12×550.8
+Safe Area: top=449.2 left=317.16 391.68×514.08
+Garment Width: 981.5px
+Garment Height: 1020.3px
+Shoulder Width: 577.1px
+Center Point: (512.95, 775.95)
+Hem: (512.95, 1285.1)
+Alpha BBox (avg): top=265.8 981.5×1020.3

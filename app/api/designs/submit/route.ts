@@ -18,6 +18,10 @@ import {
   defaultSubmissionUploadManager,
 } from "@/lib/submission";
 import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  normalizeProofSubmitRuntimeContext,
+  parseProofSubmitRuntimeContextFromFormData,
+} from "@/lib/designer-geometry-v2/proof-submit-runtime-context";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -62,6 +66,10 @@ export async function POST(request: Request) {
       size?: string;
       layersByTemplate?: ProofOrder["layers_by_template"];
     };
+
+    const proofRuntimeContext = normalizeProofSubmitRuntimeContext(
+      parseProofSubmitRuntimeContextFromFormData(formData),
+    );
 
     const artifacts = await parseProofArtifactsFromFormData(formData);
     if (!hasProofArtifacts(artifacts)) {
@@ -181,6 +189,7 @@ export async function POST(request: Request) {
           ctx,
           internalFiles,
           bgTiming,
+          proofRuntimeContext,
         );
 
         await supabase

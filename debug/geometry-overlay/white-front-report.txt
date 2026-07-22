@@ -1,0 +1,29 @@
+=== White Front Overlay Report ===
+
+Collar Delta
+  -103 px
+
+Factory Origin Delta
+  Δx 0px  Δy -103 px
+
+Artwork Stage Delta
+  top -103 px  left +0 px
+
+Safe Area Delta
+  top -103 px  left +0 px
+
+V1 (red)
+  Collar Anchor: (512, 386)
+  Factory Origin: (512, 386)
+  Artwork Stage: top=471.68 left=297.80
+  Safe Area: top=471.68 left=316.16
+
+V2 (blue)
+  Collar Bottom: (512, 283)
+  Factory Origin: (512, 283)
+  Artwork Stage: top=368.68 left=297.80
+  Safe Area: top=368.68 left=316.16
+
+Visual audit note
+  V2 collar bottom vs alpha bbox top: 23px below alpha top
+  Inspect overlay PNG — if V2 collar (blue) deviates from visible collar hem, report only (no algorithm fix in this phase).

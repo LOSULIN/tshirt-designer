@@ -4,6 +4,8 @@
 
 import type { Side } from "../proof-domain";
 import type { ProofOrder } from "../types";
+import type { ExportPipelineContext } from "@/lib/designer-geometry-v2/export-pipeline-context";
+import type { DesignerGeometryVersion } from "@/lib/designer-geometry-v2/geometry-version";
 import {
   generateFactoryProofPdf,
   type FactoryProofPdfInput,
@@ -21,6 +23,9 @@ export interface ProofPdfInput {
   version: number;
   mockupImages?: Partial<Record<Side, Uint8Array | Buffer>>;
   printImages?: Partial<Record<Side, Uint8Array | Buffer>>;
+  geometryVersion?: DesignerGeometryVersion;
+  pipelineContextBySide?: Partial<Record<Side, ExportPipelineContext>>;
+  pipelineContext?: ExportPipelineContext;
 }
 
 export async function generateProofPdf(
@@ -31,6 +36,9 @@ export async function generateProofPdf(
     version: input.version,
     mockupImages: input.mockupImages,
     printImages: input.printImages,
+    geometryVersion: input.geometryVersion,
+    pipelineContextBySide: input.pipelineContextBySide,
+    pipelineContext: input.pipelineContext,
   };
   return generateFactoryProofPdf(factoryInput);
 }

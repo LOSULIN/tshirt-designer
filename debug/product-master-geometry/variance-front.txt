@@ -1,0 +1,11 @@
+=== Color Variance Report ===
+White (front): Δ Collar -15px, Δ Shoulder -23.9px, Δ Hem -20.9px — PASS
+Black (front): Δ Collar +20px, Δ Shoulder -4.9px, Δ Hem +20.1px — PASS
+Pink (front): Δ Collar -5px, Δ Shoulder +2.1px, Δ Hem -2.9px — PASS
+Hot Pink (front): Δ Collar -12px, Δ Shoulder -22.9px, Δ Hem +4.1px — PASS
+Heather Gray (front): Δ Collar -1px, Δ Shoulder -5.9px, Δ Hem -7.9px — PASS
+Yellow (front): Δ Collar +6px, Δ Shoulder +17.1px, Δ Hem -11.9px — PASS
+Mint (front): Δ Collar +9px, Δ Shoulder +29.1px, Δ Hem -16.9px — PASS
+Sky Blue (front): Δ Collar -2px, Δ Shoulder +4.1px, Δ Hem +14.1px — PASS
+Royal Blue (front): Δ Collar +0px, Δ Shoulder +22.1px, Δ Hem +6.1px — PASS
+Navy (front): Δ Collar +2px, Δ Shoulder -16.9px, Δ Hem +16.1px — PASS

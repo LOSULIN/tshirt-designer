@@ -1,5 +1,6 @@
 import { loadAsset } from "@/lib/render/asset-loader";
 import { composeProductMockup } from "@/lib/render/product-mockup-compose";
+import type { ExportPipelineContext } from "@/lib/designer-geometry-v2/export-pipeline-context";
 import type {
   ProductCalibration,
   RenderEngineInput,
@@ -9,6 +10,7 @@ import type {
 export interface ProductMockupEngineInput extends RenderEngineInput {
   /** Active garment size — scales mockup placement to match Designer blue print area. */
   garmentSize?: string;
+  pipelineContext?: ExportPipelineContext;
 }
 
 function canvasToDataUrl(canvas: HTMLCanvasElement): string {
@@ -32,6 +34,7 @@ export async function renderProductMockupOnProduct(
     artworkWidth: input.artworkWidth,
     artworkHeight: input.artworkHeight,
     garmentSize: input.garmentSize,
+    pipelineContext: input.pipelineContext,
   });
 
   return {
@@ -63,6 +66,7 @@ export async function renderProductMockupWithCalibration(
     artworkWidth: input.artworkWidth,
     artworkHeight: input.artworkHeight,
     garmentSize: input.garmentSize,
+    pipelineContext: input.pipelineContext,
   });
 
   return {

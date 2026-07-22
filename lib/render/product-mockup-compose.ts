@@ -4,16 +4,26 @@
  */
 
 import { isCalibrationRectActive } from "./calibration";
+import type { ExportPipelineContext } from "@/lib/designer-geometry-v2/export-pipeline-context";
+import {
+  DESIGNER_GEOMETRY_VERSION,
+} from "@/lib/designer-geometry-v2/geometry-version";
+import {
+  applyRuntimeVisualCompensationToRect,
+  maybeLogProductMockupRuntimeCompare,
+  resolveProductMockupRuntimePlacement,
+} from "@/lib/designer-geometry-v2/product-mockup-runtime";
 import {
   PRODUCT_PLACEMENT_BASELINE_SIZE,
-  resolveProductMockupPlacementForGarmentSize,
 } from "./product-placement-scale";
 import type { ComposeArtworkInput, ComposeArtworkResult } from "./render-types";
 import { applyMockupVisualCompensation } from "./visual-compensation";
+import { applyProductPreviewVisualCompensationToRect } from "@/lib/presentation/visual-compensation";
 
 export interface ProductMockupComposeInput extends ComposeArtworkInput {
   /** Garment size for size-aware placement (Product Export). */
   garmentSize?: string;
+  pipelineContext?: ExportPipelineContext;
 }
 
 /**
@@ -23,7 +33,9 @@ export interface ProductMockupComposeInput extends ComposeArtworkInput {
 export function composeProductMockup(
   input: ProductMockupComposeInput,
 ): ComposeArtworkResult {
-  const { asset, artwork, artworkWidth, artworkHeight, garmentSize } = input;
+  const { asset, artwork, artworkWidth, artworkHeight, garmentSize, pipelineContext } =
+    input;
+  const resolvedSize = garmentSize ?? PRODUCT_PLACEMENT_BASELINE_SIZE;
   const canvas = document.createElement("canvas");
   canvas.width = asset.naturalWidth;
   canvas.height = asset.naturalHeight;
@@ -33,24 +45,58 @@ export function composeProductMockup(
     throw new Error("composeProductMockup: 2d context unavailable");
   }
 
-  ctx.drawImage(asset.image, 0, 0, asset.naturalWidth, asset.naturalHeight);
+  ctx.drawImage(asset.image, 0, 0, canvas.width, canvas.height);
 
-  const rect = resolveProductMockupPlacementForGarmentSize(
-    asset.calibration,
-    asset.side,
-    garmentSize ?? PRODUCT_PLACEMENT_BASELINE_SIZE,
+  const productInput = {
+    calibration: asset.calibration,
+    side: asset.side,
+    mockupVisualScale: asset.mockupVisualScale,
+    canvasWidth: canvas.width,
+    canvasHeight: canvas.height,
+  };
+
+  maybeLogProductMockupRuntimeCompare({
+    pipelineContext,
+    product: productInput,
+    size: resolvedSize,
+  });
+
+  const runtimePlacement = resolveProductMockupRuntimePlacement(
+    pipelineContext,
+    productInput,
+    resolvedSize,
   );
+
+  const rect = runtimePlacement.placementRect;
   if (rect && isCalibrationRectActive(rect)) {
-    const destRect = applyMockupVisualCompensation(
-      rect,
-      asset.mockupVisualScale,
-    );
+    let artworkDestRect = rect;
+
+    if (runtimePlacement.geometryVersion === DESIGNER_GEOMETRY_VERSION.V1) {
+      const scaledRect = applyMockupVisualCompensation(
+        rect,
+        runtimePlacement.scale,
+      );
+      artworkDestRect = applyProductPreviewVisualCompensationToRect(
+        scaledRect,
+        asset.side,
+        canvas.width,
+        canvas.height,
+      );
+    } else {
+      artworkDestRect = applyRuntimeVisualCompensationToRect(
+        rect,
+        runtimePlacement.visualCompensation,
+        canvas.width,
+        canvas.height,
+      );
+    }
+
     ctx.drawImage(
       artwork,
-      destRect.x,
-      destRect.y,
-      destRect.width,
-      destRect.height,
+      artworkDestRect.x,
+      artworkDestRect.y,
+      artworkDestRect.width,
+      artworkDestRect.height,
     );
   } else if (artworkWidth > 0 && artworkHeight > 0) {
     ctx.drawImage(artwork, 0, 0, artworkWidth, artworkHeight);

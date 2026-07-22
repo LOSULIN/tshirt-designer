@@ -1,0 +1,17 @@
+=== White Front Geometry Debug Overlay ===
+
+V1 (red)
+Collar Anchor (512, 386) — red circle
+Factory Origin (512, 386) — red cross
+Artwork Stage top=471.7 left=297.8 428.4×612.0 — red solid rect
+Safe Area top=471.7 left=316.2 391.7×563.0 — red dashed rect
+
+V2 (blue)
+Collar Bottom (512, 297) — blue circle
+Factory Origin (512, 297) — blue cross
+Artwork Stage top=382.7 left=297.8 428.4×612.0 — blue solid rect
+Safe Area top=382.7 left=316.2 391.7×563.0 — blue dashed rect
+
+V1 (template baseline, red) vs V2 Product Master (UA35001, blue). Optional: center dot, hem marker, shoulder scan line.
+
+PNG: debug/geometry-debug-overlay/white-front-debug.png

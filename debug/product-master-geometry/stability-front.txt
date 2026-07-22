@@ -1,0 +1,5 @@
+=== Geometry Stability (front) — WARNING ===
+Collar Variance: ±9.6px (avg=416.2 min=401.0 max=436.0 maxErr=19.8 minErr=-15.2)
+Shoulder Variance: ±17.6px (avg=578.9 min=555.0 max=608.0 maxErr=29.1 minErr=-23.9)
+Hem Variance: ±13.6px (avg=1270.9 min=1250.0 max=1291.0 maxErr=20.1 minErr=-20.9)
+建議使用單一 Product Master Geometry，所有顏色共用；不要為每個顏色建立獨立 Geometry。 跨色差異主要來自光影、抗鋸齒、陰影與布料紋理，而非結構性衣身差異。

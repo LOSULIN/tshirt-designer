@@ -1,0 +1,12 @@
+=== UA35001 FRONT Master Geometry ===
+Canvas: 1024×1536
+Collar Bottom: (512, 416) neckW=286px
+Factory Origin: (512, 416) offset=7cm pxPerCm=12.24
+Artwork Stage: top=501.68 left=297.8 428.4×612
+Safe Area: top=501.68 left=316.16 391.68×563.04
+Garment Width: 981.5px
+Garment Height: 998px
+Shoulder Width: 578.9px
+Center Point: (511.95, 772.9)
+Hem: (511.95, 1270.9)
+Alpha BBox (avg): top=273.9 981.5×998.0

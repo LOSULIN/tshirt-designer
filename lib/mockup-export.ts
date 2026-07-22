@@ -31,6 +31,9 @@ import { drawRichTextOnCanvas, getRichTextRenderMetrics, serializeCanvasTransfor
 import { drawShapeOnCanvas } from "./shape-layer";
 import { ensureTextFontsLoaded } from "./text-layer";
 import type { DesignLayer, ShapeDesignLayer, TextDesignLayer } from "./types";
+import {
+  resolveProductPreviewVisualCompensation,
+} from "./presentation/visual-compensation";
 
 export { MOCKUP_EXPORT_SCALE };
 
@@ -254,6 +257,12 @@ export async function renderMockupPreviewPng(params: {
   );
   logMockupOverlayDebugReport(overlayDebug);
 
+  const previewCompensation = resolveProductPreviewVisualCompensation(side);
+  const compensationOffsetX =
+    (previewCompensation.offsetXPercent / 100) * canvasWidth;
+  const compensationOffsetY =
+    (previewCompensation.offsetYPercent / 100) * canvasHeight;
+
   const textLayers = visibleLayers.filter(
     (l): l is TextDesignLayer => l.type === "text",
   );
@@ -274,6 +283,9 @@ export async function renderMockupPreviewPng(params: {
     );
   }
 
+  ctx.save();
+  ctx.translate(compensationOffsetX, compensationOffsetY);
+
   for (const layer of visibleLayers) {
     if (layer.type === "image") {
       const img = await loadCachedImage(
@@ -284,6 +296,8 @@ export async function renderMockupPreviewPng(params: {
       drawDesignLayerOnMockup(ctx, layer, printRect, side, size);
     }
   }
+
+  ctx.restore();
 
   return new Promise((resolve, reject) => {
     canvas.toBlob(

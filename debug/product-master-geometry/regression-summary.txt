@@ -1,0 +1,46 @@
+=== Product Master Regression Summary ===
+Assets: 20 (10 colors × front/back)
+Master: UA35001 single geometry (averaged factory cross-validation)
+
+--- Front Stability ---
+=== Geometry Stability (front) — WARNING ===
+Collar Variance: ±9.6px (avg=416.2 min=401.0 max=436.0 maxErr=19.8 minErr=-15.2)
+Shoulder Variance: ±17.6px (avg=578.9 min=555.0 max=608.0 maxErr=29.1 minErr=-23.9)
+Hem Variance: ±13.6px (avg=1270.9 min=1250.0 max=1291.0 maxErr=20.1 minErr=-20.9)
+建議使用單一 Product Master Geometry，所有顏色共用；不要為每個顏色建立獨立 Geometry。 跨色差異主要來自光影、抗鋸齒、陰影與布料紋理，而非結構性衣身差異。
+
+--- Back Stability ---
+=== Geometry Stability (back) — WARNING ===
+Collar Variance: ±8.2px (avg=389.8 min=379.0 max=403.0 maxErr=13.2 minErr=-10.8)
+Shoulder Variance: ±7.6px (avg=577.1 min=564.0 max=591.0 maxErr=13.9 minErr=-13.1)
+Hem Variance: ±19.2px (avg=1285.1 min=1255.0 max=1324.0 maxErr=38.9 minErr=-30.1)
+建議使用單一 Product Master Geometry，所有顏色共用；不要為每個顏色建立獨立 Geometry。 跨色差異主要來自光影、抗鋸齒、陰影與布料紋理，而非結構性衣身差異。
+
+--- Front Color Variance ---
+=== Color Variance Report ===
+White (front): Δ Collar -15px, Δ Shoulder -23.9px, Δ Hem -20.9px — PASS
+Black (front): Δ Collar +20px, Δ Shoulder -4.9px, Δ Hem +20.1px — PASS
+Pink (front): Δ Collar -5px, Δ Shoulder +2.1px, Δ Hem -2.9px — PASS
+Hot Pink (front): Δ Collar -12px, Δ Shoulder -22.9px, Δ Hem +4.1px — PASS
+Heather Gray (front): Δ Collar -1px, Δ Shoulder -5.9px, Δ Hem -7.9px — PASS
+Yellow (front): Δ Collar +6px, Δ Shoulder +17.1px, Δ Hem -11.9px — PASS
+Mint (front): Δ Collar +9px, Δ Shoulder +29.1px, Δ Hem -16.9px — PASS
+Sky Blue (front): Δ Collar -2px, Δ Shoulder +4.1px, Δ Hem +14.1px — PASS
+Royal Blue (front): Δ Collar +0px, Δ Shoulder +22.1px, Δ Hem +6.1px — PASS
+Navy (front): Δ Collar +2px, Δ Shoulder -16.9px, Δ Hem +16.1px — PASS
+
+--- Back Color Variance ---
+=== Color Variance Report ===
+White (back): Δ Collar -2px, Δ Shoulder -4.1px, Δ Hem +13.9px — PASS
+Black (back): Δ Collar +9px, Δ Shoulder +1.9px, Δ Hem +38.9px — PASS
+Pink (back): Δ Collar +0px, Δ Shoulder -0.1px, Δ Hem -20.1px — PASS
+Hot Pink (back): Δ Collar -9px, Δ Shoulder -11.1px, Δ Hem +14.9px — PASS
+Heather Gray (back): Δ Collar +8px, Δ Shoulder +4.9px, Δ Hem -13.1px — PASS
+Yellow (back): Δ Collar -8px, Δ Shoulder +4.9px, Δ Hem -30.1px — PASS
+Mint (back): Δ Collar +15px, Δ Shoulder +4.9px, Δ Hem -14.1px — PASS
+Sky Blue (back): Δ Collar -6px, Δ Shoulder -13.1px, Δ Hem -2.1px — PASS
+Royal Blue (back): Δ Collar +12px, Δ Shoulder +13.9px, Δ Hem +8.9px — PASS
+Navy (back): Δ Collar -1px, Δ Shoulder -2.1px, Δ Hem +2.9px — PASS
+
+Validation: 20/20 PASS
+Stability verdict: front=WARNING back=WARNING

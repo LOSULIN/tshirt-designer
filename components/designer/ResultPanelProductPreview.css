@@ -1,0 +1,149 @@
+/* ResultPanel presentation — hero stage & garment preview shell (no projection math). */
+
+.result-panel {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.result-panel__card {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.result-panel__hero {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+.result-panel__hero-header {
+  flex-shrink: 0;
+  padding: 0.625rem 0.75rem 0.25rem;
+}
+
+.result-panel__hero-stage {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  background-color: rgb(244 244 245);
+  padding: 0.5rem 0.75rem 0.75rem;
+}
+
+.result-panel__footer {
+  flex-shrink: 0;
+}
+
+.result-panel__print-section {
+  padding: 0.625rem 1rem 0.5rem;
+}
+
+.result-panel__print-label {
+  margin-bottom: 0.375rem;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  line-height: 1.25rem;
+  color: rgb(82 82 91);
+}
+
+.result-panel__badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.result-panel__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: 9999px;
+  border: 1px solid rgb(228 228 231);
+  background-color: rgb(250 250 250);
+  padding: 0.125rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.25rem;
+  white-space: nowrap;
+}
+
+.result-panel__badge--status {
+  border-color: transparent;
+}
+
+.result-panel__download-section {
+  padding: 0.5rem 1rem 0.75rem;
+}
+
+.result-panel__download-label {
+  margin-bottom: 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  line-height: 1.25rem;
+  color: rgb(82 82 91);
+}
+
+.result-panel__download-row {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 0.875rem;
+}
+
+.result-panel__download-btn {
+  display: inline-flex;
+  min-height: 2.25rem;
+  flex: 1 1 0;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgb(228 228 231);
+  background-color: rgb(255 255 255);
+  padding: 0.5rem 0.875rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.25rem;
+  color: rgb(39 39 42);
+  transition: background-color 150ms ease;
+}
+
+.result-panel__download-btn:hover:not(:disabled) {
+  background-color: rgb(250 250 250);
+}
+
+.result-panel__download-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.result-panel__download-btn svg {
+  flex-shrink: 0;
+  opacity: 0.72;
+}
+
+.result-panel__cta {
+  display: flex;
+  gap: 0.625rem;
+  padding: 0.75rem;
+  padding-top: 0;
+}
+
+.result-panel__cta-back {
+  flex: 1 1 0;
+}
+
+.result-panel__cta-submit {
+  flex: 1 1 0;
+}
+
+.result-panel-photo-frame {
+  margin-inline: auto;
+}

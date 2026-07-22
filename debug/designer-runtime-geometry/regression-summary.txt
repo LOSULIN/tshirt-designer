@@ -1,0 +1,12 @@
+Designer Runtime Geometry Integration — Phase 70.2
+
+PASS: DesignCanvas wired to Geometry Runtime Snapshot
+PASS: translate(%) hack removed from Designer path
+PASS: Frozen layers unchanged (Projection/Coordinate/Builder/Export)
+PASS: front V2 Designer Stage = ResultPanel Stage (<= 1px)
+PASS: front V2 Designer Safe Area = Snapshot Safe Area (<= 1px)
+PASS: back V2 Designer Stage = ResultPanel Stage (<= 1px)
+PASS: back V2 Designer Safe Area = Snapshot Safe Area (<= 1px)
+PASS: resolveGeometryRuntimeStageOffsetPercent removed
+
+ALL PASS

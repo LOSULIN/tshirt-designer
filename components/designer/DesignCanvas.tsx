@@ -9,7 +9,6 @@ import { PlacementPresetCalibrationPanel } from "./PlacementPresetCalibrationPan
 import { PlacementPresetToolbar } from "./PlacementPresetToolbar";
 import { CanvasInlineTextEditor } from "./CanvasInlineTextEditor";
 import { LayerFloatingControls } from "./LayerFloatingControls";
-import { getAdultTshirtTemplateSrc } from "@/lib/constants";
 import type { PrintAreaCmBounds } from "@/lib/design-cm";
 import {
   resolveLayerCmRect,
@@ -23,10 +22,13 @@ import {
   buildDisplayBlueFrameTooltip,
 } from "@/lib/designer-display-scale";
 import {
-  getDesignerWorkspaceContainerStyle,
   getDesignerWorkspacePrintAreaCm,
 } from "@/lib/designer-workspace";
+import { resolveDesignerTemplateAsset } from "@/lib/designer-geometry-v2/designer-template-runtime";
+import { resolveDesignerRuntimeWorkspace } from "@/lib/designer-geometry-v2/designer-runtime-workspace";
+import { useGeometryRuntime } from "@/lib/designer-geometry-v2/geometry-runtime-context";
 import { DesignerGarmentPresentation } from "./DesignerGarmentPresentation";
+import { PrintAreaDebugOverlay } from "./PrintAreaDebugOverlay";
 import type { PreviewPrintPositionMode } from "@/lib/printArea";
 import { ShirtContainerFrame } from "./ShirtContainerFrame";
 import type { Gender, ShirtColor, Side, Size } from "@/lib/constants";
@@ -93,7 +95,8 @@ import {
   PrintAreaGrid,
 } from "./PrintAreaGrid";
 import { PrintAreaDisplayRuler } from "./PrintAreaDisplayRuler";
-import { PrintAreaDebugOverlay } from "./PrintAreaDebugOverlay";
+import { GeometryDebugConsole } from "./GeometryDebugConsole";
+import { GeometryRuntimeDebugOverlay } from "./GeometryRuntimeDebugOverlay";
 import { CanvasCenterDebugOverlay } from "./CanvasCenterDebugOverlay";
 import {
   PrintAreaElement,
@@ -490,7 +493,14 @@ export function DesignCanvas({
     hasDesignInSlot(layersByTemplate, gender, s),
   );
 
-  const templateSrc = getAdultTshirtTemplateSrc(shirtColor, side);
+  const geometryRuntime = useGeometryRuntime();
+  const effectiveGeometryVersion =
+    geometryRuntime.getEffectiveGeometryVersion("designer");
+  const templateSrc = useMemo(
+    () =>
+      resolveDesignerTemplateAsset(side, shirtColor, effectiveGeometryVersion),
+    [side, shirtColor, effectiveGeometryVersion],
+  );
 
   /** 目前尺碼允許的最大可印尺寸（Constraint / Status Bar Display；經 Facade） */
   const designerCoordinateContext = useMemo(
@@ -515,10 +525,12 @@ export function DesignCanvas({
     [side],
   );
   const printArea = workspacePrintArea;
-  const workspaceStyle = useMemo(
-    () => getDesignerWorkspaceContainerStyle(side),
-    [side],
+  const designerRuntimeWorkspace = useMemo(
+    () => resolveDesignerRuntimeWorkspace(side, effectiveGeometryVersion),
+    [side, effectiveGeometryVersion],
   );
+  const workspaceStyle = designerRuntimeWorkspace.workspaceStyle;
+  const safeAreaStyle = designerRuntimeWorkspace.safeAreaStyle;
   const visibleLayers = useMemo(
     () => getLayersForCanvasRender(layers).filter((l) => l.visible),
     [layers],
@@ -1037,6 +1049,7 @@ export function DesignCanvas({
         )}
 
         <div className={`relative mx-1.5 mb-1.5 flex min-h-0 flex-1 overflow-hidden rounded-xl ${ds.surface.canvasWell}`}>
+          <GeometryDebugConsole />
           {UI_VISIBILITY.showCanvasInfoPanel && (
             <CanvasInfoPanel
               layers={layers}
@@ -1089,7 +1102,15 @@ export function DesignCanvas({
                     alt="服飾模板"
                     className="absolute inset-0 z-0 h-full w-full object-contain"
                   />
+                  <GeometryRuntimeDebugOverlay side={side} />
                 </DesignerGarmentPresentation>
+              <div
+                data-runtime-safe-area
+                className="pointer-events-none absolute z-[9] border-2 border-dashed border-amber-500/90"
+                style={safeAreaStyle}
+                aria-hidden
+                data-geometry-runtime-version={effectiveGeometryVersion}
+              />
               <div
                 data-design-workspace
                 data-print-area
@@ -1099,6 +1120,7 @@ export function DesignCanvas({
                     : "border-blue-500 bg-blue-500/5"
                 }`}
                 style={workspaceStyle}
+                data-geometry-runtime-version={effectiveGeometryVersion}
                 onPointerDown={(e) => {
                   e.stopPropagation();
                   const target = e.target as HTMLElement;

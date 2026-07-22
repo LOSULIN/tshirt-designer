@@ -1,0 +1,6 @@
+20 Assets: 20 evaluated
+PASS: 0
+WARNING: 20
+Average Delta (|ΔY|): 28.95px
+Maximum Delta (|ΔY|): 94.3px
+Overall: WARNING

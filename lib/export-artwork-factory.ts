@@ -11,6 +11,10 @@ import {
 } from "./coordinate-runtime";
 import type { ExportLayerRectPx } from "./export-coordinates";
 import { resolveExportGarmentLayerCmRect } from "./export-runtime";
+import {
+  maybeLogArtworkExportRuntimeCompare,
+  resolveArtworkExportRuntimeGeometry,
+} from "./designer-geometry-v2/export-artwork-runtime";
 import { loadCachedImage } from "./export/image-cache";
 import { drawImageArtworkOnCanvas } from "./image-artwork-render";
 import {
@@ -268,6 +272,7 @@ export interface RenderFactoryArtworkExportOptions {
   size?: string;
   /** Multiplies output canvas pixels (physical cm unchanged via pHYs). Product Export only. */
   pixelScale?: number;
+  pipelineContext?: import("@/lib/designer-geometry-v2/export-pipeline-context").ExportPipelineContext;
 }
 
 /**
@@ -281,14 +286,31 @@ export async function renderFactoryArtworkExportPng(
   const side = options?.side ?? "front";
   const size = options?.size ?? "M";
   const pixelScale = Math.max(1, options?.pixelScale ?? 1);
-  const spec = resolveFactoryArtworkExportSpec(layers, side, size);
-  const exportDpi = spec.exportDpi * pixelScale;
-  const widthPx = Math.round(spec.widthPx * pixelScale);
-  const heightPx = Math.round(spec.heightPx * pixelScale);
-  const { bbox } = spec;
+  const bbox = computeFactoryArtworkBBox(layers, side, size);
+  const imageDpis = collectImageDesignerDpis(layers, side, size);
+  const maxEdgeCm = Math.max(bbox.width_cm, bbox.height_cm);
+  const dpiInput = { maxEdgeCm, imageDesignerDpis: imageDpis };
+
+  maybeLogArtworkExportRuntimeCompare({
+    side,
+    pipelineContext: options?.pipelineContext,
+    artworkBounds: bbox,
+    dpiInput,
+  });
+
+  const runtimeGeometry = resolveArtworkExportRuntimeGeometry(
+    options?.pipelineContext,
+    bbox,
+    dpiInput,
+  );
+
+  const exportDpi = runtimeGeometry.exportCanvas.exportDpi * pixelScale;
+  const widthPx = Math.round(runtimeGeometry.exportCanvas.widthPx * pixelScale);
+  const heightPx = Math.round(runtimeGeometry.exportCanvas.heightPx * pixelScale);
+  const resolvedBbox = runtimeGeometry.bbox;
   const artworkAreaCm: PrintAreaCmBounds = {
-    width: bbox.width_cm,
-    height: bbox.height_cm,
+    width: resolvedBbox.width_cm,
+    height: resolvedBbox.height_cm,
   };
   const canvasSize = { widthPx, heightPx };
 
@@ -316,7 +338,7 @@ export async function renderFactoryArtworkExportPng(
       {
         getRenderFontSize_cm: (layer) => {
           const garmentRect = resolveExportGarmentLayerCmRect(layer, side, size);
-          const relativeRect = toRelativeLayerCmRect(garmentRect, bbox);
+          const relativeRect = toRelativeLayerCmRect(garmentRect, resolvedBbox);
           const exportRect = mapLayerRectToFactoryExportPx(
             relativeRect,
             artworkAreaCm,
@@ -334,7 +356,7 @@ export async function renderFactoryArtworkExportPng(
 
   for (const layer of visibleLayers) {
     const garmentRect = resolveExportGarmentLayerCmRect(layer, side, size);
-    const relativeRect = toRelativeLayerCmRect(garmentRect, bbox);
+    const relativeRect = toRelativeLayerCmRect(garmentRect, resolvedBbox);
     const exportRect = mapLayerRectToFactoryExportPx(
       relativeRect,
       artworkAreaCm,
