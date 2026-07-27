@@ -1,0 +1,222 @@
+{
+  "phase": "75.2",
+  "generatedAt": "2026-07-27T04:49:10.937Z",
+  "tolerance": 0.12,
+  "passThresholdPercent": 3.5,
+  "overallPass": true,
+  "reports": [
+    {
+      "label": "designer-garment",
+      "referenceSize": {
+        "width": 1024,
+        "height": 1536
+      },
+      "candidateSize": {
+        "width": 1024,
+        "height": 1536
+      },
+      "comparedSize": {
+        "width": 1024,
+        "height": 1536
+      },
+      "scaleX": 1,
+      "scaleY": 1,
+      "interpolation": "none",
+      "rotation": 0,
+      "garmentMaskPixels": 648425,
+      "diffPixels": 0,
+      "diffPercent": 0,
+      "pass": true,
+      "referenceAlphaBBox": {
+        "minX": 24,
+        "minY": 260,
+        "maxX": 999,
+        "maxY": 1250,
+        "width": 976,
+        "height": 991
+      },
+      "candidateAlphaBBox": {
+        "minX": 24,
+        "minY": 260,
+        "maxX": 999,
+        "maxY": 1250,
+        "width": 976,
+        "height": 991
+      },
+      "crop": {
+        "minX": 24,
+        "minY": 260,
+        "maxX": 999,
+        "maxY": 1250,
+        "width": 976,
+        "height": 991
+      },
+      "unexpectedCrop": false,
+      "artifactFile": "/Users/leo/Desktop/tshirt-designer/debug/geometry-v2-export/phase-75.2-cert/artifacts/designer-garment.png",
+      "referenceFile": "/Users/leo/Desktop/tshirt-designer/public/products/UA35001/assets/adult-tshirt-white-front.png",
+      "legacyTemplateDiffPercent": 17.517754134085372,
+      "unexpectedTemplateSubstitution": false
+    },
+    {
+      "label": "download-mockup",
+      "referenceSize": {
+        "width": 2048,
+        "height": 3072
+      },
+      "candidateSize": {
+        "width": 2048,
+        "height": 3072
+      },
+      "comparedSize": {
+        "width": 2048,
+        "height": 3072
+      },
+      "scaleX": 1,
+      "scaleY": 1,
+      "interpolation": "none",
+      "rotation": 0,
+      "garmentMaskPixels": 6268809,
+      "diffPixels": 14,
+      "diffPercent": 0.00022332790806036683,
+      "pass": true,
+      "referenceAlphaBBox": {
+        "minX": 0,
+        "minY": 0,
+        "maxX": 2047,
+        "maxY": 3071,
+        "width": 2048,
+        "height": 3072
+      },
+      "candidateAlphaBBox": {
+        "minX": 0,
+        "minY": 0,
+        "maxX": 2047,
+        "maxY": 3071,
+        "width": 2048,
+        "height": 3072
+      },
+      "crop": {
+        "minX": 0,
+        "minY": 0,
+        "maxX": 2047,
+        "maxY": 3071,
+        "width": 2048,
+        "height": 3072
+      },
+      "unexpectedCrop": false,
+      "artifactFile": "/Users/leo/Desktop/tshirt-designer/debug/geometry-v2-export/phase-75.2-cert/artifacts/download-mockup.png",
+      "referenceFile": "/Users/leo/Desktop/tshirt-designer/public/products/UA35001/assets/export/adult-tshirt-white-front.png",
+      "legacyTemplateDiffPercent": 16.998807975494472,
+      "unexpectedTemplateSubstitution": false
+    },
+    {
+      "label": "submit-mockup",
+      "referenceSize": {
+        "width": 1024,
+        "height": 1536
+      },
+      "candidateSize": {
+        "width": 1024,
+        "height": 1536
+      },
+      "comparedSize": {
+        "width": 1024,
+        "height": 1536
+      },
+      "scaleX": 1,
+      "scaleY": 1,
+      "interpolation": "none",
+      "rotation": 0,
+      "garmentMaskPixels": 642611,
+      "diffPixels": 10,
+      "diffPercent": 0.001556151388631692,
+      "pass": true,
+      "referenceAlphaBBox": {
+        "minX": 24,
+        "minY": 260,
+        "maxX": 999,
+        "maxY": 1250,
+        "width": 976,
+        "height": 991
+      },
+      "candidateAlphaBBox": {
+        "minX": 24,
+        "minY": 260,
+        "maxX": 999,
+        "maxY": 1250,
+        "width": 976,
+        "height": 991
+      },
+      "crop": {
+        "minX": 24,
+        "minY": 260,
+        "maxX": 999,
+        "maxY": 1250,
+        "width": 976,
+        "height": 991
+      },
+      "unexpectedCrop": false,
+      "artifactFile": "/Users/leo/Desktop/tshirt-designer/debug/geometry-v2-export/phase-75.2-cert/artifacts/submit-mockup.png",
+      "referenceFile": "/Users/leo/Desktop/tshirt-designer/public/products/UA35001/assets/adult-tshirt-white-front.png",
+      "legacyTemplateDiffPercent": 18.44515660385421,
+      "unexpectedTemplateSubstitution": false
+    },
+    {
+      "label": "submit-pdf-garment",
+      "referenceSize": {
+        "width": 1024,
+        "height": 1536
+      },
+      "candidateSize": {
+        "width": 1024,
+        "height": 1536
+      },
+      "comparedSize": {
+        "width": 1024,
+        "height": 1536
+      },
+      "scaleX": 1,
+      "scaleY": 1,
+      "interpolation": "none",
+      "rotation": 0,
+      "garmentMaskPixels": 648425,
+      "diffPixels": 0,
+      "diffPercent": 0,
+      "pass": true,
+      "referenceAlphaBBox": {
+        "minX": 24,
+        "minY": 260,
+        "maxX": 999,
+        "maxY": 1250,
+        "width": 976,
+        "height": 991
+      },
+      "candidateAlphaBBox": {
+        "minX": 24,
+        "minY": 260,
+        "maxX": 999,
+        "maxY": 1250,
+        "width": 976,
+        "height": 991
+      },
+      "crop": {
+        "minX": 24,
+        "minY": 260,
+        "maxX": 999,
+        "maxY": 1250,
+        "width": 976,
+        "height": 991
+      },
+      "unexpectedCrop": false,
+      "artifactFile": "/Users/leo/Desktop/tshirt-designer/debug/geometry-v2-export/phase-75.2-cert/artifacts/submit-pdf-garment-extract.png",
+      "referenceFile": "/Users/leo/Desktop/tshirt-designer/public/products/UA35001/assets/adult-tshirt-white-front.png",
+      "pdfEmbeddedBytes": 286907,
+      "legacyTemplateDiffPercent": 17.517754134085372,
+      "unexpectedTemplateSubstitution": false
+    }
+  ],
+  "outputs": {
+    "diffDirectory": "/Users/leo/Desktop/tshirt-designer/debug/geometry-v2-export/phase-75.2-cert/diff-output",
+    "artifactsDirectory": "/Users/leo/Desktop/tshirt-designer/debug/geometry-v2-export/phase-75.2-cert/artifacts"
+  }
+}

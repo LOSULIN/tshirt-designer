@@ -96,7 +96,7 @@ import {
   buildDesignJson,
   buildFullDesignJson,
 } from "@/lib/export-design";
-import { renderMockupPreviewPng } from "@/lib/mockup-export";
+import { renderProofSubmitProductMockupPng } from "@/lib/designer-geometry-v2/product-mockup-submit-render";
 import {
   appendProofArtifactsToFormData,
   buildProofOrder,
@@ -1882,6 +1882,9 @@ export function DesignerApp({
   };
 
   const handleSubmitConfirm = async () => {
+    const submitDiagLabel = "[submit-diag] DesignerApp.handleSubmitConfirm";
+    console.log(`${submitDiagLabel} ENTER`);
+    console.time(submitDiagLabel);
     setIsBusy(true);
     setStatusMessage(null);
     try {
@@ -1916,7 +1919,7 @@ export function DesignerApp({
             slotLayers,
             contestMeta,
           );
-          const previewBlob = await renderMockupPreviewPng({
+          const previewBlob = await renderProofSubmitProductMockupPng({
             shirtColor,
             side: templateSide,
             layers: slotLayers,
@@ -2004,13 +2007,22 @@ export function DesignerApp({
       });
 
       setStatusMessage("正在產生設計預覽檔…");
+      console.log("[submit-diag] prepareProofSubmission await ENTER");
+      console.time("[submit-diag] prepareProofSubmission.await");
       const proofArtifacts = await prepareProofSubmission(
         proofOrder,
         proofSubmitRuntimeContextRef.current,
       );
+      console.log("[submit-diag] prepareProofSubmission await EXIT ok", {
+        mockupSides: Object.keys(proofArtifacts.mockups ?? {}),
+        printSides: Object.keys(proofArtifacts.prints ?? {}),
+      });
+      console.timeEnd("[submit-diag] prepareProofSubmission.await");
 
       setStatusMessage("正在上傳申請…");
 
+      console.log("[submit-diag] FormData.build ENTER");
+      console.time("[submit-diag] FormData.build");
       const formData = new FormData();
       appendProofArtifactsToFormData(formData, proofArtifacts);
       formData.append(
@@ -2048,11 +2060,20 @@ export function DesignerApp({
       } else {
         formData.append("original", await createPlaceholderPng(), "placeholder.png");
       }
+      console.log("[submit-diag] FormData.build EXIT");
+      console.timeEnd("[submit-diag] FormData.build");
 
+      console.log("[submit-diag] fetch /api/designs/submit ENTER");
+      console.time("[submit-diag] fetch /api/designs/submit");
       const res = await fetch("/api/designs/submit", {
         method: "POST",
         body: formData,
       });
+      console.log("[submit-diag] fetch /api/designs/submit EXIT", {
+        ok: res.ok,
+        status: res.status,
+      });
+      console.timeEnd("[submit-diag] fetch /api/designs/submit");
 
       const data = (await res.json()) as {
         submissionNo?: string;
@@ -2097,10 +2118,13 @@ export function DesignerApp({
       });
       setDraftId(nanoid(12));
     } catch (error) {
+      console.log("[submit-diag] DesignerApp.handleSubmitConfirm EXIT error", error);
       setWarnings([
         error instanceof Error ? error.message : "送出設計失敗",
       ]);
     } finally {
+      console.log("[submit-diag] DesignerApp.handleSubmitConfirm EXIT (finally)");
+      console.timeEnd(submitDiagLabel);
       setIsBusy(false);
     }
   };

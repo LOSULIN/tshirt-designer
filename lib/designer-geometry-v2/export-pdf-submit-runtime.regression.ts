@@ -66,46 +66,45 @@ function scanForbidden(sourcePath: string, patterns: RegExp[]): string[] {
 
 const order = { size: "M" as const };
 
-// --- missing runtime context => V1 ---
+// --- missing runtime context => V2 (default state) ---
 const missingForward = resolveProofPdfRuntimeForward(order);
 assert(
-  "missing runtime context => geometryVersion V1",
-  missingForward.geometryVersion === DESIGNER_GEOMETRY_VERSION.V1,
+  "missing runtime context => geometryVersion V2",
+  missingForward.geometryVersion === DESIGNER_GEOMETRY_VERSION.V2,
 );
 assert(
-  "missing runtime context => no pipelineContextBySide",
-  missingForward.pipelineContextBySide == null,
+  "missing runtime context => pipelineContextBySide present",
+  missingForward.pipelineContextBySide != null,
 );
 
-// --- production lock => V1 ---
-const v2PdfOnContext = resolveProofSubmitRuntimeContext(
+// --- production lock => V2 (Phase 78: no V1 lock) ---
+const v2PdfContext = resolveProofSubmitRuntimeContext(
   {
     ...createDefaultGeometryRuntimeState(),
     geometryVersion: DESIGNER_GEOMETRY_VERSION.V2,
-    exportRuntime: { ...DEFAULT_GEOMETRY_EXPORT_RUNTIME_TOGGLES, pdf: true },
   },
   { productionLocked: false },
 );
 
-const prodForward = resolveProofPdfRuntimeForward(order, v2PdfOnContext, {
+const prodForward = resolveProofPdfRuntimeForward(order, v2PdfContext, {
   productionLocked: true,
 });
 assert(
-  "production lock => V1 forward",
-  prodForward.geometryVersion === DESIGNER_GEOMETRY_VERSION.V1 &&
-    prodForward.pipelineContextBySide == null,
+  "production lock => V2 forward",
+  prodForward.geometryVersion === DESIGNER_GEOMETRY_VERSION.V2 &&
+    prodForward.pipelineContextBySide != null,
 );
 
-const prodNormalized = normalizeProofSubmitRuntimeContext(v2PdfOnContext, {
+const prodNormalized = normalizeProofSubmitRuntimeContext(v2PdfContext, {
   productionLocked: true,
 });
 assert(
-  "normalize production => effective pdf V1",
-  prodNormalized.effectiveVersions.pdf === DESIGNER_GEOMETRY_VERSION.V1,
+  "normalize production => effective pdf V2",
+  prodNormalized.effectiveVersions.pdf === DESIGNER_GEOMETRY_VERSION.V2,
 );
 
 // --- submit PDF == download PDF (same pipelineContext) ---
-const submitForward = resolveProofPdfRuntimeForward(order, v2PdfOnContext, {
+const submitForward = resolveProofPdfRuntimeForward(order, v2PdfContext, {
   productionLocked: false,
 });
 const downloadForward = resolveProofPdfRuntimeForwardFromEffectiveVersion(
@@ -114,7 +113,7 @@ const downloadForward = resolveProofPdfRuntimeForwardFromEffectiveVersion(
   { productionLocked: false },
 );
 assert(
-  "submit forward == download forward (V2 pdf toggle ON)",
+  "submit forward == download forward (V2 policy effective version)",
   proofPdfRuntimeForwardsMatch(submitForward, downloadForward),
 );
 assert(

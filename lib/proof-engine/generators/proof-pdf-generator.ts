@@ -31,14 +31,30 @@ export interface ProofPdfInput {
 export async function generateProofPdf(
   input: ProofPdfInput,
 ): Promise<Uint8Array> {
-  const factoryInput: FactoryProofPdfInput = {
-    order: input.order,
+  const label = "[submit-diag] generateProofPdf";
+  console.log(`${label} ENTER`, {
+    orderId: input.order.order_id,
     version: input.version,
-    mockupImages: input.mockupImages,
-    printImages: input.printImages,
     geometryVersion: input.geometryVersion,
-    pipelineContextBySide: input.pipelineContextBySide,
-    pipelineContext: input.pipelineContext,
-  };
-  return generateFactoryProofPdf(factoryInput);
+  });
+  console.time(label);
+  try {
+    const factoryInput: FactoryProofPdfInput = {
+      order: input.order,
+      version: input.version,
+      mockupImages: input.mockupImages,
+      printImages: input.printImages,
+      geometryVersion: input.geometryVersion,
+      pipelineContextBySide: input.pipelineContextBySide,
+      pipelineContext: input.pipelineContext,
+    };
+    const result = await generateFactoryProofPdf(factoryInput);
+    console.log(`${label} EXIT ok`, { bytes: result.byteLength });
+    return result;
+  } catch (error) {
+    console.log(`${label} EXIT error`, error);
+    throw error;
+  } finally {
+    console.timeEnd(label);
+  }
 }

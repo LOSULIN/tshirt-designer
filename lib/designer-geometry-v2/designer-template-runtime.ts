@@ -52,22 +52,20 @@ export function resolveDesignerTemplateV1AssetSrc(
   color: ShirtColor,
   side: Side,
 ): string {
-  return `${DESIGNER_TEMPLATE_V1_ASSET_ROOT}/adult-tshirt-${color}-${side}.png`;
+  return resolveDesignerTemplateV2AssetSrc(color, side);
 }
 
 /**
  * Unified Designer garment asset resolver.
- * V1 → legacy /templates/* ; V2 → UA35001 /products/UA35001/assets/*
+ * Garment bitmap always from Product Registry; geometryVersion gates placement only.
  */
 export function resolveDesignerTemplateAsset(
   side: Side,
   color: ShirtColor,
   geometryVersion: DesignerGeometryVersion,
 ): string {
-  if (geometryVersion === DESIGNER_GEOMETRY_VERSION.V2) {
-    return resolveDesignerTemplateV2AssetSrc(color, side);
-  }
-  return resolveDesignerTemplateV1AssetSrc(color, side);
+  void geometryVersion;
+  return resolveDesignerTemplateV2AssetSrc(color, side);
 }
 
 export function resolveDesignerTemplateAssetResolution(
@@ -75,17 +73,11 @@ export function resolveDesignerTemplateAssetResolution(
   color: ShirtColor,
   geometryVersion: DesignerGeometryVersion,
 ): DesignerTemplateAssetResolution {
-  if (geometryVersion === DESIGNER_GEOMETRY_VERSION.V2) {
-    return {
-      src: resolveDesignerTemplateV2AssetSrc(color, side),
-      geometryVersion,
-      assetRoot: DESIGNER_TEMPLATE_V2_ASSET_ROOT,
-    };
-  }
+  const src = resolveDesignerTemplateV2AssetSrc(color, side);
   return {
-    src: resolveDesignerTemplateV1AssetSrc(color, side),
+    src,
     geometryVersion,
-    assetRoot: DESIGNER_TEMPLATE_V1_ASSET_ROOT,
+    assetRoot: DESIGNER_TEMPLATE_V2_ASSET_ROOT,
   };
 }
 

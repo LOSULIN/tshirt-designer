@@ -9,11 +9,7 @@ import type { ProductExportInput } from "@/lib/export/product-export";
 import type { ExportPipelineContext } from "./export-pipeline-context";
 import { resolveExportPipelineContext } from "./export-pipeline-context";
 import { resolveZipExportPipelineContext } from "./export-zip-runtime";
-import { isGeometryRuntimeProductionLocked } from "./geometry-runtime-state";
-import {
-  DESIGNER_GEOMETRY_VERSION,
-  type DesignerGeometryVersion,
-} from "./geometry-version";
+import type { DesignerGeometryVersion } from "./geometry-version";
 
 const PNG_EXPORT_SURFACE = "png" as const;
 
@@ -26,11 +22,7 @@ export function resolveEffectiveDownloadGeometryVersion(
   geometryVersion: DesignerGeometryVersion,
   options?: { productionLocked?: boolean },
 ): DesignerGeometryVersion {
-  const productionLocked =
-    options?.productionLocked ?? isGeometryRuntimeProductionLocked();
-  if (productionLocked) {
-    return DESIGNER_GEOMETRY_VERSION.V1;
-  }
+  void options;
   return geometryVersion;
 }
 

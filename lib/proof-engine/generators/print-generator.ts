@@ -32,21 +32,46 @@ export async function generatePrintsForOrder(params: {
   layersByTemplate: DesignLayersByTemplate;
   size?: string;
 }): Promise<Partial<Record<Side, Blob>>> {
-  const prints: Partial<Record<Side, Blob>> = {};
+  const label = "[submit-diag] generatePrintsForOrder";
+  console.log(`${label} ENTER`, { gender: params.gender, size: params.size });
+  console.time(label);
+  try {
+    const prints: Partial<Record<Side, Blob>> = {};
 
-  await Promise.all(
-    DESIGN_SIDES.map(async (side) => {
-      if (!hasDesignInSlot(params.layersByTemplate, params.gender, side)) {
-        return;
-      }
-      prints[side] = await generatePrintPng({
-        gender: params.gender,
-        side,
-        layersByTemplate: params.layersByTemplate,
-        size: params.size,
-      });
-    }),
-  );
+    await Promise.all(
+      DESIGN_SIDES.map(async (side) => {
+        const sideLabel = `${label}.${side}`;
+        console.log(`${sideLabel} ENTER`);
+        console.time(sideLabel);
+        try {
+          if (!hasDesignInSlot(params.layersByTemplate, params.gender, side)) {
+            console.log(`${sideLabel} EXIT skip (no design)`);
+            return;
+          }
+          prints[side] = await generatePrintPng({
+            gender: params.gender,
+            side,
+            layersByTemplate: params.layersByTemplate,
+            size: params.size,
+          });
+          console.log(`${sideLabel} EXIT ok`, {
+            bytes: prints[side]?.size,
+          });
+        } catch (error) {
+          console.log(`${sideLabel} EXIT error`, error);
+          throw error;
+        } finally {
+          console.timeEnd(sideLabel);
+        }
+      }),
+    );
 
-  return prints;
+    console.log(`${label} EXIT ok`, { sides: Object.keys(prints) });
+    return prints;
+  } catch (error) {
+    console.log(`${label} EXIT error`, error);
+    throw error;
+  } finally {
+    console.timeEnd(label);
+  }
 }

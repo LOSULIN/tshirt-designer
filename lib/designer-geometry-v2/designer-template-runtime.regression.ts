@@ -17,7 +17,6 @@ import {
   ACTIVE_DESIGNER_GEOMETRY_VERSION,
 } from "./geometry-version";
 import {
-  DESIGNER_TEMPLATE_V1_ASSET_ROOT,
   DESIGNER_TEMPLATE_V2_ASSET_ROOT,
   resolveDesignerTemplateAsset,
   resolveDesignerTemplateAssetFilesystemPath,
@@ -127,10 +126,10 @@ async function run(): Promise<void> {
   const checks: string[] = [];
 
   assert(
-    ACTIVE_DESIGNER_GEOMETRY_VERSION === DESIGNER_GEOMETRY_VERSION.V1,
-    "production geometry remains v1",
+    ACTIVE_DESIGNER_GEOMETRY_VERSION === DESIGNER_GEOMETRY_VERSION.V2,
+    "production geometry is v2",
   );
-  checks.push("PASS: ACTIVE_DESIGNER_GEOMETRY_VERSION = v1");
+  checks.push("PASS: ACTIVE_DESIGNER_GEOMETRY_VERSION = v2");
 
   assertResolverDoesNotImportBuilder();
   checks.push("PASS: Geometry Builder 0 changes (resolver has no builder import)");
@@ -142,28 +141,22 @@ async function run(): Promise<void> {
         color,
         DESIGNER_GEOMETRY_VERSION.V1,
       );
-      assert(v1.startsWith(`${DESIGNER_TEMPLATE_V1_ASSET_ROOT}/`), v1);
-      assert(
-        existsSync(resolveDesignerTemplateAssetFilesystemPath(side, color, DESIGNER_GEOMETRY_VERSION.V1)),
-        `missing V1 asset for ${color} ${side}`,
-      );
-
       const v2 = resolveDesignerTemplateAsset(
         side,
         color,
         DESIGNER_GEOMETRY_VERSION.V2,
       );
+      assert(v1.startsWith(`${DESIGNER_TEMPLATE_V2_ASSET_ROOT}/`), v1);
       assert(v2.startsWith(`${DESIGNER_TEMPLATE_V2_ASSET_ROOT}/`), v2);
+      assert(v1 === v2, `V1/V2 garment paths must match for ${color} ${side}`);
       assert(
-        existsSync(resolveDesignerTemplateAssetFilesystemPath(side, color, DESIGNER_GEOMETRY_VERSION.V2)),
-        `missing V2 asset for ${color} ${side}`,
+        existsSync(resolveDesignerTemplateAssetFilesystemPath(side, color, DESIGNER_GEOMETRY_VERSION.V1)),
+        `missing registry asset for ${color} ${side}`,
       );
-
-      assert(v1 !== v2, `V1/V2 paths must differ for ${color} ${side}`);
     }
   }
-  checks.push("PASS: Runtime V1 → Designer uses public/templates");
-  checks.push("PASS: Runtime V2 → Designer uses public/products/UA35001/assets");
+  checks.push("PASS: Runtime V1 → Designer uses Product Registry garment");
+  checks.push("PASS: Runtime V2 → Designer uses Product Registry garment");
 
   const whiteFront = resolveDesignerTemplateAssetResolution(
     "front",

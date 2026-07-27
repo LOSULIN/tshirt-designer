@@ -74,7 +74,7 @@ export async function renderProofSubmitProductMockupPng(
   const profile = await getProductProfile(productCode);
   const color = resolveRegistryColorSlug(
     input.shirtColor,
-    profile.colors.map((item) => item.slug),
+    profile.availableColors.map((item) => item.slug),
   );
 
   const artworkBlob = await renderMockupArtworkPng(input.layers, {

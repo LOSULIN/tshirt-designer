@@ -513,8 +513,8 @@ async function run(): Promise<void> {
   let state = createDefaultGeometryRuntimeState();
   assertPass(
     resolveEffectiveGeometryVersion(state, "designer") ===
-      DESIGNER_GEOMETRY_VERSION.V1,
-    "Runtime default V1",
+      DESIGNER_GEOMETRY_VERSION.V2,
+    "Runtime default V2",
   );
   state = { ...state, geometryVersion: DESIGNER_GEOMETRY_VERSION.V2 };
   assertPass(
@@ -537,31 +537,52 @@ async function run(): Promise<void> {
       { ...createDefaultGeometryRuntimeState(), geometryVersion: DESIGNER_GEOMETRY_VERSION.V2 },
       "designer",
       { productionLocked: true },
-    ) === DESIGNER_GEOMETRY_VERSION.V1,
-    "Production always V1",
+    ) === DESIGNER_GEOMETRY_VERSION.V2,
+    "Production uses V2",
   );
   process.env.NODE_ENV = prevNodeEnv ?? "development";
 
-  // ⑨ Export guard
+  // ⑨ Runtime policy + export toggle defaults (74.3)
   assertPass(
     !DEFAULT_GEOMETRY_EXPORT_RUNTIME_TOGGLES.png &&
       !DEFAULT_GEOMETRY_EXPORT_RUNTIME_TOGGLES.zip &&
       !DEFAULT_GEOMETRY_EXPORT_RUNTIME_TOGGLES.pdf &&
       !DEFAULT_GEOMETRY_EXPORT_RUNTIME_TOGGLES.email,
-    "Export toggles default OFF (V1)",
+    "exportRuntime toggles default OFF in dev console state",
   );
-  for (const surface of ["png", "zip", "pdf", "email"] as const) {
-    const version = resolveEffectiveGeometryVersion(
-      {
-        ...createDefaultGeometryRuntimeState(),
-        geometryVersion: DESIGNER_GEOMETRY_VERSION.V2,
-      },
-      surface,
-    );
+
+  const v2PreviewOn = {
+    ...createDefaultGeometryRuntimeState(),
+    geometryVersion: DESIGNER_GEOMETRY_VERSION.V2,
+  };
+  for (const surface of ["png", "zip", "pdf"] as const) {
+    const version = resolveEffectiveGeometryVersion(v2PreviewOn, surface);
     assertPass(
-      version === DESIGNER_GEOMETRY_VERSION.V1,
-      `Export ${surface.toUpperCase()} default uses V1`,
+      version === DESIGNER_GEOMETRY_VERSION.V2,
+      `User-facing ${surface.toUpperCase()} preview on + V2 => V2 (policy)`,
     );
+  }
+
+  const v2PreviewOff = {
+    ...createDefaultGeometryRuntimeState(),
+    geometryVersion: DESIGNER_GEOMETRY_VERSION.V2,
+    preview: { designer: false, resultPanel: false },
+  };
+  for (const surface of ["png", "zip", "pdf"] as const) {
+    const version = resolveEffectiveGeometryVersion(v2PreviewOff, surface);
+    assertPass(
+      version === DESIGNER_GEOMETRY_VERSION.V2,
+      `User-facing ${surface.toUpperCase()} preview off + V2 => V2 (policy)`,
+    );
+  }
+
+  assertPass(
+    resolveEffectiveGeometryVersion(v2PreviewOn, "email") ===
+      DESIGNER_GEOMETRY_VERSION.V1,
+    "Email surface still gated by exportRuntime.email (off => V1)",
+  );
+
+  for (const surface of ["png", "zip", "pdf", "email"] as const) {
     const exportResolved = resolveExportGeometryVersion(
       DESIGNER_GEOMETRY_VERSION.V2,
       surface,
@@ -570,7 +591,7 @@ async function run(): Promise<void> {
     );
     assertPass(
       exportResolved === DESIGNER_GEOMETRY_VERSION.V1,
-      `Export guard ${surface.toUpperCase()} OFF → V1`,
+      `resolveExportGeometryVersionFromToggle ${surface.toUpperCase()} OFF → V1`,
     );
   }
 
@@ -586,8 +607,8 @@ async function run(): Promise<void> {
 
   // Production compile-time default
   assertPass(
-    ACTIVE_DESIGNER_GEOMETRY_VERSION === DESIGNER_GEOMETRY_VERSION.V1,
-    "ACTIVE_DESIGNER_GEOMETRY_VERSION remains V1",
+    ACTIVE_DESIGNER_GEOMETRY_VERSION === DESIGNER_GEOMETRY_VERSION.V2,
+    "ACTIVE_DESIGNER_GEOMETRY_VERSION is V2",
   );
 
   // Unified resolver entry
@@ -609,8 +630,6 @@ async function run(): Promise<void> {
 
   const releaseBlockers = [
     failCount > 0 ? `${failCount} FAIL findings` : null,
-    "ACTIVE_DESIGNER_GEOMETRY_VERSION still V1 (production cutover not done)",
-    "Export engines (PNG/ZIP/PDF/Email) remain V1-only",
     "Per-SKU Product Factory Anchor not implemented (Phase 70.4)",
   ].filter(Boolean) as string[];
 
@@ -673,7 +692,7 @@ async function run(): Promise<void> {
     "",
     "## Incomplete / Deferred",
     "",
-    "- Production default still V1 (`ACTIVE_DESIGNER_GEOMETRY_VERSION`)",
+    "- Production default is V2 (`ACTIVE_DESIGNER_GEOMETRY_VERSION`)",
     "- Export pipeline V2 integration (guarded OFF)",
     "- Phase 70.4 Product Factory Anchor (per-SKU official anchors)",
     "- Multi-SKU beyond UA35001",

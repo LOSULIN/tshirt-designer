@@ -63,37 +63,54 @@ function scanBridgeIsolation(): string[] {
   return violations;
 }
 
-// --- missing context => V1 ---
+// --- missing context => V2 (default state) ---
 const missingForward = resolveProofPdfRuntimeForward({ size: "M" });
 assert(
-  "missing context => PDF geometryVersion V1",
-  missingForward.geometryVersion === DESIGNER_GEOMETRY_VERSION.V1,
+  "missing context => PDF geometryVersion V2",
+  missingForward.geometryVersion === DESIGNER_GEOMETRY_VERSION.V2,
 );
 assert(
-  "missing context => no pipelineContextBySide",
-  missingForward.pipelineContextBySide == null,
+  "missing context => pipelineContextBySide present",
+  missingForward.pipelineContextBySide != null,
 );
 
 const defaultCtx = createDefaultProofSubmitRuntimeContext();
 assert(
-  "default context all effective versions V1",
-  defaultCtx.effectiveVersions.pdf === DESIGNER_GEOMETRY_VERSION.V1 &&
-    defaultCtx.effectiveVersions.mockup === DESIGNER_GEOMETRY_VERSION.V1 &&
-    defaultCtx.effectiveVersions.print === DESIGNER_GEOMETRY_VERSION.V1,
+  "default context all effective versions V2",
+  defaultCtx.effectiveVersions.pdf === DESIGNER_GEOMETRY_VERSION.V2 &&
+    defaultCtx.effectiveVersions.mockup === DESIGNER_GEOMETRY_VERSION.V2 &&
+    defaultCtx.effectiveVersions.print === DESIGNER_GEOMETRY_VERSION.V2,
 );
 
-// --- dev runtime resolves versions from toggles ---
+// --- dev runtime resolves versions from policy (74.3) ---
 const v2State = {
   ...createDefaultGeometryRuntimeState(),
   geometryVersion: DESIGNER_GEOMETRY_VERSION.V2,
 };
 
-const devPdfOff = resolveProofSubmitRuntimeContext(v2State, {
+const devPolicyContext = resolveProofSubmitRuntimeContext(v2State, {
   productionLocked: false,
 });
 assert(
-  "dev V2 state pdf toggle OFF => effective pdf V1",
-  devPdfOff.effectiveVersions.pdf === DESIGNER_GEOMETRY_VERSION.V1,
+  "dev V2 + preview on => effective pdf V2 (policy, exportRuntime ignored)",
+  devPolicyContext.effectiveVersions.pdf === DESIGNER_GEOMETRY_VERSION.V2,
+);
+assert(
+  "dev V2 + preview on => effective mockup V2 (policy)",
+  devPolicyContext.effectiveVersions.mockup === DESIGNER_GEOMETRY_VERSION.V2,
+);
+
+const previewOffContext = resolveProofSubmitRuntimeContext(
+  {
+    ...v2State,
+    preview: { designer: false, resultPanel: false },
+  },
+  { productionLocked: false },
+);
+assert(
+  "dev V2 + preview off => effective pdf/mockup V2 (policy)",
+  previewOffContext.effectiveVersions.pdf === DESIGNER_GEOMETRY_VERSION.V2 &&
+    previewOffContext.effectiveVersions.mockup === DESIGNER_GEOMETRY_VERSION.V2,
 );
 
 const devPdfOn = resolveProofSubmitRuntimeContext(
@@ -104,15 +121,15 @@ const devPdfOn = resolveProofSubmitRuntimeContext(
   { productionLocked: false },
 );
 assert(
-  "dev V2 state pdf toggle ON => effective pdf V2",
+  "dev V2 + exportRuntime.pdf ON => effective pdf still V2 (toggle inert)",
   devPdfOn.effectiveVersions.pdf === DESIGNER_GEOMETRY_VERSION.V2,
 );
 assert(
-  "dev print effective version always V1",
-  devPdfOn.effectiveVersions.print === DESIGNER_GEOMETRY_VERSION.V1,
+  "dev print effective version V2",
+  devPdfOn.effectiveVersions.print === DESIGNER_GEOMETRY_VERSION.V2,
 );
 
-// --- production submit => byte compatible ---
+// --- production submit => V2 (Phase 78) ---
 const prodClient = resolveProofSubmitRuntimeContext(
   {
     ...v2State,
@@ -121,9 +138,9 @@ const prodClient = resolveProofSubmitRuntimeContext(
   { productionLocked: true },
 );
 assert(
-  "production client resolve => all V1",
-  prodClient.geometryVersion === DESIGNER_GEOMETRY_VERSION.V1 &&
-    prodClient.effectiveVersions.pdf === DESIGNER_GEOMETRY_VERSION.V1,
+  "production client resolve => all V2",
+  prodClient.geometryVersion === DESIGNER_GEOMETRY_VERSION.V2 &&
+    prodClient.effectiveVersions.pdf === DESIGNER_GEOMETRY_VERSION.V2,
 );
 
 const prodForward = resolveProofPdfRuntimeForward(
@@ -132,9 +149,9 @@ const prodForward = resolveProofPdfRuntimeForward(
   { productionLocked: true },
 );
 assert(
-  "production forward spoofs client V2 => PDF V1",
-  prodForward.geometryVersion === DESIGNER_GEOMETRY_VERSION.V1 &&
-    prodForward.pipelineContextBySide == null,
+  "production forward uses V2",
+  prodForward.geometryVersion === DESIGNER_GEOMETRY_VERSION.V2 &&
+    prodForward.pipelineContextBySide != null,
 );
 
 // --- FormData roundtrip ---
@@ -182,7 +199,7 @@ assert(
     pdfForward.pipelineContextBySide?.back?.geometry != null,
 );
 
-// --- invalid parse => undefined => V1 forward ---
+// --- invalid parse => undefined => V2 forward (default) ---
 assert(
   "invalid JSON => undefined",
   parseProofSubmitRuntimeContext("{bad") === undefined,
@@ -192,8 +209,8 @@ const invalidForward = resolveProofPdfRuntimeForward(
   normalizeProofSubmitRuntimeContext(parseProofSubmitRuntimeContext("{bad")),
 );
 assert(
-  "invalid parse normalize => V1 forward",
-  invalidForward.geometryVersion === DESIGNER_GEOMETRY_VERSION.V1,
+  "invalid parse normalize => V2 forward",
+  invalidForward.geometryVersion === DESIGNER_GEOMETRY_VERSION.V2,
 );
 
 // --- bridge isolation ---

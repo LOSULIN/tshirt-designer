@@ -91,8 +91,8 @@ export const UA35001_PRODUCT_FACTORY_ANCHOR: ProductFactoryAnchor = {
     },
   },
   back: {
-    collarBottom: { x: 513, y: 388, neckWidthPx: 286 },
-    factoryOrigin: { x: 513, y: 388 },
+    collarBottom: { x: 513, y: 327, neckWidthPx: 286 },
+    factoryOrigin: { x: 513, y: 327 },
     garmentReference: {
       garmentWidthPx: 981.5,
       garmentHeightPx: 1020.3,

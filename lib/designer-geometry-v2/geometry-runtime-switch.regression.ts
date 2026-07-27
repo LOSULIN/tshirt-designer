@@ -167,23 +167,23 @@ async function run(): Promise<void> {
   const checks: string[] = [];
 
   assert(
-    ACTIVE_DESIGNER_GEOMETRY_VERSION === DESIGNER_GEOMETRY_VERSION.V1,
-    "ACTIVE_DESIGNER_GEOMETRY_VERSION must remain v1",
+    ACTIVE_DESIGNER_GEOMETRY_VERSION === DESIGNER_GEOMETRY_VERSION.V2,
+    "ACTIVE_DESIGNER_GEOMETRY_VERSION must be v2",
   );
-  checks.push("PASS: ACTIVE_DESIGNER_GEOMETRY_VERSION = v1");
+  checks.push("PASS: ACTIVE_DESIGNER_GEOMETRY_VERSION = v2");
 
   const defaults = createDefaultGeometryRuntimeState();
   assert(
-    defaults.geometryVersion === DESIGNER_GEOMETRY_VERSION.V1,
-    "default geometryVersion must be v1",
+    defaults.geometryVersion === DESIGNER_GEOMETRY_VERSION.V2,
+    "default geometryVersion must be v2",
   );
-  checks.push("PASS: Geometry Runtime Context defaults to V1");
+  checks.push("PASS: Geometry Runtime Context defaults to V2");
 
   let state = createDefaultGeometryRuntimeState();
   assert(
     resolveEffectiveGeometryVersion(state, "designer") ===
-      DESIGNER_GEOMETRY_VERSION.V1,
-    "V1 designer",
+      DESIGNER_GEOMETRY_VERSION.V2,
+    "V2 designer default",
   );
   state = {
     ...state,
@@ -230,8 +230,8 @@ async function run(): Promise<void> {
     resolveEffectiveGeometryVersion(
       createDefaultGeometryRuntimeState(),
       "designer",
-    ) === DESIGNER_GEOMETRY_VERSION.V1,
-    "runtime context must ignore env when state is V1",
+    ) === DESIGNER_GEOMETRY_VERSION.V2,
+    "runtime context defaults to V2 regardless of env",
   );
   if (prevEnv === undefined) {
     delete process.env.NEXT_PUBLIC_DESIGNER_GEOMETRY_VERSION;
@@ -248,11 +248,11 @@ async function run(): Promise<void> {
       { ...createDefaultGeometryRuntimeState(), geometryVersion: DESIGNER_GEOMETRY_VERSION.V2 },
       "designer",
       { productionLocked: true },
-    ) === DESIGNER_GEOMETRY_VERSION.V1,
-    "production forces V1",
+    ) === DESIGNER_GEOMETRY_VERSION.V2,
+    "production uses V2 (no V1 lock)",
   );
   process.env.NODE_ENV = prevNodeEnv ?? "development";
-  checks.push("PASS: Production fixed Geometry V1");
+  checks.push("PASS: Production uses Geometry V2");
 
   assert(isGeometryRuntimeDevConsoleAvailable(), "dev console in development");
   checks.push("PASS: Development can switch (console available)");
@@ -266,7 +266,7 @@ async function run(): Promise<void> {
   );
   checks.push("PASS: Export Runtime Toggle defaults all OFF");
 
-  const exportGuard = resolveEffectiveGeometryVersion(
+  const policyV2WithPreview = resolveEffectiveGeometryVersion(
     {
       ...createDefaultGeometryRuntimeState(),
       geometryVersion: DESIGNER_GEOMETRY_VERSION.V2,
@@ -275,22 +275,35 @@ async function run(): Promise<void> {
     "png",
   );
   assert(
-    exportGuard === DESIGNER_GEOMETRY_VERSION.V1,
-    "export guard returns V1 when toggle off",
+    policyV2WithPreview === DESIGNER_GEOMETRY_VERSION.V2,
+    "user-facing png follows policy V2 when preview on (export toggle ignored)",
   );
-  const exportGuardOn = resolveEffectiveGeometryVersion(
+  const policyV1PreviewOff = resolveEffectiveGeometryVersion(
     {
       ...createDefaultGeometryRuntimeState(),
       geometryVersion: DESIGNER_GEOMETRY_VERSION.V2,
-      exportRuntime: { png: true, zip: false, pdf: false, email: false },
+      preview: { designer: false, resultPanel: false },
+      exportRuntime: { png: false, zip: false, pdf: false, email: false },
     },
     "png",
   );
   assert(
-    exportGuardOn === DESIGNER_GEOMETRY_VERSION.V2,
-    "export guard allows V2 when toggle on",
+    policyV1PreviewOff === DESIGNER_GEOMETRY_VERSION.V2,
+    "user-facing png stays V2 when preview surfaces off (Phase 78)",
   );
-  checks.push("PASS: Export Runtime guard (OFF=V1, ON=V2)");
+  const emailGuard = resolveEffectiveGeometryVersion(
+    {
+      ...createDefaultGeometryRuntimeState(),
+      geometryVersion: DESIGNER_GEOMETRY_VERSION.V2,
+      exportRuntime: { png: false, zip: false, pdf: false, email: false },
+    },
+    "email",
+  );
+  assert(
+    emailGuard === DESIGNER_GEOMETRY_VERSION.V1,
+    "email still gated by exportRuntime.email",
+  );
+  checks.push("PASS: Runtime policy guard (preview on=V2, email toggle separate)");
 
   const layerKeys = Object.keys(DEFAULT_GEOMETRY_DEBUG_LAYER_TOGGLES);
   assert(layerKeys.length >= 9, "debug layers present");

@@ -70,52 +70,68 @@ function scanForbidden(sourcePath: string, patterns: RegExp[]): string[] {
 
 const order = { size: "M" as const };
 
-// --- missing runtime context => V1 ---
+// --- missing runtime context => V2 (default state) ---
 const missingForward = resolveProofMockupRuntimeForward(order);
 assert(
-  "missing runtime context => geometryVersion V1",
-  missingForward.geometryVersion === DESIGNER_GEOMETRY_VERSION.V1,
+  "missing runtime context => geometryVersion V2",
+  missingForward.geometryVersion === DESIGNER_GEOMETRY_VERSION.V2,
 );
 assert(
-  "missing runtime context => legacy path (not product runtime)",
-  !shouldUseProofProductMockupRuntime(missingForward),
+  "missing runtime context => product runtime path",
+  shouldUseProofProductMockupRuntime(missingForward),
 );
 
-// --- production lock => V1 ---
-const v2MockupOnContext = resolveProofSubmitRuntimeContext(
-  {
-    ...createDefaultGeometryRuntimeState(),
-    geometryVersion: DESIGNER_GEOMETRY_VERSION.V2,
-    exportRuntime: { ...DEFAULT_GEOMETRY_EXPORT_RUNTIME_TOGGLES, png: true },
-  },
-  { productionLocked: false },
-);
+// --- production lock => V2 (Phase 78: no V1 lock) ---
+const v2State = {
+  ...createDefaultGeometryRuntimeState(),
+  geometryVersion: DESIGNER_GEOMETRY_VERSION.V2,
+};
+const v2MockupContext = resolveProofSubmitRuntimeContext(v2State, {
+  productionLocked: false,
+});
 
-const prodForward = resolveProofMockupRuntimeForward(order, v2MockupOnContext, {
+const prodForward = resolveProofMockupRuntimeForward(order, v2MockupContext, {
   productionLocked: true,
 });
 assert(
-  "production lock => V1 forward",
-  prodForward.geometryVersion === DESIGNER_GEOMETRY_VERSION.V1 &&
-    !shouldUseProofProductMockupRuntime(prodForward),
+  "production lock => V2 forward",
+  prodForward.geometryVersion === DESIGNER_GEOMETRY_VERSION.V2 &&
+    shouldUseProofProductMockupRuntime(prodForward),
 );
 
-const prodNormalized = normalizeProofSubmitRuntimeContext(v2MockupOnContext, {
+const prodNormalized = normalizeProofSubmitRuntimeContext(v2MockupContext, {
   productionLocked: true,
 });
 assert(
-  "normalize production => effective mockup V1",
-  prodNormalized.effectiveVersions.mockup === DESIGNER_GEOMETRY_VERSION.V1,
+  "normalize production => effective mockup V2",
+  prodNormalized.effectiveVersions.mockup === DESIGNER_GEOMETRY_VERSION.V2,
 );
 
-// --- dev V2 mockup toggle ON ---
-const submitForward = resolveProofMockupRuntimeForward(order, v2MockupOnContext, {
+// --- dev V2 + preview on => V2 forward (74.3 policy) ---
+const submitForward = resolveProofMockupRuntimeForward(order, v2MockupContext, {
   productionLocked: false,
 });
 assert(
-  "dev mockup toggle ON => V2 forward",
+  "dev V2 + preview on => V2 forward (exportRuntime.png ignored)",
   submitForward.geometryVersion === DESIGNER_GEOMETRY_VERSION.V2 &&
     shouldUseProofProductMockupRuntime(submitForward),
+);
+
+const previewOffContext = resolveProofSubmitRuntimeContext(
+  {
+    ...v2State,
+    preview: { designer: false, resultPanel: false },
+  },
+  { productionLocked: false },
+);
+const previewOffForward = resolveProofMockupRuntimeForward(
+  order,
+  previewOffContext,
+  { productionLocked: false },
+);
+assert(
+  "dev V2 + preview off => V2 forward (policy)",
+  previewOffForward.geometryVersion === DESIGNER_GEOMETRY_VERSION.V2,
 );
 
 const downloadForward = resolveProofMockupRuntimeForwardFromEffectiveVersion(
@@ -181,8 +197,8 @@ assert(
   mockupGeneratorSource.includes("renderProofSubmitProductMockupPng("),
 );
 assert(
-  "mockup-generator retains legacy renderMockupPreviewPng fallback",
-  mockupGeneratorSource.includes("renderMockupPreviewPng("),
+  "mockup-generator does not use legacy renderMockupPreviewPng",
+  !mockupGeneratorSource.includes("renderMockupPreviewPng("),
 );
 assert(
   "prepareProofSubmission accepts proofRuntimeContext",

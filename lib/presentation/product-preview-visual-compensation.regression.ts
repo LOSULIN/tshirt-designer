@@ -193,8 +193,8 @@ for (const side of SIDES) {
 
 // --- Production lock ---
 assert(
-  "production geometry version remains V1",
-  ACTIVE_DESIGNER_GEOMETRY_VERSION === DESIGNER_GEOMETRY_VERSION.V1,
+  "production geometry version is V2",
+  ACTIVE_DESIGNER_GEOMETRY_VERSION === DESIGNER_GEOMETRY_VERSION.V2,
 );
 
 for (const side of SIDES) {

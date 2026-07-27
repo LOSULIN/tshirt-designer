@@ -40,11 +40,12 @@ export function composeProductMockup(
   canvas.width = asset.naturalWidth;
   canvas.height = asset.naturalHeight;
 
-  const ctx = canvas.getContext("2d");
+  const ctx = canvas.getContext("2d", { alpha: true });
   if (!ctx) {
     throw new Error("composeProductMockup: 2d context unavailable");
   }
 
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(asset.image, 0, 0, canvas.width, canvas.height);
 
   const productInput = {

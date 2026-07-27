@@ -28,15 +28,18 @@ const mockupWrapper = readFileSync("lib/export/mockup-artwork-export.ts", "utf8"
 
 assert(productExport.includes('const PREVIEW_QUALITY: RenderQuality = "preview"'), "preview quality constant");
 assert(productExport.includes('const DOWNLOAD_QUALITY: RenderQuality = "export"'), "export quality constant");
+assert(productExport.includes("PRODUCT_MOCKUP_COMPOSE_QUALITY"), "mockup compose quality constant");
+assert(productExport.includes("scaleCanvasUniform"), "download scales composed canvas");
+assert(productExport.includes("outputPixelScale"), "download output pixel scale");
 assert(productExport.includes("buildProductExportPreview"), "preview builder exists");
-assert(productExport.includes("DOWNLOAD_QUALITY"), "download uses export quality");
+assert(productExport.includes("DOWNLOAD_QUALITY"), "factory artwork still uses export quality");
 assert(productExport.includes("PREVIEW_QUALITY"), "preview uses preview quality");
 assert(productExport.includes("renderProductFactoryArtworkPng"), "factory artwork wrapper wired");
 assert(productExport.includes("renderMockupArtworkPng"), "mockup artwork wrapper wired");
 assert(!productExport.includes("renderFactoryArtworkExportPng"), "product-export does not call factory directly");
 
 assert(renderExport.includes("quality: input.quality ?? \"preview\""), "preview render default");
-assert(renderExport.includes("quality: input.quality ?? \"export\""), "download render default");
+assert(!productExport.includes("quality: DOWNLOAD_QUALITY"), "product mockup compose avoids export quality");
 
 assert(assetLoader.includes("renderQualityToAssetVariant"), "asset loader uses variant mapping");
 assert(assetLoader.includes('"export"'), "asset loader supports export variant");

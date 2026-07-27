@@ -76,16 +76,16 @@ async function run(): Promise<void> {
   const profiles = [];
 
   assert(
-    ACTIVE_DESIGNER_GEOMETRY_VERSION === DESIGNER_GEOMETRY_VERSION.V1,
-    "active geometry version must remain v1",
+    ACTIVE_DESIGNER_GEOMETRY_VERSION === DESIGNER_GEOMETRY_VERSION.V2,
+    "active geometry version must be v2",
   );
-  checks.push("ACTIVE_DESIGNER_GEOMETRY_VERSION = v1");
+  checks.push("ACTIVE_DESIGNER_GEOMETRY_VERSION = v2");
 
   assert(
-    getActiveDesignerGeometryVersion() === DESIGNER_GEOMETRY_VERSION.V1,
-    "runtime resolver must return v1",
+    getActiveDesignerGeometryVersion() === DESIGNER_GEOMETRY_VERSION.V2,
+    "runtime resolver must return v2",
   );
-  checks.push("getActiveDesignerGeometryVersion() = v1");
+  checks.push("getActiveDesignerGeometryVersion() = v2");
 
   const violations = scanRuntimeIsolation();
   assert(violations.length === 0, violations.join("; "));

@@ -98,16 +98,16 @@ async function run(): Promise<void> {
   const assetResults: string[] = [];
 
   assert(
-    ACTIVE_DESIGNER_GEOMETRY_VERSION === DESIGNER_GEOMETRY_VERSION.V1,
-    "ACTIVE_DESIGNER_GEOMETRY_VERSION must remain v1",
+    ACTIVE_DESIGNER_GEOMETRY_VERSION === DESIGNER_GEOMETRY_VERSION.V2,
+    "ACTIVE_DESIGNER_GEOMETRY_VERSION must be v2",
   );
-  checks.push("ACTIVE_DESIGNER_GEOMETRY_VERSION = v1");
+  checks.push("ACTIVE_DESIGNER_GEOMETRY_VERSION = v2");
 
   assert(
-    getActiveDesignerGeometryVersion() === DESIGNER_GEOMETRY_VERSION.V1,
-    "getActiveDesignerGeometryVersion() must return v1",
+    getActiveDesignerGeometryVersion() === DESIGNER_GEOMETRY_VERSION.V2,
+    "getActiveDesignerGeometryVersion() must return v2",
   );
-  checks.push("getActiveDesignerGeometryVersion() = v1");
+  checks.push("getActiveDesignerGeometryVersion() = v2");
 
   const violations = scanRuntimeIsolation();
   assert(violations.length === 0, violations.join("; "));

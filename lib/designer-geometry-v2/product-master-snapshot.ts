@@ -8,7 +8,7 @@ import type { ProductMasterGeometry } from "./product-master-profile";
 export const UA35001_PRODUCT_MASTER_SNAPSHOT: ProductMasterGeometry = {
   "productCode": "UA35001",
   "version": 1,
-  "derivation": "averaged-factory-cross-validation-calibrated",
+  "derivation": "product-factory-anchor",
   "front": {
     "productCode": "UA35001",
     "side": "front",
@@ -67,25 +67,25 @@ export const UA35001_PRODUCT_MASTER_SNAPSHOT: ProductMasterGeometry = {
     },
     "collarBottom": {
       "x": 513,
-      "y": 388,
+      "y": 327,
       "neckWidthPx": 286
     },
     "factoryOrigin": {
       "x": 513,
-      "y": 388,
+      "y": 327,
       "side": "back",
       "offsetCm": 5,
       "pxPerCm": 12.24
     },
     "artworkStage": {
       "left": 280.44,
-      "top": 449.2,
+      "top": 388.2,
       "width": 465.12,
       "height": 550.8
     },
     "safeArea": {
       "left": 317.16,
-      "top": 449.2,
+      "top": 388.2,
       "width": 391.68,
       "height": 514.08
     },

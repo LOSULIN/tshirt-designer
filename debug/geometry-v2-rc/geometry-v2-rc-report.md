@@ -1,12 +1,12 @@
 # Geometry V2 RC Report — Phase 70.3.1
 
-Generated: 2026-07-22T18:41:44.905Z
+Generated: 2026-07-27T05:40:38.539Z
 
 ## Summary
 
 | Status | Count |
 |--------|-------|
-| PASS | 78 |
+| PASS | 81 |
 | WARNING | 0 |
 | FAIL | 0 |
 
@@ -16,8 +16,8 @@ Generated: 2026-07-22T18:41:44.905Z
 |------|---------|------|-----|-------|--------|
 | front | Designer | 297.80 | 501.68 | 428.40 | 612.00 |
 | front | ResultPanel | 297.80 | 501.68 | 428.40 | 612.00 |
-| back | Designer | 280.44 | 449.20 | 465.12 | 550.80 |
-| back | ResultPanel | 280.44 | 449.20 | 465.12 | 550.80 |
+| back | Designer | 280.44 | 388.20 | 465.12 | 550.80 |
+| back | ResultPanel | 280.44 | 388.20 | 465.12 | 550.80 |
 
 ## ③ Safe Area
 
@@ -25,15 +25,15 @@ Generated: 2026-07-22T18:41:44.905Z
 - Snapshot: left=316.16 top=501.68 width=391.68 height=563.04
 - Designer: left=316.16 top=501.68 width=391.68 height=563.04
 ### back
-- Snapshot: left=317.16 top=449.2 width=391.68 height=514.08
-- Designer: left=317.16 top=449.20 width=391.68 height=514.08
+- Snapshot: left=317.16 top=388.2 width=391.68 height=514.08
+- Designer: left=317.16 top=388.20 width=391.68 height=514.08
 
 ## ④ Factory Origin
 
 | Side | collarBottom Y | factoryOrigin Y | offsetCm | printTop | stageTop | formula Δ |
 |------|----------------|-----------------|----------|----------|----------|-----------|
 | front | 416 | 416 | 7 | 501.68 | 501.68 | 0.00 |
-| back | 388 | 388 | 5 | 449.20 | 449.2 | 0.00 |
+| back | 327 | 327 | 5 | 388.20 | 388.2 | 0.00 |
 
 ## ⑥ Multi-Color
 
@@ -65,9 +65,9 @@ Generated: 2026-07-22T18:41:44.905Z
 - front/rc-logo: designerTop=624.08 resultTop=624.08 Δ=0.00 rotation=12 scale=1.05
 - front/rc-title: designerTop=770.96 resultTop=770.96 Δ=0.00 rotation=0 scale=1
 - front/rc-badge: designerTop=673.04 resultTop=673.04 Δ=0.00 rotation=-8 scale=0.95
-- back/rc-logo: designerTop=571.60 resultTop=571.60 Δ=0.00 rotation=12 scale=1.05
-- back/rc-title: designerTop=718.48 resultTop=718.48 Δ=0.00 rotation=0 scale=1
-- back/rc-badge: designerTop=620.56 resultTop=620.56 Δ=0.00 rotation=-8 scale=0.95
+- back/rc-logo: designerTop=510.60 resultTop=510.60 Δ=0.00 rotation=12 scale=1.05
+- back/rc-title: designerTop=657.48 resultTop=657.48 Δ=0.00 rotation=0 scale=1
+- back/rc-badge: designerTop=559.56 resultTop=559.56 Δ=0.00 rotation=-8 scale=0.95
 
 ## ⑦ Multi-Size Stage Stability (front)
 
@@ -97,7 +97,7 @@ Generated: 2026-07-22T18:41:44.905Z
 
 ## Incomplete / Deferred
 
-- Production default still V1 (`ACTIVE_DESIGNER_GEOMETRY_VERSION`)
+- Production default is V2 (`ACTIVE_DESIGNER_GEOMETRY_VERSION`)
 - Export pipeline V2 integration (guarded OFF)
 - Phase 70.4 Product Factory Anchor (per-SKU official anchors)
 - Multi-SKU beyond UA35001
@@ -116,8 +116,6 @@ Generated: 2026-07-22T18:41:44.905Z
 
 ### Remaining blockers for full production Runtime
 
-- ACTIVE_DESIGNER_GEOMETRY_VERSION still V1 (production cutover not done)
-- Export engines (PNG/ZIP/PDF/Email) remain V1-only
 - Per-SKU Product Factory Anchor not implemented (Phase 70.4)
 
 ## All Checks
@@ -182,22 +180,25 @@ PASS: V2 front stage stable @ size M (top drift 0.0000%)
 PASS: V2 front stage stable @ size L (top drift 0.0000%)
 PASS: V2 front stage stable @ size XL (top drift 0.0000%)
 PASS: V2 front stage stable @ size 2XL (top drift 0.0000%)
-PASS: Runtime default V1
+PASS: Runtime default V2
 PASS: V2: Designer and ResultPanel share effective version
 PASS: V1→V2→V1 switch restores V1
 PASS: Production runtime locked
-PASS: Production always V1
-PASS: Export toggles default OFF (V1)
-PASS: Export PNG default uses V1
-PASS: Export guard PNG OFF → V1
-PASS: Export ZIP default uses V1
-PASS: Export guard ZIP OFF → V1
-PASS: Export PDF default uses V1
-PASS: Export guard PDF OFF → V1
-PASS: Export EMAIL default uses V1
-PASS: Export guard EMAIL OFF → V1
+PASS: Production uses V2
+PASS: exportRuntime toggles default OFF in dev console state
+PASS: User-facing PNG preview on + V2 => V2 (policy)
+PASS: User-facing ZIP preview on + V2 => V2 (policy)
+PASS: User-facing PDF preview on + V2 => V2 (policy)
+PASS: User-facing PNG preview off + V2 => V2 (policy)
+PASS: User-facing ZIP preview off + V2 => V2 (policy)
+PASS: User-facing PDF preview off + V2 => V2 (policy)
+PASS: Email surface still gated by exportRuntime.email (off => V1)
+PASS: resolveExportGeometryVersionFromToggle PNG OFF → V1
+PASS: resolveExportGeometryVersionFromToggle ZIP OFF → V1
+PASS: resolveExportGeometryVersionFromToggle PDF OFF → V1
+PASS: resolveExportGeometryVersionFromToggle EMAIL OFF → V1
 PASS: Runtime isolation: 0 violations (0 found)
-PASS: ACTIVE_DESIGNER_GEOMETRY_VERSION remains V1
+PASS: ACTIVE_DESIGNER_GEOMETRY_VERSION is V2
 PASS: V2 front: resolveGeometryRuntime snapshot is SSOT
 PASS: V2 back: resolveGeometryRuntime snapshot is SSOT
 

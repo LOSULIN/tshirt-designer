@@ -223,7 +223,7 @@ assert(
   fallback.geometryVersion === DESIGNER_GEOMETRY_VERSION.V1,
 );
 
-// --- Production toggle OFF → V1 ---
+// --- Production lock → V1 ---
 const v2State = {
   ...createDefaultGeometryRuntimeState(),
   geometryVersion: DESIGNER_GEOMETRY_VERSION.V2,
@@ -236,20 +236,16 @@ const prodContext = resolveExportPipelineContext({
   productionLocked: true,
 });
 assert(
-  "production locked → V1 placement path",
-  prodContext.geometryVersion === DESIGNER_GEOMETRY_VERSION.V1,
+  "production locked → V2 placement path",
+  prodContext.geometryVersion === DESIGNER_GEOMETRY_VERSION.V2,
 );
 
-// --- Dev toggle ON → V2 runtime ---
-const devOnState = {
-  ...v2State,
-  exportRuntime: { ...DEFAULT_GEOMETRY_EXPORT_RUNTIME_TOGGLES, png: true },
-};
+// --- Dev V2 + preview on → V2 runtime (74.3 policy) ---
 const devContext = resolveExportPipelineContext({
   side: "front",
   size: "M",
   surface: "png",
-  state: devOnState,
+  state: v2State,
   productionLocked: false,
 });
 const devRuntime = resolveProductMockupRuntimePlacement(
@@ -258,8 +254,45 @@ const devRuntime = resolveProductMockupRuntimePlacement(
   "M",
 );
 assert(
-  "dev export toggle ON → V2 runtime",
+  "dev V2 + preview on => V2 runtime (exportRuntime.png ignored)",
   devRuntime.geometryVersion === DESIGNER_GEOMETRY_VERSION.V2,
+);
+
+const previewOffState = {
+  ...v2State,
+  preview: { designer: false, resultPanel: false },
+};
+const previewOffContext = resolveExportPipelineContext({
+  side: "front",
+  size: "M",
+  surface: "png",
+  state: previewOffState,
+  productionLocked: false,
+});
+const previewOffRuntime = resolveProductMockupRuntimePlacement(
+  previewOffContext,
+  productInput("front"),
+  "M",
+);
+assert(
+  "dev V2 + preview off => V2 runtime (policy)",
+  previewOffRuntime.geometryVersion === DESIGNER_GEOMETRY_VERSION.V2,
+);
+
+const devToggleOnState = {
+  ...v2State,
+  exportRuntime: { ...DEFAULT_GEOMETRY_EXPORT_RUNTIME_TOGGLES, png: true },
+};
+const toggleOnContext = resolveExportPipelineContext({
+  side: "front",
+  size: "M",
+  surface: "png",
+  state: devToggleOnState,
+  productionLocked: false,
+});
+assert(
+  "exportRuntime.png ON inert when preview on => still V2",
+  toggleOnContext.geometryVersion === DESIGNER_GEOMETRY_VERSION.V2,
 );
 
 // --- Adapter isolation ---

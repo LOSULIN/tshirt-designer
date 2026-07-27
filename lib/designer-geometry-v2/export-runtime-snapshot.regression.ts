@@ -189,8 +189,8 @@ for (const side of SIDES) {
 
 // --- Export guard ---
 assert(
-  "Production ACTIVE_DESIGNER_GEOMETRY_VERSION is V1",
-  ACTIVE_DESIGNER_GEOMETRY_VERSION === DESIGNER_GEOMETRY_VERSION.V1,
+  "Production ACTIVE_DESIGNER_GEOMETRY_VERSION is V2",
+  ACTIVE_DESIGNER_GEOMETRY_VERSION === DESIGNER_GEOMETRY_VERSION.V2,
 );
 
 const v2State = {
@@ -200,28 +200,49 @@ const v2State = {
 
 for (const surface of ["png", "zip", "pdf", "email"] as const) {
   assert(
-    `Export ${surface.toUpperCase()} toggle default OFF`,
+    `exportRuntime.${surface} default OFF in dev console state`,
     !DEFAULT_GEOMETRY_EXPORT_RUNTIME_TOGGLES[surface],
   );
   assert(
-    `Export ${surface.toUpperCase()} default version V1`,
-    resolveEffectiveExportGeometryVersion(v2State, surface) ===
-      DESIGNER_GEOMETRY_VERSION.V1,
-  );
-  assert(
-    `Export ${surface.toUpperCase()} production locked V1`,
+    `Export ${surface.toUpperCase()} production locked V2`,
     resolveEffectiveExportGeometryVersion(v2State, surface, {
       productionLocked: true,
-    }) === DESIGNER_GEOMETRY_VERSION.V1,
+    }) === DESIGNER_GEOMETRY_VERSION.V2,
   );
 }
+
+for (const surface of ["png", "zip", "pdf"] as const) {
+  assert(
+    `User-facing ${surface.toUpperCase()} preview on + V2 => V2 (policy)`,
+    resolveEffectiveExportGeometryVersion(v2State, surface) ===
+      DESIGNER_GEOMETRY_VERSION.V2,
+  );
+}
+
+const previewOffState = {
+  ...v2State,
+  preview: { designer: false, resultPanel: false },
+};
+for (const surface of ["png", "zip", "pdf"] as const) {
+  assert(
+    `User-facing ${surface.toUpperCase()} preview off + V2 => V2 (policy)`,
+    resolveEffectiveExportGeometryVersion(previewOffState, surface) ===
+      DESIGNER_GEOMETRY_VERSION.V2,
+  );
+}
+
+assert(
+  "Email surface exportRuntime.email OFF => V1 (separate gate)",
+  resolveEffectiveExportGeometryVersion(v2State, "email") ===
+    DESIGNER_GEOMETRY_VERSION.V1,
+);
 
 const devOnState = {
   ...v2State,
   exportRuntime: { png: true, zip: true, pdf: true, email: true },
 };
 assert(
-  "Dev export toggle ON → V2 snapshot version",
+  "exportRuntime png ON inert when preview on => still V2 (policy)",
   resolveEffectiveExportGeometryVersion(devOnState, "png") ===
     DESIGNER_GEOMETRY_VERSION.V2,
 );

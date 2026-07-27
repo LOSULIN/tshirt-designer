@@ -1,0 +1,27 @@
+{
+  "session": "http://localhost:3000/designer",
+  "fixture": {
+    "product": "UA35001",
+    "color": "white",
+    "size": "M",
+    "side": "front"
+  },
+  "templatesRequests": [],
+  "registryGarmentRequests": [
+    "http://localhost:3000/products/UA35001/assets/adult-tshirt-white-front.png",
+    "http://localhost:3000/products/UA35001/assets/adult-tshirt-white-front.png?t=1785126088382",
+    "http://localhost:3000/products/UA35001/assets/adult-tshirt-white-front.png?t=1785126141617",
+    "http://localhost:3000/products/UA35001/assets/export/adult-tshirt-white-front.png"
+  ],
+  "registrySupportRequests": [
+    "http://localhost:3000/products/UA35001/profile.json",
+    "http://localhost:3000/products/UA35001/calibration.json",
+    "http://localhost:3000/products/UA35001/visual-compensation.json"
+  ],
+  "designerImgSrc": [
+    "http://localhost:3000/products/UA35001/assets/adult-tshirt-white-front.png"
+  ],
+  "resultPanelGarmentSrc": "/products/UA35001/assets/adult-tshirt-white-front.png?t=1785126141617",
+  "templatesRequestCount": 0,
+  "capturedVia": "CDP Runtime.evaluate performance.getEntriesByType('resource') + DOM img[src] after Designer load + Download Mockup click"
+}

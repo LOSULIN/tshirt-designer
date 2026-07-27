@@ -1,13 +1,8 @@
 "use client";
 
 import { memo } from "react";
-import {
-  getAdultTshirtTemplateSrc,
-  type Gender,
-  type ShirtColor,
-  type Side,
-  type Size,
-} from "@/lib/constants";
+import { resolveDesignerTemplateV2AssetSrc } from "@/lib/designer-geometry-v2/designer-template-runtime";
+import type { Gender, ShirtColor, Side, Size } from "@/lib/constants";
 import {
   DEFAULT_PRINT_MODE,
   type PreviewPrintPositionMode,
@@ -45,7 +40,7 @@ export const FlatShirtDesignView = memo(function FlatShirtDesignView({
   zoom?: number;
 }) {
   const renderLayers = previewLayers ?? layers ?? [];
-  const assetSrc = getAdultTshirtTemplateSrc(shirtColor, side);
+  const assetSrc = resolveDesignerTemplateV2AssetSrc(shirtColor, side);
 
   return (
     <div

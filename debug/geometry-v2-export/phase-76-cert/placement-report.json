@@ -1,0 +1,29 @@
+{
+  "phase": "76",
+  "calibrationFile": "public/products/UA35001/calibration.json",
+  "front": {
+    "placementY": 500,
+    "unchanged": true,
+    "visualAdjustment": 150
+  },
+  "back": {
+    "before": {
+      "backVisual": 63,
+      "backTop": 388
+    },
+    "after": {
+      "backVisual": 63,
+      "backTop": 388
+    },
+    "pixelOffsetDelta": 0,
+    "measuredCollarY": 301,
+    "targetPrintTop5cm": 362.2,
+    "gapFromTargetPx": 25.80000000000001,
+    "designerReferenceY": 447,
+    "productReferenceY": 325
+  },
+  "v2RuntimeBackTop": 388.2,
+  "v2BackCollarY": 327,
+  "v2PixelOffsetFromBefore": -61,
+  "note": "V2 surfaces read Product Factory Anchor (collar y + 5cm). Registry calibration.json back top y=388 aligns with V2 after anchor fix."
+}

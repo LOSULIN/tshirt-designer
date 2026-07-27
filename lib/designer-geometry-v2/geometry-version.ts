@@ -1,8 +1,7 @@
 /**
- * Designer Geometry version switch — V1 active by default.
+ * Designer Geometry version switch — V2 active by default (Phase 78).
  *
- * V2 is foundation-only; no runtime consumer may enable V2 without explicit future wiring.
- * Default compile-time version: v1 (Garment Metrics / template baseline).
+ * V1 remains available for legacy / debug console only.
  */
 
 export const DESIGNER_GEOMETRY_VERSION = {
@@ -15,17 +14,16 @@ export type DesignerGeometryVersion =
 
 /**
  * Active geometry version for production runtime.
- * @default v1 — frozen; V2 not enabled.
+ * @default v2 — Phase 78 default cutover.
  */
 export const ACTIVE_DESIGNER_GEOMETRY_VERSION: DesignerGeometryVersion =
-  DESIGNER_GEOMETRY_VERSION.V1;
+  DESIGNER_GEOMETRY_VERSION.V2;
 
 const ENV_KEY = "NEXT_PUBLIC_DESIGNER_GEOMETRY_VERSION";
 
 /**
  * Runtime geometry version resolver.
- * V2 returns only when env explicitly set to `v2` (integration testing).
- * Production default remains v1.
+ * Env override still supported for integration testing.
  */
 export function getActiveDesignerGeometryVersion(): DesignerGeometryVersion {
   const envMode =

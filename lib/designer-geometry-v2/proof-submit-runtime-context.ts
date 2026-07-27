@@ -7,9 +7,10 @@
 
 import type { ExportPipelineContext } from "./export-pipeline-context";
 import {
-  isGeometryRuntimeProductionLocked,
+  createDefaultGeometryRuntimeState,
   resolveEffectiveGeometryVersion,
 } from "./geometry-runtime-state";
+import { resolveRuntimePolicyEffectiveGeometryVersion } from "./runtime-effective-version-policy";
 import type { GeometryRuntimeState } from "./geometry-runtime-types";
 import {
   DESIGNER_GEOMETRY_VERSION,
@@ -39,34 +40,23 @@ export interface ProofSubmitPdfRuntimeForward {
 
 function resolveEffectiveVersions(
   state: GeometryRuntimeState,
-  productionLocked: boolean,
 ): ProofSubmitEffectiveVersions {
+  const userFacingVersion = resolveRuntimePolicyEffectiveGeometryVersion(state);
+
   return {
-    pdf: resolveEffectiveGeometryVersion(state, "pdf", { productionLocked }),
-    mockup: resolveEffectiveGeometryVersion(state, "png", { productionLocked }),
-    print: DESIGNER_GEOMETRY_VERSION.V1,
-    email: resolveEffectiveGeometryVersion(state, "email", { productionLocked }),
+    pdf: userFacingVersion,
+    mockup: userFacingVersion,
+    print: userFacingVersion,
+    email: resolveEffectiveGeometryVersion(state, "email"),
   };
 }
 
 export function createDefaultProofSubmitRuntimeContext(
   resolvedAt: string = new Date().toISOString(),
 ): ProofSubmitRuntimeContext {
-  const productionLocked = isGeometryRuntimeProductionLocked();
-  const geometryVersion = productionLocked
-    ? DESIGNER_GEOMETRY_VERSION.V1
-    : DESIGNER_GEOMETRY_VERSION.V1;
-
-  return {
-    geometryVersion,
-    effectiveVersions: {
-      pdf: DESIGNER_GEOMETRY_VERSION.V1,
-      mockup: DESIGNER_GEOMETRY_VERSION.V1,
-      print: DESIGNER_GEOMETRY_VERSION.V1,
-      email: DESIGNER_GEOMETRY_VERSION.V1,
-    },
+  return resolveProofSubmitRuntimeContext(createDefaultGeometryRuntimeState(), {
     resolvedAt,
-  };
+  });
 }
 
 /**
@@ -76,60 +66,28 @@ export function resolveProofSubmitRuntimeContext(
   state: GeometryRuntimeState,
   options?: { productionLocked?: boolean; resolvedAt?: string },
 ): ProofSubmitRuntimeContext {
-  const productionLocked =
-    options?.productionLocked ?? isGeometryRuntimeProductionLocked();
-  const geometryVersion = productionLocked
-    ? DESIGNER_GEOMETRY_VERSION.V1
-    : state.geometryVersion;
+  void options?.productionLocked;
 
   return {
-    geometryVersion,
-    effectiveVersions: resolveEffectiveVersions(
-      productionLocked
-        ? {
-            ...state,
-            geometryVersion: DESIGNER_GEOMETRY_VERSION.V1,
-            exportRuntime: {
-              png: false,
-              zip: false,
-              pdf: false,
-              email: false,
-            },
-          }
-        : state,
-      productionLocked,
-    ),
+    geometryVersion: state.geometryVersion,
+    effectiveVersions: resolveEffectiveVersions(state),
     resolvedAt: options?.resolvedAt ?? new Date().toISOString(),
   };
 }
 
 /**
- * Normalize parsed client context — production server always forces V1.
+ * Normalize parsed client context — production uses client V2 default (Phase 78).
  */
 export function normalizeProofSubmitRuntimeContext(
   runtimeContext: ProofSubmitRuntimeContext | undefined,
   options?: { productionLocked?: boolean },
 ): ProofSubmitRuntimeContext {
+  void options?.productionLocked;
   if (!runtimeContext) {
     return createDefaultProofSubmitRuntimeContext();
   }
 
-  const productionLocked =
-    options?.productionLocked ?? isGeometryRuntimeProductionLocked();
-  if (!productionLocked) {
-    return runtimeContext;
-  }
-
-  return {
-    geometryVersion: DESIGNER_GEOMETRY_VERSION.V1,
-    effectiveVersions: {
-      pdf: DESIGNER_GEOMETRY_VERSION.V1,
-      mockup: DESIGNER_GEOMETRY_VERSION.V1,
-      print: DESIGNER_GEOMETRY_VERSION.V1,
-      email: DESIGNER_GEOMETRY_VERSION.V1,
-    },
-    resolvedAt: runtimeContext.resolvedAt,
-  };
+  return runtimeContext;
 }
 
 export function serializeProofSubmitRuntimeContext(

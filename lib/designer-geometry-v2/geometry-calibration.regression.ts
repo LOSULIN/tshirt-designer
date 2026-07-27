@@ -89,10 +89,10 @@ async function run(): Promise<void> {
   const checks: string[] = [];
 
   assert(
-    ACTIVE_DESIGNER_GEOMETRY_VERSION === DESIGNER_GEOMETRY_VERSION.V1,
-    "must remain v1",
+    ACTIVE_DESIGNER_GEOMETRY_VERSION === DESIGNER_GEOMETRY_VERSION.V2,
+    "must be v2",
   );
-  checks.push("ACTIVE_DESIGNER_GEOMETRY_VERSION = v1");
+  checks.push("ACTIVE_DESIGNER_GEOMETRY_VERSION = v2");
   checks.push(`getActiveDesignerGeometryVersion() = ${getActiveDesignerGeometryVersion()}`);
 
   const violations = scanRuntimeIsolation();

@@ -5,6 +5,7 @@ import type { ShirtColor, Side, Size } from "@/lib/constants";
 import { hasExportablePrintableDesign } from "@/lib/print-export";
 import type { DesignLayer } from "@/lib/types";
 import { renderProductMockupOnProduct } from "@/components/render/ProductMockupEngine";
+import { scaleCanvasUniform } from "@/lib/render/canvas-scale";
 import type { ProductSide } from "@/lib/render/render-types";
 import { downloadBlob } from "./download";
 import { resolveProductExportPixelScale } from "./export-pixel-scale";
@@ -20,6 +21,8 @@ export const DEFAULT_PRODUCT_EXPORT_CODE = "UA35001";
 
 const PREVIEW_QUALITY: RenderQuality = "preview";
 const DOWNLOAD_QUALITY: RenderQuality = "export";
+/** Product mockup compose always uses preview assets — download scales output only. */
+const PRODUCT_MOCKUP_COMPOSE_QUALITY: RenderQuality = PREVIEW_QUALITY;
 
 /** Designer shirtColor → UA35001 product asset slug（僅商品圖 Registry） */
 const DESIGNER_SHIRT_COLOR_TO_PRODUCT_SLUG: Record<ShirtColor, string> = {
@@ -77,15 +80,15 @@ export function buildProductExportFileName(
   return `${productCode}-${side}-${color}.png`;
 }
 
-/** Product mockup PNG — Preview / Download share placement; quality differs only. */
+/** Product mockup PNG — preview compose + optional uniform output scale (no placement recalc). */
 async function renderProductMockupPngFromArtwork(input: {
   productCode: string;
   color: string;
   side: Side;
   artworkBlob: Blob;
-  quality: RenderQuality;
   garmentSize: Size;
   pipelineContext?: ExportPipelineContext;
+  outputPixelScale?: number;
 }): Promise<Blob> {
   const artworkCanvas = await artworkBlobToCanvas(input.artworkBlob);
   const result = await renderProductMockupOnProduct({
@@ -95,11 +98,16 @@ async function renderProductMockupPngFromArtwork(input: {
     artwork: artworkCanvas,
     artworkWidth: artworkCanvas.width,
     artworkHeight: artworkCanvas.height,
-    quality: input.quality,
+    quality: PRODUCT_MOCKUP_COMPOSE_QUALITY,
     garmentSize: input.garmentSize,
     pipelineContext: input.pipelineContext,
   });
-  return canvasToPngBlob(result.canvas);
+  const outputScale = Math.max(1, input.outputPixelScale ?? 1);
+  const outputCanvas =
+    outputScale > 1
+      ? scaleCanvasUniform(result.canvas, outputScale)
+      : result.canvas;
+  return canvasToPngBlob(outputCanvas);
 }
 
 async function renderProductMockupPreviewFromArtwork(input: {
@@ -107,7 +115,6 @@ async function renderProductMockupPreviewFromArtwork(input: {
   color: string;
   side: Side;
   artworkBlob: Blob;
-  quality: RenderQuality;
   garmentSize: Size;
   pipelineContext?: ExportPipelineContext;
 }): Promise<string> {
@@ -119,7 +126,7 @@ async function renderProductMockupPreviewFromArtwork(input: {
     artwork: artworkCanvas,
     artworkWidth: artworkCanvas.width,
     artworkHeight: artworkCanvas.height,
-    quality: input.quality,
+    quality: PRODUCT_MOCKUP_COMPOSE_QUALITY,
     garmentSize: input.garmentSize,
     pipelineContext: input.pipelineContext,
   });
@@ -210,17 +217,17 @@ export async function buildProductExportFiles(
   const artwork = await exportArtworkPng(input, DOWNLOAD_QUALITY);
   const mockupArtwork = await exportPrintAreaArtworkForMockup(
     input,
-    DOWNLOAD_QUALITY,
-    ctx.pixelScale,
+    PRODUCT_MOCKUP_COMPOSE_QUALITY,
+    1,
   );
   const product = await renderProductMockupPngFromArtwork({
     productCode: ctx.productCode,
     color: ctx.color,
     side: input.side,
     artworkBlob: mockupArtwork,
-    quality: DOWNLOAD_QUALITY,
     garmentSize: input.size,
     pipelineContext: input.pipelineContext,
+    outputPixelScale: ctx.pixelScale,
   });
 
   return {
@@ -247,7 +254,7 @@ export async function buildProductExportPreview(
   const artworkBlob = await exportArtworkPng(input, PREVIEW_QUALITY);
   const mockupArtwork = await exportPrintAreaArtworkForMockup(
     input,
-    PREVIEW_QUALITY,
+    PRODUCT_MOCKUP_COMPOSE_QUALITY,
     1,
   );
   const artworkUrl = URL.createObjectURL(artworkBlob);
@@ -256,7 +263,6 @@ export async function buildProductExportPreview(
     color: ctx.color,
     side: input.side,
     artworkBlob: mockupArtwork,
-    quality: PREVIEW_QUALITY,
     garmentSize: input.size,
     pipelineContext: input.pipelineContext,
   });
@@ -309,8 +315,8 @@ export async function buildSupportedProductVariants(
   );
   const mockupArtwork = await exportPrintAreaArtworkForMockup(
     { ...input, shirtColor: "white" },
-    DOWNLOAD_QUALITY,
-    ctx.pixelScale,
+    PRODUCT_MOCKUP_COMPOSE_QUALITY,
+    1,
   );
   const profile = await getProductProfile(ctx.productCode);
   const colors = profile.availableColors.map((item) => item.slug);
@@ -322,9 +328,9 @@ export async function buildSupportedProductVariants(
       color,
       side: input.side,
       artworkBlob: mockupArtwork,
-      quality: DOWNLOAD_QUALITY,
       garmentSize: input.size,
       pipelineContext: input.pipelineContext,
+      outputPixelScale: ctx.pixelScale,
     });
     variants.push({
       color,

@@ -123,16 +123,26 @@ for (const side of SIDES) {
   );
 }
 
-// --- zip surface toggle (distinct from png) ---
+// --- zip surface effective version (74.3 policy) ---
 const v2State = {
   ...createDefaultGeometryRuntimeState(),
   geometryVersion: DESIGNER_GEOMETRY_VERSION.V2,
 };
 
 assert(
-  "zip export toggle default OFF → V1",
+  "dev V2 + preview on => zip effective V2 (exportRuntime.zip ignored)",
   resolveEffectiveExportGeometryVersion(v2State, "zip") ===
-    DESIGNER_GEOMETRY_VERSION.V1,
+    DESIGNER_GEOMETRY_VERSION.V2,
+);
+
+const previewOffState = {
+  ...v2State,
+  preview: { designer: false, resultPanel: false },
+};
+assert(
+  "dev V2 + preview off => zip effective V2 (policy)",
+  resolveEffectiveExportGeometryVersion(previewOffState, "zip") ===
+    DESIGNER_GEOMETRY_VERSION.V2,
 );
 
 const devZipOn = {
@@ -140,9 +150,16 @@ const devZipOn = {
   exportRuntime: { ...DEFAULT_GEOMETRY_EXPORT_RUNTIME_TOGGLES, zip: true },
 };
 assert(
-  "zip export toggle ON → V2",
+  "dev V2 + exportRuntime.zip ON => zip still V2 when preview on (toggle inert)",
   resolveEffectiveExportGeometryVersion(devZipOn, "zip") ===
     DESIGNER_GEOMETRY_VERSION.V2,
+);
+
+assert(
+  "production locked => zip effective V2",
+  resolveEffectiveExportGeometryVersion(devZipOn, "zip", {
+    productionLocked: true,
+  }) === DESIGNER_GEOMETRY_VERSION.V2,
 );
 
 // --- delegate-only adapter ---
@@ -154,11 +171,11 @@ if (violations.length > 0) {
   }
 }
 
-// --- legacy input without context still resolves V1 ---
+// --- legacy input without context defaults to V2 (Phase 78) ---
 const legacyResolved = resolveZipExportRuntimeInput(sampleInput("front"));
 assert(
-  "legacy input without context → V1 geometryVersion",
-  legacyResolved.geometryVersion === DESIGNER_GEOMETRY_VERSION.V1,
+  "legacy input without context → V2 geometryVersion",
+  legacyResolved.geometryVersion === DESIGNER_GEOMETRY_VERSION.V2,
 );
 
 // --- adapter delegates buildProductExportFiles ---

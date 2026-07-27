@@ -3,8 +3,8 @@
 /**
  * Geometry Runtime Context — React state (Phase 69.6).
  *
- * Development: instant V1/V2 switch without .env or page reload.
- * Production: locked to V1; console hidden.
+ * Development: instant V1/V2 legacy switch via debug console.
+ * Production: V2 default; console hidden (no runtime mutation).
  */
 
 import {
@@ -16,10 +16,7 @@ import {
   type ReactNode,
 } from "react";
 import type { GeometryDebugLayerToggles } from "./geometry-debug-types";
-import {
-  DESIGNER_GEOMETRY_VERSION,
-  type DesignerGeometryVersion,
-} from "./geometry-version";
+import type { DesignerGeometryVersion } from "./geometry-version";
 import {
   createDefaultGeometryRuntimeState,
   isGeometryRuntimeDevConsoleAvailable,
@@ -94,9 +91,7 @@ export function GeometryRuntimeProvider({ children }: { children: ReactNode }) {
   const value = useMemo<GeometryRuntimeContextValue>(
     () => ({
       ...state,
-      geometryVersion: productionLocked
-        ? DESIGNER_GEOMETRY_VERSION.V1
-        : state.geometryVersion,
+      geometryVersion: state.geometryVersion,
       isDevConsoleAvailable: devConsoleAvailable && !productionLocked,
       isProductionLocked: productionLocked,
       setGeometryVersion,

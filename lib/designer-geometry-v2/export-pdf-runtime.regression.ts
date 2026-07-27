@@ -143,16 +143,26 @@ for (const side of SIDES) {
   );
 }
 
-// --- pdf surface toggle ---
+// --- pdf surface effective version (74.3 policy) ---
 const v2State = {
   ...createDefaultGeometryRuntimeState(),
   geometryVersion: DESIGNER_GEOMETRY_VERSION.V2,
 };
 
 assert(
-  "pdf export toggle default OFF → V1",
+  "dev V2 + preview on => pdf effective V2 (exportRuntime.pdf ignored)",
   resolveEffectiveExportGeometryVersion(v2State, "pdf") ===
-    DESIGNER_GEOMETRY_VERSION.V1,
+    DESIGNER_GEOMETRY_VERSION.V2,
+);
+
+const previewOffState = {
+  ...v2State,
+  preview: { designer: false, resultPanel: false },
+};
+assert(
+  "dev V2 + preview off => pdf effective V2 (policy)",
+  resolveEffectiveExportGeometryVersion(previewOffState, "pdf") ===
+    DESIGNER_GEOMETRY_VERSION.V2,
 );
 
 const devPdfOn = {
@@ -160,7 +170,7 @@ const devPdfOn = {
   exportRuntime: { ...DEFAULT_GEOMETRY_EXPORT_RUNTIME_TOGGLES, pdf: true },
 };
 assert(
-  "pdf export toggle ON → V2",
+  "dev V2 + exportRuntime.pdf ON => pdf still V2 when preview on (toggle inert)",
   resolveEffectiveExportGeometryVersion(devPdfOn, "pdf") ===
     DESIGNER_GEOMETRY_VERSION.V2,
 );
@@ -171,10 +181,10 @@ const prodLocked = {
   productionLocked: true,
 };
 assert(
-  "production locked → V1 even when pdf toggle ON",
+  "production locked → V2 even when preview on",
   resolveEffectiveExportGeometryVersion(prodLocked, "pdf", {
     productionLocked: true,
-  }) === DESIGNER_GEOMETRY_VERSION.V1,
+  }) === DESIGNER_GEOMETRY_VERSION.V2,
 );
 
 // --- adapter isolation ---

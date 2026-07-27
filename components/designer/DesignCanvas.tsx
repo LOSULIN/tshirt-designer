@@ -304,9 +304,6 @@ function PrintAreaLayerItem({
   );
 }
 
-/** @temporary 畫布中心點十字線 debug；對位完成後移除 */
-const SHOW_CENTER_DEBUG_MARKERS = true;
-
 const ZOOM_STEPS = [0.75, 0.9, 1, 1.1, 1.25, 1.5, 1.75];
 const MIN_CANVAS_ZOOM = 0.75;
 const MAX_CANVAS_ZOOM = 1.75;
@@ -1049,7 +1046,7 @@ export function DesignCanvas({
         )}
 
         <div className={`relative mx-1.5 mb-1.5 flex min-h-0 flex-1 overflow-hidden rounded-xl ${ds.surface.canvasWell}`}>
-          <GeometryDebugConsole />
+          {UI_VISIBILITY.showGeometryDebugConsole ? <GeometryDebugConsole /> : null}
           {UI_VISIBILITY.showCanvasInfoPanel && (
             <CanvasInfoPanel
               layers={layers}
@@ -1102,15 +1099,19 @@ export function DesignCanvas({
                     alt="服飾模板"
                     className="absolute inset-0 z-0 h-full w-full object-contain"
                   />
-                  <GeometryRuntimeDebugOverlay side={side} />
+                  {UI_VISIBILITY.showGeometryRuntimeDebugOverlay ? (
+                    <GeometryRuntimeDebugOverlay side={side} />
+                  ) : null}
                 </DesignerGarmentPresentation>
-              <div
-                data-runtime-safe-area
-                className="pointer-events-none absolute z-[9] border-2 border-dashed border-amber-500/90"
-                style={safeAreaStyle}
-                aria-hidden
-                data-geometry-runtime-version={effectiveGeometryVersion}
-              />
+              {UI_VISIBILITY.showRuntimeSafeAreaOverlay ? (
+                <div
+                  data-runtime-safe-area
+                  className="pointer-events-none absolute z-[9] border-2 border-dashed border-amber-500/90"
+                  style={safeAreaStyle}
+                  aria-hidden
+                  data-geometry-runtime-version={effectiveGeometryVersion}
+                />
+              ) : null}
               <div
                 data-design-workspace
                 data-print-area
@@ -1287,13 +1288,13 @@ export function DesignCanvas({
                   selectedLayer={primaryLayer}
                 />
               )}
-              {SHOW_CENTER_DEBUG_MARKERS && (
+              {debugPrintArea && UI_VISIBILITY.showCanvasCenterDebugMarkers ? (
                 <CanvasCenterDebugOverlay
                   side={side}
                   size={size}
                   previewPrintPositionMode={previewPrintPositionMode}
                 />
-              )}
+              ) : null}
             </ShirtContainerFrame>
           </div>
 

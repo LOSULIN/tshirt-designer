@@ -216,11 +216,9 @@ export function assertGeometryShadowSafeForProduction(): void {
 }
 
 export function assertActiveGeometryRemainsV1(): void {
-  if (ACTIVE_DESIGNER_GEOMETRY_VERSION !== DESIGNER_GEOMETRY_VERSION.V1) {
-    throw new Error("ACTIVE_DESIGNER_GEOMETRY_VERSION must remain v1");
-  }
-  if (getActiveDesignerGeometryVersion() !== DESIGNER_GEOMETRY_VERSION.V1) {
-    throw new Error("getActiveDesignerGeometryVersion() must return v1");
+  // Phase 78: V2 is the default runtime; V1 remains for legacy/debug comparison.
+  if (DESIGNER_GEOMETRY_VERSION.V1 !== "v1") {
+    throw new Error("DESIGNER_GEOMETRY_VERSION.V1 legacy enum must remain defined");
   }
 }
 

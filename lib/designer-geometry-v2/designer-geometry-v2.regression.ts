@@ -76,22 +76,22 @@ async function runRegression(): Promise<{
   const v1v2Reports: string[] = [];
 
   assert(
-    ACTIVE_DESIGNER_GEOMETRY_VERSION === DESIGNER_GEOMETRY_VERSION.V1,
-    "default geometry version must be v1",
+    ACTIVE_DESIGNER_GEOMETRY_VERSION === DESIGNER_GEOMETRY_VERSION.V2,
+    "default geometry version must be v2",
   );
-  checks.push("default geometry version = v1");
+  checks.push("default geometry version = v2");
 
   assert(
-    getActiveDesignerGeometryVersion() === DESIGNER_GEOMETRY_VERSION.V1,
-    "getActiveDesignerGeometryVersion must return v1 without env",
+    getActiveDesignerGeometryVersion() === DESIGNER_GEOMETRY_VERSION.V2,
+    "getActiveDesignerGeometryVersion must return v2 without env",
   );
-  checks.push("runtime resolver returns v1 (no env)");
+  checks.push("runtime resolver returns v2 (no env)");
 
   assert(
-    !isDesignerGeometryV2EnabledByDefault(),
-    "V2 must not be enabled by default",
+    isDesignerGeometryV2EnabledByDefault(),
+    "V2 must be enabled by default",
   );
-  checks.push("V2 not enabled by default");
+  checks.push("V2 enabled by default");
 
   const violations = scanRuntimeIsolation();
   assert(violations.length === 0, violations.join("; "));

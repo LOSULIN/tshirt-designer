@@ -142,12 +142,12 @@ assert(
     }),
 );
 
-// --- Production lock ---
+// --- Production lock (Phase 78: no V1 override) ---
 assert(
-  "production lock => V1 effective version",
+  "production lock => V2 effective version",
   resolveEffectiveDownloadGeometryVersion(DESIGNER_GEOMETRY_VERSION.V2, {
     productionLocked: true,
-  }) === DESIGNER_GEOMETRY_VERSION.V1,
+  }) === DESIGNER_GEOMETRY_VERSION.V2,
 );
 const prodForward = resolveArtworkRuntimeForwardFromEffectiveVersion(
   input,
@@ -155,13 +155,13 @@ const prodForward = resolveArtworkRuntimeForwardFromEffectiveVersion(
   { productionLocked: true },
 );
 assert(
-  "production lock => V1 pipeline context",
-  prodForward.geometryVersion === DESIGNER_GEOMETRY_VERSION.V1,
+  "production lock => V2 pipeline context",
+  prodForward.geometryVersion === DESIGNER_GEOMETRY_VERSION.V2,
 );
 
-// --- Dev toggle (V2 when unlocked) ---
+// --- Dev V2 effective version (74.3 policy) ---
 assert(
-  "dev toggle ON => V2 forward",
+  "dev V2 effective version => V2 forward",
   artworkForward.geometryVersion === DESIGNER_GEOMETRY_VERSION.V2,
 );
 

@@ -20,10 +20,6 @@ import {
   type ExportRuntimeSnapshot,
 } from "./export-runtime-snapshot";
 import { resolveGeometryRuntimePhotoBridge } from "./geometry-runtime-photo-bridge";
-import {
-  isGeometryRuntimeProductionLocked,
-  resolveProductionGeometryVersion,
-} from "./geometry-runtime-state";
 import type {
   GeometryExportSurface,
   GeometryRuntimeState,
@@ -72,17 +68,11 @@ function resolveEffectiveVersion(
     });
   }
 
-  const productionLocked =
-    input.productionLocked ?? isGeometryRuntimeProductionLocked();
-  if (productionLocked) {
-    return resolveProductionGeometryVersion();
-  }
-
   const requested =
-    input.requestedVersion ?? DESIGNER_GEOMETRY_VERSION.V1;
+    input.requestedVersion ?? DESIGNER_GEOMETRY_VERSION.V2;
   const exportToggleEnabled = requested === DESIGNER_GEOMETRY_VERSION.V2;
   return resolveExportGeometryVersionFromToggle(requested, exportToggleEnabled, {
-    productionLocked,
+    productionLocked: input.productionLocked,
   });
 }
 

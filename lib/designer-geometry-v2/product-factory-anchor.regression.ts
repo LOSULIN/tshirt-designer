@@ -244,8 +244,8 @@ for (const side of SIDES) {
 
 // --- Export guard unchanged ---
 assert(
-  "Production ACTIVE_DESIGNER_GEOMETRY_VERSION remains V1",
-  ACTIVE_DESIGNER_GEOMETRY_VERSION === DESIGNER_GEOMETRY_VERSION.V1,
+  "Production ACTIVE_DESIGNER_GEOMETRY_VERSION is V2",
+  ACTIVE_DESIGNER_GEOMETRY_VERSION === DESIGNER_GEOMETRY_VERSION.V2,
 );
 for (const surface of ["png", "zip", "pdf", "email"] as const) {
   const version = resolveEffectiveGeometryVersion(

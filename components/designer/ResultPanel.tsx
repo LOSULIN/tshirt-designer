@@ -9,6 +9,8 @@ import {
   type Size,
 } from "@/lib/constants";
 import { createDesignerCoordinateContext } from "@/lib/designer-coordinate-facade";
+import { resolveExportPipelineContext } from "@/lib/designer-geometry-v2/export-pipeline-context";
+import { useGeometryRuntime } from "@/lib/designer-geometry-v2/geometry-runtime-context";
 import { DEFAULT_PRINT_MODE, type PreviewPrintPositionMode } from "@/lib/printArea";
 import type { PrintAreaCmBounds } from "@/lib/design-cm";
 import type { GarmentPrintStatus } from "@/lib/garment-constraint-ux-polish";
@@ -161,15 +163,32 @@ export const ResultPanel = memo(function ResultPanel({
   const showExport = activeSections.includes("export");
   const showCta = activeSections.includes("cta");
 
-  const exportInput = useMemo(
-    () => ({
+  const geometryRuntime = useGeometryRuntime();
+
+  const exportInput = useMemo(() => {
+    const geometryVersion = geometryRuntime.getEffectiveGeometryVersion("png");
+    const pipelineContext = resolveExportPipelineContext({
+      side,
+      size,
+      surface: "png",
+      geometryVersion,
+    });
+    return {
       layers: previewLayers,
       side,
       size,
       shirtColor,
-    }),
-    [previewLayers, side, size, shirtColor],
-  );
+      geometryVersion,
+      pipelineContext,
+    };
+  }, [
+    previewLayers,
+    side,
+    size,
+    shirtColor,
+    geometryRuntime.geometryVersion,
+    geometryRuntime.preview,
+  ]);
 
   const needsExportPreview = hasDesignContent && (showPreview || showExport);
   const resultPanelPreview = useResultPanelProductPreview(exportInput, {

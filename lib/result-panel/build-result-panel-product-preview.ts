@@ -63,6 +63,7 @@ async function renderResultPanelProductPreviewFromArtwork(input: {
   side: Side;
   artworkBlob: Blob;
   garmentSize: Size;
+  pipelineContext?: ProductExportInput["pipelineContext"];
 }): Promise<string> {
   const artworkCanvas = await artworkBlobToCanvas(input.artworkBlob);
   const result = await renderProductMockupOnProduct({
@@ -74,6 +75,7 @@ async function renderResultPanelProductPreviewFromArtwork(input: {
     artworkHeight: artworkCanvas.height,
     quality: PREVIEW_QUALITY,
     garmentSize: input.garmentSize,
+    pipelineContext: input.pipelineContext,
   });
   return result.dataUrl;
 }
@@ -93,6 +95,7 @@ export async function buildResultPanelProductPreview(
         size: input.size,
         quality: PREVIEW_QUALITY,
         pixelScale: 1,
+        pipelineContext: input.pipelineContext,
       }),
       fetchProductCalibrationFile(ctx.productCode),
       fetchMockupVisualCompensationFile(ctx.productCode),
@@ -131,6 +134,7 @@ export async function buildResultPanelProductPreview(
     side: input.side,
     artworkBlob: mockupArtwork,
     garmentSize: input.size,
+    pipelineContext: input.pipelineContext,
   });
 
   return {

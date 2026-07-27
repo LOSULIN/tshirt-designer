@@ -14,6 +14,10 @@ import type {
   GeometryPreviewToggles,
   GeometryRuntimeState,
 } from "./geometry-runtime-types";
+import {
+  isUserFacingRuntimeSurface,
+  resolveRuntimePolicyEffectiveGeometryVersion,
+} from "./runtime-effective-version-policy";
 
 export const DEFAULT_GEOMETRY_PREVIEW_TOGGLES: GeometryPreviewToggles = {
   designer: true,
@@ -30,7 +34,7 @@ export const DEFAULT_GEOMETRY_EXPORT_RUNTIME_TOGGLES: GeometryExportRuntimeToggl
 
 export function createDefaultGeometryRuntimeState(): GeometryRuntimeState {
   return {
-    geometryVersion: DESIGNER_GEOMETRY_VERSION.V1,
+    geometryVersion: DESIGNER_GEOMETRY_VERSION.V2,
     preview: { ...DEFAULT_GEOMETRY_PREVIEW_TOGGLES },
     exportRuntime: { ...DEFAULT_GEOMETRY_EXPORT_RUNTIME_TOGGLES },
     debugLayers: {
@@ -58,21 +62,16 @@ export function resolveEffectiveGeometryVersion(
   surface: "designer" | "resultPanel" | GeometryExportSurface,
   options?: { productionLocked?: boolean },
 ): DesignerGeometryVersion {
+  if (isUserFacingRuntimeSurface(surface)) {
+    return resolveRuntimePolicyEffectiveGeometryVersion(state, options);
+  }
+
+  // Email — unchanged; gated by exportRuntime.email only.
   if (options?.productionLocked ?? isGeometryRuntimeProductionLocked()) {
     return resolveProductionGeometryVersion();
   }
 
-  if (surface === "designer") {
-    if (!state.preview.designer) return DESIGNER_GEOMETRY_VERSION.V1;
-    return state.geometryVersion;
-  }
-
-  if (surface === "resultPanel") {
-    if (!state.preview.resultPanel) return DESIGNER_GEOMETRY_VERSION.V1;
-    return state.geometryVersion;
-  }
-
-  if (!state.exportRuntime[surface]) {
+  if (!state.exportRuntime.email) {
     return DESIGNER_GEOMETRY_VERSION.V1;
   }
 

@@ -335,6 +335,13 @@ export {
   resolveProductionGeometryVersion,
 } from "./geometry-runtime-state";
 
+export {
+  isUserFacingRuntimeSurface,
+  resolveRuntimePolicyEffectiveGeometryVersion,
+} from "./runtime-effective-version-policy";
+
+export type { UserFacingRuntimeSurface } from "./runtime-effective-version-policy";
+
 export type {
   GeometryExportRuntimeToggles,
   GeometryExportSurface,

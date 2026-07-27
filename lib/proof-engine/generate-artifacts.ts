@@ -25,58 +25,75 @@ export async function generateProofArtifacts(
   order: ProofOrder,
   proofRuntimeContext?: ProofSubmitRuntimeContext,
 ): Promise<ProofArtifactsInput> {
-  if (!hasAnyDesign(order.layers_by_template)) {
-    throw new Error("尚無可產生校稿的設計內容");
-  }
-
-  const hasSlot = DESIGN_SIDES.some((side) =>
-    hasDesignInSlot(order.layers_by_template, order.gender, side),
-  );
-  if (!hasSlot) {
-    throw new Error("目前模板尚無可產生校稿的設計內容");
-  }
-
-  const fingerprint = (() => {
-    const base = computeExportFingerprint(order);
-    const mockupForward = resolveProofMockupRuntimeForward(
-      order,
-      proofRuntimeContext,
-    );
-    if (mockupForward.geometryVersion === DESIGNER_GEOMETRY_VERSION.V1) {
-      return base;
+  const label = "[submit-diag] generateProofArtifacts";
+  console.log(`${label} ENTER`, { orderId: order.order_id });
+  console.time(label);
+  try {
+    if (!hasAnyDesign(order.layers_by_template)) {
+      throw new Error("尚無可產生校稿的設計內容");
     }
-    return `${base}:mockup:${mockupForward.geometryVersion}`;
-  })();
-  const cached = getCachedArtifacts(fingerprint);
-  if (cached) {
-    submissionProfiler.record("Generate Artifacts", 0, "client");
-    submissionProfiler.record("Generate Mockups", 0, "client");
-    submissionProfiler.record("Generate Prints", 0, "client");
-    return cached;
+
+    const hasSlot = DESIGN_SIDES.some((side) =>
+      hasDesignInSlot(order.layers_by_template, order.gender, side),
+    );
+    if (!hasSlot) {
+      throw new Error("目前模板尚無可產生校稿的設計內容");
+    }
+
+    const fingerprint = (() => {
+      const base = computeExportFingerprint(order);
+      const mockupForward = resolveProofMockupRuntimeForward(
+        order,
+        proofRuntimeContext,
+      );
+      if (mockupForward.geometryVersion === DESIGNER_GEOMETRY_VERSION.V1) {
+        return base;
+      }
+      return `${base}:mockup:${mockupForward.geometryVersion}`;
+    })();
+    const cached = getCachedArtifacts(fingerprint);
+    if (cached) {
+      submissionProfiler.record("Generate Artifacts", 0, "client");
+      submissionProfiler.record("Generate Mockups", 0, "client");
+      submissionProfiler.record("Generate Prints", 0, "client");
+      console.log(`${label} EXIT ok (cache hit)`);
+      return cached;
+    }
+
+    const result = await submissionProfiler.run("Generate Artifacts", "client", async () => {
+      console.log(`${label} Promise.all(mockups, prints) ENTER`);
+      console.time(`${label}.Promise.all`);
+      const [mockups, prints] = await Promise.all([
+        submissionProfiler.run("Generate Mockups", "client", () =>
+          generateMockupsForOrder({
+            gender: order.gender,
+            shirtColor: order.shirt_color,
+            layersByTemplate: order.layers_by_template,
+            size: order.size,
+            proofRuntimeContext,
+          }),
+        ),
+        submissionProfiler.run("Generate Prints", "client", () =>
+          generatePrintsForOrder({
+            gender: order.gender,
+            layersByTemplate: order.layers_by_template,
+            size: order.size,
+          }),
+        ),
+      ]);
+      console.log(`${label} Promise.all(mockups, prints) EXIT ok`);
+      console.timeEnd(`${label}.Promise.all`);
+
+      const artifacts = { mockups, prints };
+      setCachedArtifacts(fingerprint, artifacts);
+      return artifacts;
+    });
+    console.log(`${label} EXIT ok`);
+    return result;
+  } catch (error) {
+    console.log(`${label} EXIT error`, error);
+    throw error;
+  } finally {
+    console.timeEnd(label);
   }
-
-  return submissionProfiler.run("Generate Artifacts", "client", async () => {
-    const [mockups, prints] = await Promise.all([
-      submissionProfiler.run("Generate Mockups", "client", () =>
-        generateMockupsForOrder({
-          gender: order.gender,
-          shirtColor: order.shirt_color,
-          layersByTemplate: order.layers_by_template,
-          size: order.size,
-          proofRuntimeContext,
-        }),
-      ),
-      submissionProfiler.run("Generate Prints", "client", () =>
-        generatePrintsForOrder({
-          gender: order.gender,
-          layersByTemplate: order.layers_by_template,
-          size: order.size,
-        }),
-      ),
-    ]);
-
-    const artifacts = { mockups, prints };
-    setCachedArtifacts(fingerprint, artifacts);
-    return artifacts;
-  });
 }

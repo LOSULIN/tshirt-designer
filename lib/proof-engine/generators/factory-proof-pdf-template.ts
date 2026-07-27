@@ -3,8 +3,6 @@
  * 專業成衣印刷工廠校稿風格；定位來源 designer-layout.ts
  */
 
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import type { RGB } from "pdf-lib";
 import type { ShirtColor, Side } from "../proof-domain";
 import { getShirtColorName } from "../proof-domain";
@@ -24,7 +22,7 @@ import {
 } from "../../design-state";
 import { getExportCanvasSpec } from "../../export-coordinates";
 import { embedPdfCjkFonts } from "../../pdf-fonts";
-import { getAdultTshirtTemplateSrc } from "../../shirt-template";
+import { loadRegistryGarmentAssetBytes } from "../../products/registry-garment-asset-fs";
 import type { PdfArtworkPositionPresentation } from "../pdf-position-presentation";
 import {
   mapDesignerLayoutToPdf,
@@ -156,17 +154,11 @@ function getFactoryPositionCardLine(side: Side): string {
 const FACTORY_PROOF_BLUE_HEX = { r: 37 / 255, g: 99 / 255, b: 235 / 255 };
 const FACTORY_PROOF_TAG_HEX = { r: 234 / 255, g: 179 / 255, b: 8 / 255 };
 
-function loadShirtTemplateBytes(
+function loadRegistryGarmentBytes(
   shirtColor: ShirtColor,
   side: Side,
 ): Buffer | null {
-  try {
-    const src = getAdultTshirtTemplateSrc(shirtColor, side);
-    const filePath = join(process.cwd(), "public", src.replace(/^\//, ""));
-    return readFileSync(filePath);
-  } catch {
-    return null;
-  }
+  return loadRegistryGarmentAssetBytes(shirtColor, side);
 }
 
 function logDesignerLayoutDebug(
@@ -772,7 +764,7 @@ async function drawDesignerPreviewMockup(
   const render = mapDesignerLayoutToPdf(layout, panelArea);
   logDesignerLayoutDebug(side, render);
 
-  const shirtBytes = loadShirtTemplateBytes(order.shirt_color, side);
+  const shirtBytes = loadRegistryGarmentBytes(order.shirt_color, side);
   if (shirtBytes) {
     const shirtImage = await doc.embedPng(shirtBytes);
     ctx.page.drawImage(shirtImage, {

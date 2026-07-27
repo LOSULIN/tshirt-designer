@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { resolveDesignerTemplateV2AssetSrc } from "@/lib/designer-geometry-v2/designer-template-runtime";
 import {
-  getAdultTshirtTemplateSrc,
   getShirtColorName,
   SHIRT_COLORS,
   type ShirtColor,
@@ -34,7 +34,7 @@ export function PrintAreaPreviewPanel() {
   const [zoomIndex, setZoomIndex] = useState(2);
   const zoom = ZOOM_STEPS[zoomIndex];
 
-  const templateSrc = getAdultTshirtTemplateSrc(shirtColor, side);
+  const templateSrc = resolveDesignerTemplateV2AssetSrc(shirtColor, side);
   const printStyle = getPrintAreaContainerStyle(side, {
     mode: resolvePreviewPrintPositionMode(DEFAULT_PRINT_MODE),
     size,

@@ -112,7 +112,7 @@ async function run(): Promise<void> {
   const comparisons = [];
 
   assertActiveGeometryRemainsV1();
-  checks.push("ACTIVE_DESIGNER_GEOMETRY_VERSION = v1");
+  checks.push("ACTIVE_DESIGNER_GEOMETRY_VERSION legacy V1 enum preserved");
   checks.push(`getActiveDesignerGeometryVersion() = ${getActiveDesignerGeometryVersion()}`);
 
   assert(isGeometryShadowEnabled(), "shadow must be enabled in development regression");

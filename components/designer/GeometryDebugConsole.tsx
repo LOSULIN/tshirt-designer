@@ -116,17 +116,17 @@ export function GeometryDebugConsole() {
           className="w-56 rounded-lg border border-zinc-200 bg-white/95 p-3 shadow-lg backdrop-blur"
           data-geometry-debug-console-panel
         >
-          <SectionTitle>Geometry</SectionTitle>
+          <SectionTitle>Legacy Mode</SectionTitle>
           <div className="mb-3 space-y-1">
             <RadioRow
-              label="V1 (Production)"
-              active={runtime.geometryVersion === DESIGNER_GEOMETRY_VERSION.V1}
-              onSelect={() => setVersion(DESIGNER_GEOMETRY_VERSION.V1)}
-            />
-            <RadioRow
-              label="V2 (Experimental)"
+              label="V2 (Default)"
               active={runtime.geometryVersion === DESIGNER_GEOMETRY_VERSION.V2}
               onSelect={() => setVersion(DESIGNER_GEOMETRY_VERSION.V2)}
+            />
+            <RadioRow
+              label="V1 Legacy"
+              active={runtime.geometryVersion === DESIGNER_GEOMETRY_VERSION.V1}
+              onSelect={() => setVersion(DESIGNER_GEOMETRY_VERSION.V1)}
             />
           </div>
 

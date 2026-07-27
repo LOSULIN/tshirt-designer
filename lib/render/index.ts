@@ -31,6 +31,7 @@ export {
 export { assetImagePath, loadAsset } from "./asset-loader";
 export { composeArtwork } from "./compose-artwork";
 export { composeProductMockup } from "./product-mockup-compose";
+export { scaleCanvasUniform } from "./canvas-scale";
 export {
   computeCoordinateMapping,
   createCalibrationSideMapping,

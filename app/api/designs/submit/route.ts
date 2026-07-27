@@ -41,6 +41,9 @@ function originalFilename(ext: string, submissionNo: string) {
 }
 
 export async function POST(request: Request) {
+  const label = "[submit-diag] POST /api/designs/submit";
+  console.log(`${label} ENTER`);
+  console.time(label);
   try {
     const formData = await request.formData();
     const syncTiming = new SubmitTiming("sync", "pending");
@@ -221,6 +224,7 @@ export async function POST(request: Request) {
       }
     });
 
+    console.log(`${label} EXIT ok`, { submissionNo, orderId });
     return NextResponse.json({
       submissionNo,
       orderId,
@@ -229,6 +233,7 @@ export async function POST(request: Request) {
       timing: syncTiming.getDurations(),
     });
   } catch (error) {
+    console.log(`${label} EXIT error`, error);
     log.errorRaw(error);
     return NextResponse.json(
       {
@@ -237,5 +242,8 @@ export async function POST(request: Request) {
       },
       { status: 500 },
     );
+  } finally {
+    console.log(`${label} EXIT (finally)`);
+    console.timeEnd(label);
   }
 }

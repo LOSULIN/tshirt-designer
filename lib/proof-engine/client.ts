@@ -44,21 +44,33 @@ export async function prepareProofSubmission(
   order: ProofOrder,
   proofRuntimeContext?: ProofSubmitRuntimeContext,
 ): Promise<ProofArtifactsInput> {
+  const label = "[submit-diag] prepareProofSubmission";
+  console.log(`${label} ENTER`, { orderId: order.order_id });
+  console.time(label);
   try {
-    submissionProfiler.beginClientSession();
-  } catch {
-    // Profiler is passive; submit must continue even if instrumentation fails.
-  }
-
-  try {
-    return await submissionProfiler.run("Prepare", "client", async () =>
-      generateProofArtifacts(order, proofRuntimeContext),
-    );
-  } catch (error) {
-    if (submissionProfiler.isEnabled()) {
-      throw error;
+    try {
+      submissionProfiler.beginClientSession();
+    } catch {
+      // Profiler is passive; submit must continue even if instrumentation fails.
     }
-    return generateProofArtifacts(order, proofRuntimeContext);
+
+    try {
+      const result = await submissionProfiler.run("Prepare", "client", async () =>
+        generateProofArtifacts(order, proofRuntimeContext),
+      );
+      console.log(`${label} EXIT ok`);
+      return result;
+    } catch (error) {
+      if (submissionProfiler.isEnabled()) {
+        console.log(`${label} EXIT error (profiler enabled)`, error);
+        throw error;
+      }
+      const result = await generateProofArtifacts(order, proofRuntimeContext);
+      console.log(`${label} EXIT ok (profiler fallback)`);
+      return result;
+    }
+  } finally {
+    console.timeEnd(label);
   }
 }
 
@@ -76,6 +88,9 @@ export function appendProofArtifactsToFormData(
   formData: FormData,
   artifacts: ProofArtifactsInput,
 ): void {
+  const label = "[submit-diag] appendProofArtifactsToFormData";
+  console.log(`${label} ENTER`);
+  console.time(label);
   const started = typeof performance !== "undefined" ? performance.now() : Date.now();
 
   for (const side of ["front", "back"] as const) {
@@ -105,6 +120,8 @@ export function appendProofArtifactsToFormData(
   } catch {
     // Profiler is passive; FormData assembly must not be blocked.
   }
+  console.log(`${label} EXIT`);
+  console.timeEnd(label);
 }
 
 export { generateProofArtifacts };

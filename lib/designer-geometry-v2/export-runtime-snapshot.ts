@@ -11,9 +11,7 @@ import {
   type DesignerGeometryVersion,
 } from "./geometry-version";
 import {
-  isGeometryRuntimeProductionLocked,
   resolveEffectiveGeometryVersion,
-  resolveProductionGeometryVersion,
 } from "./geometry-runtime-state";
 import type {
   GeometryExportSurface,
@@ -66,10 +64,8 @@ export function resolveExportRuntimeGeometry(
 /**
  * Effective geometry version for export surfaces.
  *
- * Production: always V1.
- * Development: export toggle OFF → V1; toggle ON → state.geometryVersion (snapshot ready).
- *
- * Does not switch export engines — snapshot access only until Phase 71.1.
+ * Delegates to resolveEffectiveGeometryVersion (Phase 74.3 policy):
+ * user-facing png/zip/pdf follow runtime policy; email uses exportRuntime.email.
  */
 export function resolveEffectiveExportGeometryVersion(
   state: GeometryRuntimeState,
@@ -80,18 +76,14 @@ export function resolveEffectiveExportGeometryVersion(
 }
 
 /**
- * Resolve export geometry version from toggle + lock (stateless helper).
+ * Resolve export geometry version from toggle (email surface only).
  */
 export function resolveExportGeometryVersionFromToggle(
   requested: DesignerGeometryVersion,
   exportToggleEnabled: boolean,
   options?: { productionLocked?: boolean },
 ): DesignerGeometryVersion {
-  const productionLocked =
-    options?.productionLocked ?? isGeometryRuntimeProductionLocked();
-  if (productionLocked) {
-    return resolveProductionGeometryVersion();
-  }
+  void options;
   if (!exportToggleEnabled) {
     return DESIGNER_GEOMETRY_VERSION.V1;
   }

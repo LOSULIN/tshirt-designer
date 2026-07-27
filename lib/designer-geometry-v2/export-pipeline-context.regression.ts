@@ -41,11 +41,12 @@ const ENGINE_VOID_PATTERNS = [
     file: "lib/render/product-mockup-compose.ts",
     pattern: /resolveProductMockupRuntimePlacement\(/,
   },
-  {
-    file: "lib/proof-engine/generators/factory-proof-pdf-template.ts",
-    pattern: /void input\.pipelineContext/,
-  },
 ];
+
+const PDF_RUNTIME_WIRED_PATTERN = {
+  file: "lib/proof-engine/generators/factory-proof-pdf-template.ts",
+  pattern: /resolvePdfExportRuntimeLayout\(/,
+};
 
 const ARTWORK_ADAPTER_PATTERN = {
   file: "lib/export-artwork-factory.ts",
@@ -261,13 +262,24 @@ const _legacyInput: ProductExportInput = {
 void _legacyInput;
 assert("Legacy ProductExportInput without pipelineContext compiles", true);
 
-// --- 8. Engines void pipelineContext (render behavior unchanged) ---
+// --- 8. Engines consume or void pipelineContext ---
 for (const { file, pattern } of ENGINE_VOID_PATTERNS) {
   const abs = join(ROOT, file);
   assert(`${file} exists`, existsSync(abs));
   const source = readFileSync(abs, "utf8");
   assert(
     `${file} does not read pipelineContext (void only)`,
+    pattern.test(source),
+  );
+}
+
+{
+  const { file, pattern } = PDF_RUNTIME_WIRED_PATTERN;
+  const abs = join(ROOT, file);
+  assert(`${file} exists`, existsSync(abs));
+  const source = readFileSync(abs, "utf8");
+  assert(
+    `${file} uses resolvePdfExportRuntimeLayout (PDF runtime wired)`,
     pattern.test(source),
   );
 }
@@ -298,11 +310,11 @@ assert(
   adapterSource.includes("resolveRuntimeVisualCompensation("),
 );
 
-// --- state-based resolution ---
+// --- state-based resolution (74.3 policy) ---
 const v2State = {
   ...createDefaultGeometryRuntimeState(),
   geometryVersion: DESIGNER_GEOMETRY_VERSION.V2,
-  exportRuntime: { png: true, zip: false, pdf: false, email: false },
+  exportRuntime: { png: false, zip: false, pdf: false, email: false },
 };
 const stateCtx = resolveExportPipelineContext({
   side: "front",
@@ -311,8 +323,23 @@ const stateCtx = resolveExportPipelineContext({
   productionLocked: false,
 });
 assert(
-  "state + export toggle ON → V2",
+  "state + preview on + V2 => pipeline V2 (exportRuntime ignored)",
   stateCtx.geometryVersion === DESIGNER_GEOMETRY_VERSION.V2,
+);
+
+const previewOffState = {
+  ...v2State,
+  preview: { designer: false, resultPanel: false },
+};
+const previewOffCtx = resolveExportPipelineContext({
+  side: "front",
+  surface: "png",
+  state: previewOffState,
+  productionLocked: false,
+});
+assert(
+  "state + preview off + V2 => pipeline V2 (policy)",
+  previewOffCtx.geometryVersion === DESIGNER_GEOMETRY_VERSION.V2,
 );
 
 console.log(`\n${pass ? "ALL PASS" : "SOME FAILED"} (${checks.length} checks)`);
