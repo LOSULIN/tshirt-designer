@@ -3,7 +3,7 @@
  * Garment bitmap from Product Registry via product-mockup-submit-render (Phase 75).
  */
 
-import type { ShirtColor, Side, Gender } from "../proof-domain";
+import type { ShirtColor, Side, Gender, Size } from "../proof-domain";
 import {
   DESIGN_SIDES,
   getLayersForSlot,
@@ -19,7 +19,7 @@ export async function generateMockupPng(params: {
   side: Side;
   shirtColor: ShirtColor;
   layersByTemplate: DesignLayersByTemplate;
-  size?: string;
+  size?: Size;
   proofRuntimeContext?: ProofSubmitRuntimeContext;
 }): Promise<Blob> {
   const { gender, side, shirtColor, layersByTemplate, size = "M" } = params;
@@ -47,7 +47,7 @@ export async function generateMockupsForOrder(params: {
   gender: Gender;
   shirtColor: ShirtColor;
   layersByTemplate: DesignLayersByTemplate;
-  size?: string;
+  size?: Size;
   proofRuntimeContext?: ProofSubmitRuntimeContext;
 }): Promise<Partial<Record<Side, Blob>>> {
   const label = "[submit-diag] generateMockupsForOrder";

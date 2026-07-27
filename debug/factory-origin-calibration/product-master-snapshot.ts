@@ -3,7 +3,7 @@
  * Updated by Phase 70.3 front factory-origin visual calibration.
  */
 
-import type { ProductMasterGeometry } from "./product-master-profile";
+import type { ProductMasterGeometry } from "@/lib/designer-geometry-v2/product-master-profile";
 
 export const UA35001_PRODUCT_MASTER_SNAPSHOT: ProductMasterGeometry = {
   "productCode": "UA35001",

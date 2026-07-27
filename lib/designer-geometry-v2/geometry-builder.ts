@@ -21,6 +21,7 @@ import type {
   BuildGeometryProfileV2Input,
   GeometryProfileV2,
 } from "./geometry-profile";
+import type { GeometryV2Rect } from "./types";
 import type { RawAlphaBuffer } from "./measure-garment-alpha";
 import {
   measureAlphaSilhouetteFromBuffer,
